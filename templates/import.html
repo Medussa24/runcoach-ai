@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>Import Workouts - RunCoach AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-celebrate="{{ 'import-success' if result and result['imported'] > 0 else '' }}">
+    <main class="page">
+        <section class="intro">
+            <p class="eyebrow">RunCoach AI</p>
+            <h1>Import Apple Health workout history.</h1>
+            <div class="nav-actions">
+                <a href="{{ url_for('index') }}">Back to RunCoach AI</a>
+                <a href="{{ url_for('logout') }}">Log Out</a>
+            </div>
+            {% if current_user %}
+                <p class="notes account-note">Logged in as {{ current_user["email"] }}</p>
+            {% endif %}
+        </section>
+
+        <section class="import-layout">
+            <section class="panel import-panel">
+                <div class="agent-mascot">
+                    <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner coqui coach mascot">
+                    <div>
+                        <h2>Rico Runner</h2>
+                        <p class="notes">Import helper</p>
+                    </div>
+                </div>
+                <p class="coach-bubble" id="coachBubble">Choose a safe demo file or your local Apple Health export. I will only import running and walking workouts.</p>
+            </section>
+
+            <form class="panel import-panel" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h2>Upload Apple Health XML</h2>
+
+                <label for="health_xml">Apple Health export.xml</label>
+                <input id="health_xml" name="health_xml" type="file" accept=".xml,text/xml,application/xml" data-coach-tip="Choose Apple Health export.xml. I will import only running and walking workouts.">
+                <p class="notes">Maximum upload size: 10 MB.</p>
+
+                <button type="submit">Import XML Workouts</button>
+            </form>
+
+            <form class="panel import-panel" method="post" enctype="multipart/form-data">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <h2>Upload CSV</h2>
+
+                <label for="workouts_csv">Workout CSV file</label>
+                <input id="workouts_csv" name="workouts_csv" type="file" accept=".csv,text/csv" data-coach-tip="Choose a workout CSV with date, type, distance, duration, heart rate, calories, and source.">
+                <p class="notes">Maximum upload size: 10 MB.</p>
+
+                <button type="submit">Import CSV Workouts</button>
+            </form>
+        </section>
+
+        <section class="import-layout import-help">
+            <section class="panel import-panel">
+                <h2>Apple Health XML</h2>
+                <p class="notes">Use the Apple Health <code>export.xml</code> file from your export zip. The app imports only running and walking workouts, then ignores unsupported workouts such as cycling or yoga.</p>
+                <p class="notes">For demos and GitHub, use the fake <code>sample_health_export.xml</code> file instead of a real private health export.</p>
+            </section>
+
+            <section class="panel import-panel">
+                <h2>Expected CSV Columns</h2>
+                <ul class="simple-list">
+                    <li><code>date</code></li>
+                    <li><code>workout_type</code></li>
+                    <li><code>distance_miles</code></li>
+                    <li><code>duration_minutes</code></li>
+                    <li><code>avg_heart_rate</code></li>
+                    <li><code>max_heart_rate</code></li>
+                    <li><code>calories</code></li>
+                    <li><code>source</code></li>
+                </ul>
+                <p class="notes">Supported workout types: Running, Run, Walking, Outdoor Run.</p>
+            </section>
+        </section>
+
+        {% if result %}
+            <section class="panel import-results">
+                <h2>Import Results</h2>
+                <dl class="run-stats">
+                    <div>
+                        <dt>Imported</dt>
+                        <dd>{{ result["imported"] }}</dd>
+                    </div>
+                    <div>
+                        <dt>Duplicates</dt>
+                        <dd>{{ result["duplicates"] }}</dd>
+                    </div>
+                    <div>
+                        <dt>Skipped</dt>
+                        <dd>{{ result["skipped"] }}</dd>
+                    </div>
+                </dl>
+
+                {% if result["errors"] %}
+                    <h3>Notes</h3>
+                    <ul class="simple-list">
+                        {% for error in result["errors"] %}
+                            <li>{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </section>
+        {% endif %}
+    </main>
+    <div class="fireworks" id="fireworks" aria-hidden="true"></div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

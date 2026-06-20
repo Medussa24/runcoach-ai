@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" role="img" aria-labelledby="title desc">
+  <title id="title">Iggy walking coach iguana</title>
+  <desc id="desc">A bright green 3D-style iguana mascot with big eyes, crest, striped tail, walking shoes, whistle, and checklist.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="36%" r="70%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#eaffdf"/>
+      <stop offset="1" stop-color="#b7f0df"/>
+    </radialGradient>
+    <radialGradient id="skin" cx="34%" cy="25%" r="76%">
+      <stop offset="0" stop-color="#dcff84"/>
+      <stop offset="0.36" stop-color="#84df2c"/>
+      <stop offset="0.72" stop-color="#22a86c"/>
+      <stop offset="1" stop-color="#087f83"/>
+    </radialGradient>
+    <radialGradient id="belly" cx="52%" cy="24%" r="72%">
+      <stop offset="0" stop-color="#fff7a7"/>
+      <stop offset="0.65" stop-color="#bce55f"/>
+      <stop offset="1" stop-color="#52b85e"/>
+    </radialGradient>
+    <linearGradient id="crest" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#0a6f93"/>
+      <stop offset="1" stop-color="#53e676"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#095042" flood-opacity="0.24"/>
+    </filter>
+  </defs>
+  <rect width="220" height="220" rx="24" fill="url(#bg)"/>
+  <ellipse cx="112" cy="199" rx="67" ry="12" fill="#095042" opacity="0.18"/>
+
+  <g filter="url(#shadow)">
+    <path d="M52 156c-8 9-19 16-33 20" fill="none" stroke="#36b971" stroke-width="17" stroke-linecap="round"/>
+    <path d="M41 163c-13 2-25 7-34 15" fill="none" stroke="#8be234" stroke-width="7" stroke-linecap="round"/>
+    <path d="M162 154c17 6 32 15 45 30" fill="none" stroke="#179f81" stroke-width="17" stroke-linecap="round"/>
+    <path d="M174 160c12 3 23 10 33 20" fill="none" stroke="#7fe53a" stroke-width="7" stroke-linecap="round"/>
+
+    <path d="M69 165c30 22 78 21 106-2 15-13 17-34 7-51-12-20-40-29-71-29-32 0-61 12-73 33-10 17-5 36 31 49z" fill="url(#skin)"/>
+    <ellipse cx="112" cy="135" rx="42" ry="48" fill="url(#belly)" opacity="0.86"/>
+
+    <path d="M51 95c2-37 28-64 62-65 35-1 63 24 66 61 2 35-25 61-67 61-40 0-63-22-61-57z" fill="url(#skin)"/>
+    <path d="M74 54c24-22 68-21 91 6-9-7-28-14-52-13-22 0-32 3-39 7z" fill="#ffffff" opacity="0.22"/>
+
+    <path d="M76 49c5-20 11-32 18-36 0 16-1 28-4 39" fill="url(#crest)"/>
+    <path d="M92 41c7-22 15-35 24-40 0 19-4 33-10 47" fill="url(#crest)"/>
+    <path d="M111 40c10-19 22-30 35-33-3 18-12 31-24 42" fill="url(#crest)"/>
+    <path d="M130 49c12-14 25-21 39-21-7 13-18 22-33 28" fill="url(#crest)"/>
+
+    <circle cx="83" cy="85" r="25" fill="#ffffff"/>
+    <circle cx="141" cy="85" r="25" fill="#ffffff"/>
+    <circle cx="88" cy="88" r="13" fill="#cf5b16"/>
+    <circle cx="136" cy="88" r="13" fill="#cf5b16"/>
+    <circle cx="88" cy="88" r="7" fill="#202623"/>
+    <circle cx="136" cy="88" r="7" fill="#202623"/>
+    <circle cx="93" cy="82" r="5" fill="#ffffff"/>
+    <circle cx="141" cy="82" r="5" fill="#ffffff"/>
+
+    <path d="M89 119c13 13 44 13 58-1" fill="none" stroke="#202623" stroke-width="7" stroke-linecap="round"/>
+    <path d="M94 124c12 7 35 7 48-1" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="106" cy="104" rx="5" ry="8" fill="#0f7e65" opacity="0.7"/>
+    <ellipse cx="124" cy="104" rx="5" ry="8" fill="#0f7e65" opacity="0.7"/>
+
+    <g fill="#d8ffe4" opacity="0.52">
+      <circle cx="62" cy="111" r="5"/>
+      <circle cx="70" cy="122" r="4"/>
+      <circle cx="81" cy="130" r="5"/>
+      <circle cx="157" cy="111" r="5"/>
+      <circle cx="150" cy="123" r="4"/>
+      <circle cx="139" cy="131" r="5"/>
+    </g>
+
+    <path d="M156 144c18 8 31 11 45 2 11-7 10-20 0-25-16-7-38 6-54 22" fill="#159a84"/>
+    <path d="M172 139c9-4 19-8 27-5" fill="none" stroke="#e7fff2" stroke-width="10" stroke-linecap="round"/>
+    <path d="M184 134c5-2 10-3 15-2" fill="none" stroke="#0c7c90" stroke-width="7" stroke-linecap="round"/>
+
+    <rect x="132" y="128" width="43" height="58" rx="8" fill="#ffffff" stroke="#202623" stroke-width="4"/>
+    <path d="M143 145h20M143 160h18M143 175h15" stroke="#1f7a5b" stroke-width="5" stroke-linecap="round"/>
+    <path d="M122 140l15 11" stroke="#158a68" stroke-width="12" stroke-linecap="round"/>
+
+    <path d="M80 166l-10 29M128 168l10 28" stroke="#158a68" stroke-width="13" stroke-linecap="round"/>
+    <path d="M53 198h42M123 198h43" stroke="#253028" stroke-width="11" stroke-linecap="round"/>
+    <path d="M63 194h28M132 194h28" stroke="#d9ff42" stroke-width="5" stroke-linecap="round"/>
+
+    <circle cx="111" cy="154" r="9" fill="#f7d36b" stroke="#202623" stroke-width="4"/>
+    <path d="M111 163v15" stroke="#202623" stroke-width="4" stroke-linecap="round"/>
+  </g>
+</svg>

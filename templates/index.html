@@ -1,0 +1,992 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>RunCoach AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-celebrate="{{ 'run-saved' if request.args.get('saved') else '' }}" data-welcome="{{ 'race-start' if request.args.get('welcome') else '' }}">
+    <div class="race-start-overlay" id="raceStartOverlay" aria-live="assertive">
+        <div class="race-card">
+            <div class="race-avatars">
+                <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner waving before a workout">
+                <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy ready for a beginner walk">
+                <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery ready with hydration reminders">
+            </div>
+            <p class="eyebrow">Rico, Iggy, and Luna say</p>
+            <h2 id="racePhrase">On your mark</h2>
+            <p class="countdown-number" id="countdownNumber">3</p>
+            <p class="notes">Ready to work out!</p>
+        </div>
+        <div class="rainbow-arc"></div>
+    </div>
+    <img class="rico-dancer" src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner dancing around the page">
+    <img class="iggy-dancer" src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy the iguana walking coach moving around the page">
+    <img class="luna-dancer" src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery Puerto Rican rooster moving around the page">
+    <main class="dashboard-shell">
+        <aside class="dashboard-nav" aria-label="Dashboard navigation">
+            <img class="nav-logo" src="{{ url_for('static', filename='runcoach-logo.png') }}" alt="RunCoach AI">
+            <nav>
+                <a href="#weekly-schedule"><span>3</span>Weekly Schedule</a>
+                <a class="is-active" href="#dashboard-top"><span>⌂</span>Dashboard</a>
+                <a href="#agentChatForm"><img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="">Rico Runner</a>
+                <a href="#iggyChatForm"><img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="">Iggy Walk Agent</a>
+                <a href="#luna-recovery"><img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">Luna Recovery</a>
+                <a href="#progress-visuals"><span>▧</span>Progress</a>
+                <a href="#previous-runs"><span>◷</span>History</a>
+                <a href="{{ url_for('import_workouts') }}"><span>⇧</span>Import Data</a>
+                <a href="#coach-library"><span>☷</span>Coach Library</a>
+                <a href="{{ url_for('logout') }}"><span>↩</span>Log Out</a>
+            </nav>
+            <section class="nav-card">
+                <p class="eyebrow">Daily Streak</p>
+                <strong>1</strong>
+                <span>day</span>
+                <p class="notes">Keep it going!</p>
+            </section>
+            <section class="nav-card">
+                <p class="eyebrow">Quick Tip</p>
+                <p class="notes">Consistency is the key to progress.</p>
+                <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">
+            </section>
+        </aside>
+
+        <section class="dashboard-main" id="dashboard-top">
+        <section class="intro">
+            <div class="intro-copy">
+                <p class="eyebrow">RunCoach AI</p>
+                <img class="brand-logo brand-logo-photo" src="{{ url_for('static', filename='runcoach-logo.png') }}" alt="RunCoach AI - Move Improve Thrive">
+                <h1 class="sr-only">RunCoach AI</h1>
+                <p class="hero-description">Personalized movement coaching with Rico Runner and Iggy.</p>
+                <div class="nav-actions">
+                    <a href="#log-run">Log a Run</a>
+                    <a href="#beginner-path">Beginner Path</a>
+                    <a href="{{ url_for('import_workouts') }}">Import Workouts</a>
+                    <a href="{{ url_for('logout') }}">Log Out</a>
+                </div>
+                {% if current_user %}
+                    <p class="notes account-note">Logged in as {{ current_user["email"] }}</p>
+                {% endif %}
+            </div>
+
+            <div class="hero-gallery" aria-label="RunCoach AI visual coach cards">
+                <div class="hero-card hero-card-rico">
+                    <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner">
+                    <span>Rico</span>
+                </div>
+                <div class="hero-card hero-card-data">
+                    <div class="hero-chart">
+                        <span style="height: 44%"></span>
+                        <span style="height: 72%"></span>
+                        <span style="height: 56%"></span>
+                        <span style="height: 88%"></span>
+                    </div>
+                    <span>Progress</span>
+                </div>
+                <div class="hero-card hero-card-iggy">
+                    <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy">
+                    <span>Iggy</span>
+                </div>
+                <div class="hero-card hero-card-luna">
+                    <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery">
+                    <span>Luna</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="dashboard-board">
+            <div class="dashboard-center">
+                <section class="action-panel" aria-label="Personalized actions">
+                    <p class="eyebrow">Personalized Actions</p>
+                    <div class="action-grid">
+                        <a class="action-tile action-green" href="#log-run">
+                            <span>🏃</span>
+                            <strong>Log a Run</strong>
+                            <small>Record your run</small>
+                        </a>
+                        <a class="action-tile action-blue" href="#agentChatForm">
+                            <span>🙂</span>
+                            <strong>Log Mood</strong>
+                            <small>Track how you feel</small>
+                        </a>
+                        <a class="action-tile action-gold" href="#beginner-path">
+                            <span>🚶</span>
+                            <strong>Log a Walk</strong>
+                            <small>Record your walk</small>
+                        </a>
+                        <a class="action-tile action-purple" href="#luna-recovery">
+                            <span>🪷</span>
+                            <strong>Log Recovery</strong>
+                            <small>Hydration, stretch, rest</small>
+                        </a>
+                        <a class="action-tile action-mint" href="{{ url_for('import_workouts') }}">
+                            <span>☁</span>
+                            <strong>Import Workouts</strong>
+                            <small>CSV, XML, or screenshots</small>
+                        </a>
+                        <a class="action-tile action-sky" href="#progress-visuals">
+                            <span>▥</span>
+                            <strong>Analyze Data</strong>
+                            <small>AI insights and tables</small>
+                        </a>
+                        <a class="action-tile action-gold" href="#weekly-schedule">
+                            <span>3</span>
+                            <strong>Weekly Schedule</strong>
+                            <small>Rico and Iggy workouts</small>
+                        </a>
+                    </div>
+                </section>
+
+                <section class="dashboard-search" aria-label="Search dashboard">
+                    <label for="dashboardSearch">Search RunCoach AI</label>
+                    <div>
+                        <input id="dashboardSearch" type="search" placeholder="Search runs, tips, recovery, pace, hydration...">
+                        <button type="button" id="clearDashboardSearch">Clear</button>
+                    </div>
+                    <p class="notes" id="dashboardSearchStatus">Search anything on this page.</p>
+                </section>
+
+        <section class="coach-topline" aria-label="RunCoach AI coach agents">
+            <article class="top-coach-card">
+                <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner">
+                <div>
+                    <p class="eyebrow">Run Coach</p>
+                    <h2>Rico Runner</h2>
+                    <p class="notes">Pace trends, progress, recovery, and next workouts.</p>
+                </div>
+            </article>
+            <article class="top-coach-card">
+                <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy">
+                <div>
+                    <p class="eyebrow">Beginner Guide</p>
+                    <h2>Iggy</h2>
+                    <p class="notes">Walking routines, stretches, breathing, and outdoor tasks.</p>
+                </div>
+            </article>
+            <article class="top-coach-card luna-card">
+                <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery">
+                <div>
+                    <p class="eyebrow">Recovery Support</p>
+                    <h2>Luna Recovery</h2>
+                    <p class="notes">Hydration, stretching, rest, gratitude, and gentle wellness reminders.</p>
+                </div>
+            </article>
+        </section>
+
+                <details class="weekly-schedule collapsible-panel" id="weekly-schedule" data-search-item data-search-text="weekly schedule rico iggy workouts running walking plan">
+                    <summary>
+                        <span>
+                            <span class="eyebrow">Basic Workout Schedule</span>
+                            <strong>Three workouts with Rico and Iggy</strong>
+                        </span>
+                        <a href="{{ url_for('dashboard_section', section_name='schedule') }}">Open page</a>
+                    </summary>
+                    <div class="schedule-grid">
+                        <section>
+                            <div class="schedule-coach">
+                                <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="">
+                                <div><p class="eyebrow">Coach Rico</p><h3>Run Week</h3></div>
+                            </div>
+                            {% for workout in weekly_schedule["rico"] %}
+                                <article class="schedule-workout">
+                                    <span>{{ workout["day"] }} &middot; {{ workout["duration"] }}</span>
+                                    <h4>{{ workout["title"] }}</h4>
+                                    <p>{{ workout["steps"] }}</p>
+                                </article>
+                            {% endfor %}
+                        </section>
+                        <section>
+                            <div class="schedule-coach">
+                                <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="">
+                                <div><p class="eyebrow">Coach Iggy</p><h3>Walk Week</h3></div>
+                            </div>
+                            {% for workout in weekly_schedule["iggy"] %}
+                                <article class="schedule-workout">
+                                    <span>{{ workout["day"] }} &middot; {{ workout["duration"] }}</span>
+                                    <h4>{{ workout["title"] }}</h4>
+                                    <p>{{ workout["steps"] }}</p>
+                                </article>
+                            {% endfor %}
+                        </section>
+                    </div>
+                </details>
+
+                <section class="summary-row">
+                    <details class="dashboard-panel recent-activity collapsible-panel" data-search-item data-search-text="recent activity graphs distance pace history runs walks">
+                        <summary>
+                            <span>
+                                <span class="eyebrow">Recent Activity</span>
+                                <strong>Activity graphs</strong>
+                            </span>
+                            <a href="{{ url_for('dashboard_section', section_name='activity') }}">Open page</a>
+                        </summary>
+                        <div class="section-title-row legacy-title">
+                            <p class="eyebrow">Recent Activity</p>
+                            <a href="#previous-runs">View All History</a>
+                        </div>
+                        <div class="activity-graphs" aria-label="Recent activity graphs">
+                            {% if visuals["recent_runs"] %}
+                                {% for run in visuals["recent_runs"][:4] %}
+                                    <article class="activity-graph-card">
+                                        <div>
+                                            <span>{{ run["date"] }}</span>
+                                            <strong>{{ "%.2f"|format(run["distance"]) }} mi</strong>
+                                        </div>
+                                        <div class="bar-track"><span style="width: {{ run['distance_width'] }}%"></span></div>
+                                        <small>{{ run["pace_label"] }} pace</small>
+                                    </article>
+                                {% endfor %}
+                            {% else %}
+                                <p class="notes">Log a run to build your activity graphs.</p>
+                            {% endif %}
+                        </div>
+                        <div class="activity-table legacy-activity-table" role="table" aria-label="Recent activity">
+                            <div role="row">
+                                <strong>Type</strong>
+                                <strong>Details</strong>
+                                <strong>Date</strong>
+                                <strong>Agent</strong>
+                            </div>
+                            {% for run in runs[:4] %}
+                                <div role="row">
+                                    <span>{% if run["workout_type"] and "walk" in run["workout_type"]|lower %}🚶{% else %}🏃{% endif %}</span>
+                                    <span>{{ run["workout_type"] or "Run" }} · {{ "%.2f"|format(run["distance"]) }} mi</span>
+                                    <span>{{ run["run_date"] }}</span>
+                                    <span>Rico</span>
+                                </div>
+                            {% else %}
+                                <p class="notes">Log a run to build your activity table.</p>
+                            {% endfor %}
+                        </div>
+                    </details>
+
+                    <details class="dashboard-panel weekly-summary collapsible-panel" data-search-item data-search-text="weekly summary total distance total time average pace workouts">
+                        <summary>
+                            <span>
+                                <span class="eyebrow">Weekly Summary</span>
+                                <strong>Key metrics</strong>
+                            </span>
+                            <a href="{{ url_for('dashboard_section', section_name='summary') }}">Open page</a>
+                        </summary>
+                        <div class="section-title-row legacy-title">
+                            <p class="eyebrow">Weekly Summary</p>
+                            <a href="#progress-visuals">View Full Report</a>
+                        </div>
+                        <div class="summary-metrics">
+                            <div>
+                                <span>🛣</span>
+                                <small>Total Distance</small>
+                                <strong>{{ "%.2f"|format(visuals["total_distance"]) }}</strong>
+                                <em>miles</em>
+                            </div>
+                            <div>
+                                <span>◷</span>
+                                <small>Total Time</small>
+                                <strong>
+                                    {% set total_minutes = runs|sum(attribute="duration") %}
+                                    {{ (total_minutes // 60)|int }}h {{ (total_minutes % 60)|round|int }}m
+                                </strong>
+                                <em>logged</em>
+                            </div>
+                            <div>
+                                <span>⌁</span>
+                                <small>Avg Pace</small>
+                                <strong>{% if visuals["average_pace"] %}{{ format_pace(visuals["average_pace"]) }}{% else %}--{% endif %}</strong>
+                                <em>min/mi</em>
+                            </div>
+                            <div>
+                                <span>◆</span>
+                                <small>Workouts</small>
+                                <strong>{{ runs|length }}</strong>
+                                <em>saved</em>
+                            </div>
+                        </div>
+                    </details>
+                </section>
+
+        <section class="layout">
+            <div class="sidebar">
+                <details class="panel run-form compact-section" id="log-run">
+                    <summary>
+                        <span>
+                            <span class="eyebrow">Quick Action</span>
+                            <strong>Log a Run</strong>
+                        </span>
+                    </summary>
+
+                    <form method="post">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                    <label for="run_date">Date</label>
+                    <input id="run_date" name="run_date" type="date" required data-coach-tip="Start with the date so I can compare this run with your history.">
+
+                    <label for="distance">Distance in miles</label>
+                    <input id="distance" name="distance" type="number" step="0.01" min="0.01" required data-coach-tip="Tell me the miles. I use this with duration to calculate pace.">
+
+                    <label for="duration">Duration in minutes</label>
+                    <input id="duration" name="duration" type="number" step="0.01" min="0.01" required data-coach-tip="Add total minutes. Pace is duration divided by distance.">
+
+                    <label for="mood">Mood</label>
+                    <select id="mood" name="mood" required data-coach-tip="Mood matters. If you felt low or sore, I may suggest recovery.">
+                        <option value="Great">Great</option>
+                        <option value="Good">Good</option>
+                        <option value="Okay">Okay</option>
+                        <option value="Tired">Tired</option>
+                        <option value="Sore">Sore</option>
+                        <option value="Stressed">Stressed</option>
+                        <option value="Low">Low</option>
+                    </select>
+
+                    <label for="notes">Notes</label>
+                    <textarea id="notes" name="notes" rows="4" placeholder="How did the run feel?" data-coach-tip="Write how it felt. Words like hard, tired, or sore help me coach safely."></textarea>
+
+                    <h3 class="form-section-title">Context</h3>
+
+                    <label for="weather_summary">Weather</label>
+                    <input id="weather_summary" name="weather_summary" type="text" placeholder="Clear, humid, rainy" data-coach-tip="Weather adds context. Heat, humidity, rain, or wind can explain effort.">
+
+                    <div class="form-row">
+                        <div>
+                            <label for="temperature_f">Temp F</label>
+                            <input id="temperature_f" name="temperature_f" type="number" step="1" placeholder="68" data-coach-tip="Temperature helps me avoid stacking hard workouts after hot runs.">
+                        </div>
+                        <div>
+                            <label for="wind_mph">Wind mph</label>
+                            <input id="wind_mph" name="wind_mph" type="number" step="1" placeholder="4" data-coach-tip="Wind can make pace slower even when effort is strong.">
+                        </div>
+                    </div>
+
+                    <label for="route_type">Route type</label>
+                    <select id="route_type" name="route_type" data-coach-tip="Routes matter. Trail, hills, and treadmill runs can feel very different.">
+                        <option value="">Not tracked</option>
+                        <option value="Road">Road</option>
+                        <option value="Trail">Trail</option>
+                        <option value="Track">Track</option>
+                        <option value="Treadmill">Treadmill</option>
+                        <option value="Hilly">Hilly</option>
+                    </select>
+
+                    <label for="route_notes">Route notes</label>
+                    <textarea id="route_notes" name="route_notes" rows="3" placeholder="Flat loop, hills, treadmill, park route" data-coach-tip="Add route details like hills, flat loop, track, or treadmill."></textarea>
+
+                    <h3 class="form-section-title">Wearable-style data</h3>
+
+                    <div class="form-row">
+                        <div>
+                            <label for="avg_heart_rate">Avg HR</label>
+                            <input id="avg_heart_rate" name="avg_heart_rate" type="number" min="1" placeholder="148" data-coach-tip="Average heart rate helps me understand effort beyond pace.">
+                        </div>
+                        <div>
+                            <label for="cadence">Cadence</label>
+                            <input id="cadence" name="cadence" type="number" min="1" placeholder="170" data-coach-tip="Cadence can help with form. Quick, light steps are often smoother.">
+                        </div>
+                    </div>
+
+                    <label for="steps">Steps</label>
+                    <input id="steps" name="steps" type="number" min="1" placeholder="1500" data-coach-tip="Steps are optional, but they make the wearable-style story richer.">
+
+                    <button type="submit">Save Run</button>
+                    </form>
+                </details>
+
+                <form class="panel agent-panel" id="agentChatForm" method="post" action="{{ url_for('ask_agent') }}" data-agent="rico" data-avatar="{{ url_for('static', filename='coqui-coach.svg') }}" data-waiting="Let me check your training notes...">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="agent" value="rico">
+                    <div class="agent-mascot">
+                        <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner coqui coach mascot">
+                        <div>
+                            <h2>Rico Runner</h2>
+                            <p class="notes">RunCoach Agent</p>
+                        </div>
+                    </div>
+                    <p class="coach-bubble" id="coachBubble">Rico Runner here. Tap a field and I will point out what to enter.</p>
+
+                    <div class="chat-thread" id="chatMessages" aria-live="polite">
+                        {% if chat_messages %}
+                            {% for message in chat_messages %}
+                                {% if message["sender"] == "user" %}
+                                    <div class="chat-message user-message">
+                                        <p>{{ message["message"] }}</p>
+                                    </div>
+                                {% else %}
+                                    <div class="chat-message rico-message">
+                                        <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="">
+                                        <p>{{ message["message"] }}</p>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <div class="chat-message rico-message">
+                                <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="">
+                                <p>Wepa! I am Rico Runner, your coqui coach. Ask me about your progress, pace, recovery, or next workout.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <label for="question">Message Rico Runner</label>
+                    <textarea id="question" name="question" rows="3" placeholder="What should my next workout be?" data-coach-tip="Ask Rico Runner about progress, pace trends, recovery, or your next workout.">{{ agent_question or "" }}</textarea>
+
+                    <div class="prompt-chips" aria-label="Suggested agent prompts">
+                        <button type="button" data-prompt="Summarize my progress">Progress</button>
+                        <button type="button" data-prompt="What should my next workout be?">Next workout</button>
+                        <button type="button" data-prompt="Do I need a recovery run?">Recovery</button>
+                    </div>
+
+                    <button type="submit">Send to Rico</button>
+                </form>
+
+                <form class="panel agent-panel iggy-panel" id="iggyChatForm" method="post" action="{{ url_for('ask_agent') }}" data-agent="iggy" data-avatar="{{ url_for('static', filename='iggy-coach.svg') }}" data-waiting="Iggy is checking your walk checklist...">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <input type="hidden" name="agent" value="iggy">
+                    <div class="agent-mascot">
+                        <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy iguana walking coach mascot">
+                        <div>
+                            <h2>Iggy</h2>
+                            <p class="notes">Beginner Walk Agent</p>
+                        </div>
+                    </div>
+                    <p class="coach-bubble iggy-bubble" id="iggyBubble">Iggy here. I help you start with walking, breathing, stretches, and fun nature-count tasks.</p>
+
+                    <div class="chat-thread" id="iggyMessages" aria-live="polite">
+                        {% if iggy_chat_messages %}
+                            {% for message in iggy_chat_messages %}
+                                {% if message["sender"] == "user" %}
+                                    <div class="chat-message user-message">
+                                        <p>{{ message["message"] }}</p>
+                                    </div>
+                                {% else %}
+                                    <div class="chat-message iggy-message">
+                                        <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="">
+                                        <p>{{ message["message"] }}</p>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <div class="chat-message iggy-message">
+                                <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="">
+                                <p>Hola! I am Iggy. Ask me for an easy walking routine, a stretch, a breathing task, or a nature checklist.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <label for="iggyQuestion">Message Iggy</label>
+                    <textarea id="iggyQuestion" name="question" rows="3" placeholder="Create my walking routine" data-coach-tip="Ask Iggy for walking routines, stretches, breathing, or outdoor counting tasks."></textarea>
+
+                    <div class="prompt-chips iggy-chips" aria-label="Suggested Iggy prompts">
+                        <button type="button" data-prompt="Create my beginner walking routine">Walk routine</button>
+                        <button type="button" data-prompt="Give me a breathing task for my walk">Breathing</button>
+                        <button type="button" data-prompt="What should I count outside today?">Nature task</button>
+                    </div>
+
+                    <button type="submit">Send to Iggy</button>
+                </form>
+            </div>
+
+            <section class="runs">
+                <details class="walk-plan-panel compact-section" id="beginner-path">
+                    <summary>
+                        <span>
+                            <span class="eyebrow">Quick Action</span>
+                            <strong>Beginner Path</strong>
+                        </span>
+                    </summary>
+
+                    <div class="visual-header compact-section-header">
+                        <div>
+                            <p class="eyebrow">Beginner Path</p>
+                            <h2>Iggy's Walk Checklist</h2>
+                        </div>
+                        <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="" class="mini-iggy">
+                    </div>
+
+                    <p class="notes">Use this as a gentle walk-before-run routine. Iggy keeps it simple: warm up, walk, breathe, notice nature, stretch, and reflect.</p>
+
+                    <div class="task-list">
+                        {% for task in walk_tasks %}
+                            <form class="task-item {% if task['is_done'] %}is-done{% endif %}" method="post" action="{{ url_for('toggle_walk_task_route', task_id=task['id']) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" aria-label="Toggle {{ task['title'] }}">
+                                    <span class="task-check">{% if task["is_done"] %}Done{% else %}+{% endif %}</span>
+                                    <span>
+                                        <strong>{{ task["category"] }}</strong>
+                                        {{ task["title"] }}
+                                    </span>
+                                </button>
+                            </form>
+                        {% endfor %}
+                    </div>
+
+                    <form method="post" action="{{ url_for('reset_walk_tasks_route') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button class="secondary-button" type="submit">Reset checklist</button>
+                    </form>
+                </details>
+
+                <details class="luna-panel collapsible-panel" id="luna-recovery" aria-label="Luna Recovery wellness reminders" data-search-item data-search-text="recovery hydration stretching rest meditation gratitude luna wellness">
+                    <summary>
+                        <span>
+                            <span class="eyebrow">Recovery Support</span>
+                            <strong>Luna Recovery</strong>
+                        </span>
+                        <a href="{{ url_for('dashboard_section', section_name='recovery') }}">Open page</a>
+                    </summary>
+                    <div class="visual-header">
+                        <div>
+                            <p class="eyebrow">Recovery Support</p>
+                            <h2>Luna Recovery</h2>
+                        </div>
+                        <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="" class="mini-luna">
+                    </div>
+                    <p class="notes">{{ luna_summary }}</p>
+                    <div class="luna-alert-grid">
+                        {% for card in luna_cards %}
+                            <article class="luna-alert-card">
+                                <span>{{ card["type"] }}</span>
+                                <h3>{{ card["title"] }}</h3>
+                                <p>{{ card["message"] }}</p>
+                            </article>
+                        {% endfor %}
+                    </div>
+                    <p class="wellness-disclaimer">{{ wellness_disclaimer }}</p>
+                </details>
+
+                <details class="visual-dashboard collapsible-panel" id="progress-visuals" data-search-item data-search-text="training view progress visuals distance pace route map charts">
+                    <summary>
+                        <span>
+                            <span class="eyebrow">Training View</span>
+                            <strong>Progress visuals</strong>
+                        </span>
+                        <a href="{{ url_for('dashboard_section', section_name='training') }}">Open page</a>
+                    </summary>
+                    <div class="visual-header">
+                        <div>
+                            <p class="eyebrow">Training View</p>
+                            <h2>Progress visuals</h2>
+                        </div>
+                        <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="" class="mini-rico">
+                    </div>
+
+                    <dl class="metric-strip">
+                        <div>
+                            <dt>Total Miles</dt>
+                            <dd>{{ "%.2f"|format(visuals["total_distance"]) }}</dd>
+                        </div>
+                        <div>
+                            <dt>Average Pace</dt>
+                            <dd>{% if visuals["average_pace"] %}{{ format_pace(visuals["average_pace"]) }}{% else %}--{% endif %}</dd>
+                        </div>
+                        <div>
+                            <dt>Longest Run</dt>
+                            <dd>{{ "%.2f"|format(visuals["longest_run"]) }} mi</dd>
+                        </div>
+                    </dl>
+
+                    <div class="visual-grid">
+                        <section class="chart-panel">
+                            <h3>Recent distance</h3>
+                            {% if visuals["recent_runs"] %}
+                                <div class="bar-chart">
+                                    {% for run in visuals["recent_runs"] %}
+                                        <div class="bar-row">
+                                            <span>{{ run["date"] }}</span>
+                                            <div class="bar-track"><span style="width: {{ run['distance_width'] }}%"></span></div>
+                                            <strong>{{ "%.2f"|format(run["distance"]) }} mi</strong>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="notes">Log a run to build your first chart.</p>
+                            {% endif %}
+                        </section>
+
+                        <section class="chart-panel">
+                            <h3>Pace pattern</h3>
+                            {% if visuals["recent_runs"] %}
+                                <div class="bar-chart pace-chart">
+                                    {% for run in visuals["recent_runs"] %}
+                                        <div class="bar-row">
+                                            <span>{{ run["date"] }}</span>
+                                            <div class="bar-track"><span style="width: {{ run['pace_width'] }}%"></span></div>
+                                            <strong>{{ run["pace_label"] }}</strong>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <p class="notes">Pace visuals appear after your first run.</p>
+                            {% endif %}
+                        </section>
+
+                        <section class="chart-panel map-panel">
+                            <h3>Route snapshot</h3>
+                            <div class="mini-map" aria-label="Simple route map visual">
+                                <svg viewBox="0 0 320 180" role="img" aria-label="Stylized route map">
+                                    <rect width="320" height="180" rx="12"></rect>
+                                    <path class="map-road" d="M16 138 C 80 96, 96 160, 150 106 S 222 30, 302 62"></path>
+                                    <path class="map-route" d="M28 130 C 86 98, 104 146, 154 98 S 224 46, 292 66"></path>
+                                    <circle cx="28" cy="130" r="8"></circle>
+                                    <circle cx="292" cy="66" r="8"></circle>
+                                </svg>
+                            </div>
+                            {% if visuals["latest_route"] %}
+                                <p class="notes">
+                                    {{ visuals["latest_route"]["route_type"] or "Route" }}
+                                    {% if visuals["latest_route"]["route_notes"] %}: {{ visuals["latest_route"]["route_notes"] }}{% endif %}
+                                    {% if visuals["latest_route"]["weather_summary"] %} · {{ visuals["latest_route"]["weather_summary"] }}{% endif %}
+                                </p>
+                            {% else %}
+                                <p class="notes">Add route or weather context to personalize this map.</p>
+                            {% endif %}
+                        </section>
+
+                        <section class="chart-panel video-panel">
+                            <h3>Video tips</h3>
+                            <div class="video-links">
+                                {% for tip in visuals["video_tips"] %}
+                                    <a href="{{ tip['url'] }}" target="_blank" rel="noopener noreferrer">{{ tip["title"] }}</a>
+                                {% endfor %}
+                            </div>
+                        </section>
+                    </div>
+                </details>
+
+                <section class="motivation-section">
+                    <div class="visual-header">
+                        <div>
+                            <p class="eyebrow">Motivation</p>
+                            <h2>Shorts for the next mile</h2>
+                        </div>
+                        <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="" class="mini-rico">
+                    </div>
+
+                    <div class="motivation-slider" aria-label="Motivational YouTube shorts">
+                        {% for video in motivation_videos %}
+                            <article class="motivation-card">
+                                <div class="video-frame youtube-player-frame">
+                                    <img
+                                        src="{{ video['thumbnail_url'] }}"
+                                        alt="{{ video['title'] }} thumbnail"
+                                        class="youtube-thumb"
+                                        loading="lazy"
+                                    >
+                                    <iframe
+                                        src="{{ video['embed_url'] }}"
+                                        title="{{ video['title'] }}"
+                                        class="youtube-embed"
+                                        loading="lazy"
+                                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                        allowfullscreen
+                                    ></iframe>
+                                    <div>
+                                        <span class="play-badge">▶</span>
+                                        <p>{{ video["speaker"] }}</p>
+                                        <strong>{{ video["title"] }}</strong>
+                                    </div>
+                                </div>
+                                <div class="motivation-copy">
+                                    <p class="library-category">{{ video["speaker"] }}</p>
+                                    <h3>{{ video["title"] }}</h3>
+                                    <p class="notes">{{ video["subtitle"] }}</p>
+                                    <a href="{{ video['watch_url'] }}" target="_blank" rel="noopener noreferrer">Watch on YouTube</a>
+                                </div>
+                            </article>
+                        {% endfor %}
+                    </div>
+                </section>
+
+                <h2 id="previous-runs">Previous Runs</h2>
+
+                {% if runs %}
+                    <div class="run-list">
+                        {% for run in runs %}
+                            <article class="run-card" data-search-item data-search-text="{{ run['run_date'] }} {{ run['workout_type'] or 'run' }} {{ run['mood'] }} {{ run['notes'] }} {{ run['feedback'] }} {{ run['route_type'] or '' }} {{ run['weather_summary'] or '' }}">
+                                <div class="run-card-header">
+                                    <h3>{{ run["run_date"] }}</h3>
+                                    <span>{{ format_pace(run["pace"]) }} / mile</span>
+                                </div>
+
+                                <dl class="run-stats">
+                                    <div>
+                                        <dt>Distance</dt>
+                                        <dd>{{ "%.2f"|format(run["distance"]) }} mi</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Duration</dt>
+                                        <dd>{{ "%.1f"|format(run["duration"]) }} min</dd>
+                                    </div>
+                                    <div>
+                                        <dt>Mood</dt>
+                                        <dd>{{ run["mood"] }}</dd>
+                                    </div>
+                                    {% if run["workout_type"] %}
+                                        <div>
+                                            <dt>Type</dt>
+                                            <dd>{{ run["workout_type"] }}</dd>
+                                        </div>
+                                    {% endif %}
+                                    {% if run["source"] %}
+                                        <div>
+                                            <dt>Source</dt>
+                                            <dd>{{ run["source"] }}</dd>
+                                        </div>
+                                    {% endif %}
+                                    {% if run["imported_from"] %}
+                                        <div>
+                                            <dt>Imported</dt>
+                                            <dd>{{ run["imported_from"] }}</dd>
+                                        </div>
+                                    {% endif %}
+                                </dl>
+
+                                {% if run["notes"] %}
+                                    <p class="notes">{{ run["notes"] }}</p>
+                                {% endif %}
+
+                                {% if run["weather_summary"] or run["route_type"] or run["avg_heart_rate"] or run["max_heart_rate"] or run["calories"] or run["cadence"] or run["end_date"] or run["device"] %}
+                                    <dl class="context-stats">
+                                        {% if run["end_date"] %}
+                                            <div>
+                                                <dt>End Date</dt>
+                                                <dd>{{ run["end_date"] }}</dd>
+                                            </div>
+                                        {% endif %}
+                                        {% if run["device"] %}
+                                            <div>
+                                                <dt>Device</dt>
+                                                <dd>{{ run["device"] }}</dd>
+                                            </div>
+                                        {% endif %}
+                                        {% if run["weather_summary"] %}
+                                            <div>
+                                                <dt>Weather</dt>
+                                                <dd>
+                                                    {{ run["weather_summary"] }}
+                                                    {% if run["temperature_f"] %} &middot; {{ "%.0f"|format(run["temperature_f"]) }} F{% endif %}
+                                                    {% if run["wind_mph"] %} &middot; {{ "%.0f"|format(run["wind_mph"]) }} mph wind{% endif %}
+                                                </dd>
+                                            </div>
+                                        {% endif %}
+                                        {% if run["route_type"] %}
+                                            <div>
+                                                <dt>Route</dt>
+                                                <dd>{{ run["route_type"] }}{% if run["route_notes"] %} &middot; {{ run["route_notes"] }}{% endif %}</dd>
+                                            </div>
+                                        {% endif %}
+                                        {% if run["avg_heart_rate"] %}
+                                            <div>
+                                                <dt>Avg HR</dt>
+                                                <dd>{{ run["avg_heart_rate"] }} bpm</dd>
+                                            </div>
+                                        {% endif %}
+                                        {% if run["max_heart_rate"] %}
+                                            <div>
+                                                <dt>Max HR</dt>
+                                                <dd>{{ run["max_heart_rate"] }} bpm</dd>
+                                            </div>
+                                        {% endif %}
+                                        {% if run["calories"] %}
+                                            <div>
+                                                <dt>Calories</dt>
+                                                <dd>{{ run["calories"] }}</dd>
+                                            </div>
+                                        {% endif %}
+                                        {% if run["cadence"] %}
+                                            <div>
+                                                <dt>Cadence</dt>
+                                                <dd>{{ run["cadence"] }} spm</dd>
+                                            </div>
+                                        {% endif %}
+                                    </dl>
+                                {% endif %}
+
+                                <p class="feedback">{{ run["feedback"] }}</p>
+                            </article>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="empty-state">No runs yet. Add your first run to see pace and coaching feedback.</p>
+                {% endif %}
+
+                <details class="coach-library collapsible-panel" id="coach-library" data-search-item data-search-text="visual guide coach library tips hydration rest recovery stretching warmups cooldowns meditation gratitude breathing walking easy runs motivation sleep consistency pace">
+                    <summary>
+                        <span>
+                            <span class="eyebrow">Coach Library</span>
+                            <strong>Visual Guide flash cards</strong>
+                        </span>
+                        <a href="{{ url_for('dashboard_section', section_name='visual-guide') }}">Open page</a>
+                    </summary>
+                    <div class="library-heading">
+                        <div>
+                            <p class="eyebrow">Coach Library</p>
+                            <h2>Visual Guide</h2>
+                        </div>
+                        <p class="notes">Swipe the cards for quick tips.</p>
+                    </div>
+
+                    {% if coach_library %}
+                        {% for category, items in coach_library.items() %}
+                            <section class="library-group">
+                                <div class="library-group-header">
+                                    <h3>{{ category }}</h3>
+                                    <div class="library-controls" aria-label="{{ category }} slides">
+                                        <button type="button" data-library-scroll="left" aria-label="Previous {{ category }} tip">‹</button>
+                                        <span class="library-count" data-library-count>1 / {{ items|length }}</span>
+                                        <button type="button" data-library-scroll="right" aria-label="Next {{ category }} tip">›</button>
+                                    </div>
+                                </div>
+
+                                <div class="library-slider" tabindex="0" aria-label="{{ category }} coaching cards">
+                                    {% for item in items %}
+                                        <article class="library-card" data-search-item data-search-text="{{ category }} {{ item['title'] }} {{ item['description'] }} {{ item['instructions'] }} {{ item['recommended_when'] }}">
+                                            <div class="library-photo library-photo-{{ category|lower|replace(' ', '-') }}" role="img" aria-label="{{ category }} tip photo">
+                                                <span>{{ category }}</span>
+                                            </div>
+                                            <div class="library-visual library-visual-{{ category|lower|replace(' ', '-') }}">
+                                                {% if category == "Breathing Exercise" %}
+                                                    <span class="visual-orbit"></span>
+                                                    <span class="visual-breath">4</span>
+                                                {% elif category == "Breathing" %}
+                                                    <span class="visual-orbit"></span>
+                                                    <span class="visual-breath">3</span>
+                                                {% elif category == "Stretch" or category == "Stretching" %}
+                                                    <span class="visual-leg"></span>
+                                                    <span class="visual-mat"></span>
+                                                {% elif category == "Hydration" %}
+                                                    <span class="visual-drop"></span>
+                                                    <span class="visual-wave"></span>
+                                                {% elif category == "Rest" or category == "Sleep" %}
+                                                    <span class="visual-moon"></span>
+                                                    <span class="visual-star"></span>
+                                                {% elif category == "Recovery" or category == "Cooldowns" %}
+                                                    <span class="visual-heart"></span>
+                                                    <span class="visual-wave"></span>
+                                                {% elif category == "Warmups" %}
+                                                    <span class="visual-sun"></span>
+                                                    <span class="visual-stride"></span>
+                                                {% elif category == "Meditation" %}
+                                                    <span class="visual-orbit"></span>
+                                                    <span class="visual-leaf"></span>
+                                                {% elif category == "Gratitude" %}
+                                                    <span class="visual-flower"></span>
+                                                    <span class="visual-heart"></span>
+                                                {% elif category == "Beginner Walking" %}
+                                                    <span class="visual-route"></span>
+                                                    <span class="visual-leaf"></span>
+                                                {% elif category == "Motivation" or category == "Bad Day Reset" %}
+                                                    <span class="visual-sun"></span>
+                                                    <span class="visual-heart"></span>
+                                                {% elif category == "Consistency" %}
+                                                    <span class="visual-bars"></span>
+                                                    <span class="visual-star"></span>
+                                                {% elif category == "Pace Awareness" or category == "Easy Runs" %}
+                                                    <span class="visual-clock"></span>
+                                                    <span class="visual-stride"></span>
+                                                {% elif category == "Running Style" %}
+                                                    <span class="visual-shoe"></span>
+                                                    <span class="visual-stride"></span>
+                                                {% elif category == "Run Type" %}
+                                                    <span class="visual-route"></span>
+                                                    <span class="visual-pin"></span>
+                                                {% elif category == "Timed Run" %}
+                                                    <span class="visual-clock"></span>
+                                                    <span class="visual-tick"></span>
+                                                {% else %}
+                                                    <span class="visual-bars"></span>
+                                                    <span class="visual-hill"></span>
+                                                {% endif %}
+                                            </div>
+                                            <div class="library-card-copy">
+                                                <p class="library-category">{{ category }}</p>
+                                                <h4>{{ item["title"] }}</h4>
+                                                <p class="library-subtitle">{{ item["description"] }}</p>
+                                                <div class="resource-links" aria-label="Resources for {{ item['title'] }}">
+                                                    {% for resource in item["resource_links"] %}
+                                                        <a href="{{ resource[1] }}" target="_blank" rel="noopener noreferrer">{{ resource[0] }}</a>
+                                                    {% endfor %}
+                                                </div>
+                                                <details>
+                                                    <summary>Details</summary>
+                                                    <p><strong>How:</strong> {{ item["instructions"] }}</p>
+                                                    <p><strong>Use when:</strong> {{ item["recommended_when"] }}</p>
+                                                </details>
+                                            </div>
+                                        </article>
+                                    {% endfor %}
+                                </div>
+                            </section>
+                        {% endfor %}
+                    {% else %}
+                        <p class="empty-state">No coach library items yet.</p>
+                    {% endif %}
+                </details>
+            </section>
+        </section>
+            </div>
+
+            <aside class="dashboard-right" aria-label="AI data panels">
+                <section class="right-panel analyst-panel">
+                    <p class="eyebrow">AI Data Analyst</p>
+                    <p class="notes">Imported CSV/XML and demo screenshot data become structured summaries for Rico, Iggy, and Luna.</p>
+                    <form class="upload-drop" method="post" action="{{ url_for('analyze_screenshot') }}" enctype="multipart/form-data">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <label for="analystScreenshot">Demo workout screenshot</label>
+                        <span>⇧</span>
+                        <strong>Upload Screenshot</strong>
+                        <small>PNG, JPG, JPEG, or WebP up to 5 MB</small>
+                        <input id="analystScreenshot" name="screenshot" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" required>
+                        <button type="submit">Store for Analysis</button>
+                    </form>
+                    {% if analyst_notice == "stored" %}
+                        <p class="analyst-status">Screenshot stored. OCR is unavailable in this lightweight demo, so a placeholder analysis was created.</p>
+                    {% elif analyst_notice == "invalid" %}
+                        <p class="analyst-status analyst-error">Choose a valid image file no larger than 5 MB.</p>
+                    {% elif analyst_notice == "missing" %}
+                        <p class="analyst-status analyst-error">Choose a screenshot before submitting.</p>
+                    {% elif analyst_summary["latest_screenshot_message"] %}
+                        <p class="analyst-status">{{ analyst_summary["latest_screenshot_message"] }}</p>
+                    {% endif %}
+                    <dl class="analyst-summary">
+                        <div><dt>Weekly Mileage</dt><dd>{{ "%.2f"|format(analyst_summary["weekly_mileage"]) }} mi</dd></div>
+                        <div><dt>Longest Run</dt><dd>{{ "%.2f"|format(analyst_summary["longest_run"]) }} mi</dd></div>
+                        <div><dt>Average Pace</dt><dd>{{ analyst_summary["average_pace_label"] or "--" }}</dd></div>
+                        <div>
+                            <dt>Mood Trends</dt>
+                            <dd>
+                                {% for mood, count in analyst_summary["mood_trends"].items() %}
+                                    {{ mood }} {{ count }}{% if not loop.last %}, {% endif %}
+                                {% else %}No data{% endfor %}
+                            </dd>
+                        </div>
+                        <div><dt>Walk Frequency</dt><dd>{{ analyst_summary["walk_frequency"] }}</dd></div>
+                        <div><dt>Recovery Frequency</dt><dd>{{ analyst_summary["recovery_frequency"] }}</dd></div>
+                    </dl>
+                    <a class="primary-link" href="{{ url_for('import_workouts') }}">Import CSV or XML</a>
+                    <ul>
+                        <li>Workout screenshots</li>
+                        <li>Apple Health XML exports</li>
+                        <li>Strava/CSV exports</li>
+                        <li>TrainingPeaks exports</li>
+                    </ul>
+                </section>
+
+                <section class="right-panel table-panel">
+                    <p class="eyebrow">Your Data Tables</p>
+                    <dl>
+                        <div><dt>Runs</dt><dd>{{ runs|length }} records</dd></div>
+                        <div><dt>Walks</dt><dd>{{ walk_tasks|length }} tasks</dd></div>
+                        <div><dt>Recovery Logs</dt><dd>{{ luna_cards|length }} reminders</dd></div>
+                        <div><dt>Coach Tips</dt><dd>{{ coach_library|length }} categories</dd></div>
+                        <div><dt>Agent Messages</dt><dd>{{ (chat_messages|length) + (iggy_chat_messages|length) }} records</dd></div>
+                    </dl>
+                    <a class="secondary-link" href="#coach-library">View All Tables</a>
+                </section>
+            </aside>
+        </section>
+        <p class="privacy-strip">Your data is private and local. Only you can see your information. The AI coaches use your data to provide personalized guidance.</p>
+        </section>
+    </main>
+    <div class="fireworks" id="fireworks" aria-hidden="true"></div>
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>

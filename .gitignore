@@ -216,3 +216,17 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+# RunCoach local state and private health data
+.tools/
+.pytest-tmp/
+runs.db
+export.xml
+*.zip
+apple_health_export/
+apple_health_export*/
+health-data/
+health-data*/
+workout-routes/
+workout-routes*/
+uploads/
+

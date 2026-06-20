@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% if mode == "signup" %}Sign Up{% else %}Log In{% endif %} - RunCoach AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <main class="page auth-page">
+        <section class="intro">
+            <div class="intro-copy">
+                <p class="eyebrow">RunCoach AI</p>
+                <img class="brand-logo brand-logo-photo" src="{{ url_for('static', filename='runcoach-logo.png') }}" alt="RunCoach AI - Move Improve Thrive">
+                <h1 class="sr-only">RunCoach AI</h1>
+                <p class="hero-description">Personalized movement coaching with Rico Runner and Iggy.</p>
+            </div>
+            <div class="hero-gallery auth-gallery" aria-label="RunCoach AI coaches">
+                <div class="hero-card hero-card-rico">
+                    <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner">
+                    <span>Rico</span>
+                </div>
+                <div class="hero-card hero-card-iggy">
+                    <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy">
+                    <span>Iggy</span>
+                </div>
+                <div class="hero-card hero-card-luna">
+                    <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery">
+                    <span>Luna</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="auth-layout">
+            <form class="panel auth-panel" method="post">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                {% if mode == "signup" %}
+                    <h2>Sign Up</h2>
+                {% else %}
+                    <h2>Log In</h2>
+                {% endif %}
+
+                {% if error %}
+                    <p class="error-message">{{ error }}</p>
+                {% endif %}
+
+                {% if mode != "signup" %}
+                    <div class="demo-callout">
+                        <p class="notes">Demo mode uses fake workout data for privacy-safe testing.</p>
+                        <button class="demo-button" type="submit" form="demoLoginForm">Try Demo</button>
+                    </div>
+                {% endif %}
+
+                <label for="email">Email</label>
+                <input id="email" name="email" type="email" autocomplete="email" required>
+
+                <label for="password">Password</label>
+                <input id="password" name="password" type="password" autocomplete="{% if mode == 'signup' %}new-password{% else %}current-password{% endif %}" required>
+
+                <button type="submit">{% if mode == "signup" %}Create Account{% else %}Log In{% endif %}</button>
+
+                {% if mode == "signup" %}
+                    <p class="notes">Already have an account? <a href="{{ url_for('login') }}">Log in</a>.</p>
+                {% else %}
+                    <p class="notes">Need an account? <a href="{{ url_for('signup') }}">Sign up</a>.</p>
+                {% endif %}
+            </form>
+
+            <section class="panel auth-panel">
+                <h2>Demo User</h2>
+                <p class="notes">For Capstone testing, use this sample account or click Try Demo. It has fake demo data only.</p>
+                <dl class="context-stats">
+                    <div>
+                        <dt>Email</dt>
+                        <dd>{{ demo_email }}</dd>
+                    </div>
+                    <div>
+                        <dt>Password</dt>
+                        <dd>{{ demo_password }}</dd>
+                    </div>
+                </dl>
+                <p class="notes">Real Apple Health exports should stay local and private.</p>
+            </section>
+        </section>
+        {% if mode != "signup" %}
+            <form id="demoLoginForm" method="post" action="{{ url_for('demo_login') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            </form>
+        {% endif %}
+    </main>
+</body>
+</html>

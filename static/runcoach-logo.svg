@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 340" role="img" aria-labelledby="title desc">
+  <title id="title">RunCoach AI logo</title>
+  <desc id="desc">RunCoach AI logo with Puerto Rican inspired accents, El Morro, sunset colors, hibiscus, Rico, Iggy, and Luna.</desc>
+  <defs>
+    <linearGradient id="sunset" x1="182" y1="46" x2="552" y2="214" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ff4f3f"/>
+      <stop offset="0.48" stop-color="#ff9f36"/>
+      <stop offset="1" stop-color="#ffcf4d"/>
+    </linearGradient>
+    <linearGradient id="green" x1="228" y1="126" x2="440" y2="236" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8fda2e"/>
+      <stop offset="1" stop-color="#0f8f6b"/>
+    </linearGradient>
+    <filter id="logoShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#09263a" flood-opacity="0.14"/>
+    </filter>
+  </defs>
+  <g filter="url(#logoShadow)">
+    <path d="M160 157c32-72 106-120 210-120 89 0 158 38 197 98" fill="none" stroke="#09263a" stroke-width="10" stroke-linecap="round"/>
+    <path d="M208 87c91-41 204-43 307-5" fill="none" stroke="#f0443c" stroke-width="17" stroke-linecap="round"/>
+    <path d="M243 119c85-34 176-32 260 7" fill="none" stroke="#ff9f36" stroke-width="18" stroke-linecap="round"/>
+    <path d="M286 149c68-22 135-17 197 17" fill="none" stroke="#ffcf4d" stroke-width="18" stroke-linecap="round"/>
+    <path d="M205 74l70 20-52 47Z" fill="#1254ad"/>
+    <path d="M235 87l8 14 16 2-12 10 3 16-15-8-14 8 3-16-12-10 16-2Z" fill="#ffffff"/>
+    <path d="M520 160h92v70h-92Z" fill="#09263a"/>
+    <path d="M537 126h58v34h-58Z" fill="#09263a"/>
+    <path d="M527 126c8-19 69-19 78 0Z" fill="#09263a"/>
+    <path d="M564 94h8v30h-8Z" fill="#09263a"/>
+    <circle cx="568" cy="88" r="9" fill="#09263a"/>
+    <path d="M575 186h18v44h-18Z" fill="#ffffff" opacity="0.9"/>
+    <path d="M145 206c56 28 143 45 233 43 92-2 174-22 232-52" fill="none" stroke="#0f8f6b" stroke-width="8" stroke-linecap="round"/>
+    <path d="M111 124c17-32 49-47 84-39-25 10-39 25-46 46 20-19 43-26 69-18-25 10-42 26-52 49 23-10 45-10 67 0-36 17-75 20-119 9" fill="#09263a"/>
+    <g transform="translate(222 130)">
+      <ellipse cx="82" cy="58" rx="72" ry="53" fill="url(#green)"/>
+      <circle cx="42" cy="25" r="27" fill="#8fda2e"/>
+      <circle cx="121" cy="25" r="27" fill="#8fda2e"/>
+      <circle cx="42" cy="25" r="17" fill="#ffffff"/>
+      <circle cx="121" cy="25" r="17" fill="#ffffff"/>
+      <circle cx="46" cy="27" r="9" fill="#f47c32"/>
+      <circle cx="125" cy="27" r="9" fill="#f47c32"/>
+      <circle cx="49" cy="27" r="4" fill="#09263a"/>
+      <circle cx="128" cy="27" r="4" fill="#09263a"/>
+      <path d="M39 72c26 19 60 19 86 0" fill="none" stroke="#09263a" stroke-width="7" stroke-linecap="round"/>
+      <path d="M70 111l-23 29M96 111l22 29" stroke="#0f8f6b" stroke-width="14" stroke-linecap="round"/>
+      <path d="M31 141h28M107 141h28" stroke="#ff7a3d" stroke-width="9" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(396 146)">
+      <ellipse cx="76" cy="54" rx="68" ry="48" fill="#77c443"/>
+      <path d="M30 43c-21 8-38 21-49 40 24-8 44-7 61 4" fill="none" stroke="#0f8f6b" stroke-width="15" stroke-linecap="round"/>
+      <path d="M62 4l-9-27M84 4l2-29M106 10l14-25" stroke="#09263a" stroke-width="8" stroke-linecap="round"/>
+      <circle cx="102" cy="25" r="20" fill="#ffffff"/>
+      <circle cx="106" cy="27" r="11" fill="#f47c32"/>
+      <circle cx="109" cy="28" r="5" fill="#09263a"/>
+      <path d="M52 62c25 15 51 15 76 0" fill="none" stroke="#09263a" stroke-width="6" stroke-linecap="round"/>
+      <path d="M72 99l-22 30M100 99l22 30" stroke="#0f8f6b" stroke-width="12" stroke-linecap="round"/>
+      <path d="M41 130h25M114 130h25" stroke="#ff7a3d" stroke-width="8" stroke-linecap="round"/>
+    </g>
+    <g transform="translate(582 108) scale(.6)">
+      <path d="M33 94c4-34 28-57 60-55 30 2 52 27 51 55-1 36-30 62-64 58-31-3-50-26-47-58Z" fill="#0f8f6b"/>
+      <path d="M58 108c18-2 42-14 55-36 12 23 3 55-20 66-20 10-42-2-35-30Z" fill="#ff9f36"/>
+      <circle cx="98" cy="66" r="18" fill="#ffffff"/>
+      <circle cx="102" cy="68" r="9" fill="#f47c32"/>
+      <circle cx="105" cy="69" r="4" fill="#09263a"/>
+      <path d="M116 84c13 2 23 8 29 18-13 2-24-1-34-7Z" fill="#ffcf4d"/>
+    </g>
+  </g>
+  <text x="380" y="292" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="60" font-weight="850" fill="#09263a">RunCoach <tspan fill="#39a852">AI</tspan></text>
+  <path d="M192 309c77 20 264 21 382 0" fill="none" stroke="#39a852" stroke-width="6" stroke-linecap="round"/>
+  <text x="380" y="330" text-anchor="middle" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="18" font-weight="800" letter-spacing="8" fill="#09263a">MOVE • IMPROVE • THRIVE</text>
+  <path d="M636 284c10-21 28-21 38 0-21-9-21 9 0 0-10 21-28 21-38 0Z" fill="#e64040"/>
+</svg>

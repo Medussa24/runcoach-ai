@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE HealthData>
+<HealthData locale="en_US">
+    <Workout
+        workoutActivityType="HKWorkoutActivityTypeRunning"
+        duration="30"
+        durationUnit="min"
+        totalDistance="3.1"
+        totalDistanceUnit="mi"
+        totalEnergyBurned="320"
+        totalEnergyBurnedUnit="kcal"
+        sourceName="Sample Apple Watch"
+        sourceVersion="10.0"
+        device="Sample Apple Watch Series"
+        startDate="2026-06-10 07:00:00 -0400"
+        endDate="2026-06-10 07:30:00 -0400" />
+
+    <Workout
+        workoutActivityType="HKWorkoutActivityTypeWalking"
+        duration="42"
+        durationUnit="min"
+        totalDistance="3.2"
+        totalDistanceUnit="km"
+        totalEnergyBurned="180"
+        totalEnergyBurnedUnit="kcal"
+        sourceName="Sample iPhone"
+        sourceVersion="18.0"
+        device="Sample iPhone"
+        startDate="2026-06-12 18:10:00 -0400"
+        endDate="2026-06-12 18:52:00 -0400" />
+
+    <Workout
+        workoutActivityType="HKWorkoutActivityTypeCycling"
+        duration="45"
+        durationUnit="min"
+        totalDistance="10"
+        totalDistanceUnit="mi"
+        totalEnergyBurned="420"
+        totalEnergyBurnedUnit="kcal"
+        sourceName="Sample Apple Watch"
+        device="Sample Apple Watch Series"
+        startDate="2026-06-13 09:00:00 -0400"
+        endDate="2026-06-13 09:45:00 -0400" />
+</HealthData>

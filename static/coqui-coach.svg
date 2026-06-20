@@ -1,0 +1,97 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 220" role="img" aria-labelledby="title desc">
+  <title id="title">Rico Runner coqui coach mascot</title>
+  <desc id="desc">A 3D-style Puerto Rican coqui frog coach wearing a straw hat, striped shirt, flag cape, running shoes, and whistle.</desc>
+  <defs>
+    <radialGradient id="ricoBg" cx="50%" cy="32%" r="72%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.55" stop-color="#fff8e1"/>
+      <stop offset="1" stop-color="#d9efe8"/>
+    </radialGradient>
+    <radialGradient id="ricoSkin" cx="33%" cy="25%" r="78%">
+      <stop offset="0" stop-color="#ffe7cf"/>
+      <stop offset="0.36" stop-color="#b66b43"/>
+      <stop offset="0.75" stop-color="#684236"/>
+      <stop offset="1" stop-color="#2d201f"/>
+    </radialGradient>
+    <radialGradient id="ricoBelly" cx="50%" cy="20%" r="78%">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="0.7" stop-color="#efe6d4"/>
+      <stop offset="1" stop-color="#b48b71"/>
+    </radialGradient>
+    <linearGradient id="hat" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#fff0a8"/>
+      <stop offset="0.55" stop-color="#d6a748"/>
+      <stop offset="1" stop-color="#8c5d28"/>
+    </linearGradient>
+    <linearGradient id="flagBlue" x1="0" x2="1">
+      <stop offset="0" stop-color="#063b8e"/>
+      <stop offset="1" stop-color="#2f68d8"/>
+    </linearGradient>
+    <filter id="ricoShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="#2d201f" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+  <rect width="220" height="220" rx="28" fill="url(#ricoBg)"/>
+  <ellipse cx="111" cy="202" rx="70" ry="12" fill="#2d201f" opacity="0.17"/>
+
+  <g filter="url(#ricoShadow)">
+    <path d="M150 83c29 3 47 20 56 47-25-10-46-8-67 5" fill="#cf3f36"/>
+    <path d="M145 91c26 2 43 14 54 34-22-6-40-3-59 7" fill="#ffffff"/>
+    <path d="M146 101c20 3 35 12 46 27-17-4-32-2-48 7" fill="#cf3f36"/>
+    <path d="M141 84l25 28-28 18z" fill="url(#flagBlue)"/>
+    <path d="M151 102l5 4 6-2-3 6 4 5-7-1-4 5-1-7-6-3 6-3z" fill="#ffffff"/>
+
+    <path d="M63 131c-17 11-29 26-35 45" fill="none" stroke="#6a4335" stroke-width="17" stroke-linecap="round"/>
+    <path d="M157 131c18 12 30 27 36 45" fill="none" stroke="#6a4335" stroke-width="17" stroke-linecap="round"/>
+
+    <ellipse cx="110" cy="124" rx="61" ry="66" fill="url(#ricoSkin)"/>
+    <ellipse cx="110" cy="138" rx="42" ry="47" fill="url(#ricoBelly)" opacity="0.92"/>
+
+    <path d="M64 77c-1-35 23-58 46-58 24 0 48 23 47 58-1 35-20 61-47 61-28 0-45-26-46-61z" fill="url(#ricoSkin)"/>
+    <path d="M78 45c19-19 51-22 72-1-18-8-50-8-72 1z" fill="#ffffff" opacity="0.2"/>
+
+    <ellipse cx="84" cy="79" rx="25" ry="29" fill="#ffffff"/>
+    <ellipse cx="136" cy="79" rx="25" ry="29" fill="#ffffff"/>
+    <circle cx="88" cy="83" r="12" fill="#613021"/>
+    <circle cx="132" cy="83" r="12" fill="#613021"/>
+    <circle cx="88" cy="83" r="7" fill="#202623"/>
+    <circle cx="132" cy="83" r="7" fill="#202623"/>
+    <circle cx="93" cy="77" r="5" fill="#ffffff"/>
+    <circle cx="137" cy="77" r="5" fill="#ffffff"/>
+
+    <path d="M88 113c13 12 36 12 49 0" fill="none" stroke="#202623" stroke-width="7" stroke-linecap="round"/>
+    <path d="M94 117c11 5 27 5 37 0" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round"/>
+    <ellipse cx="101" cy="101" rx="4" ry="7" fill="#2d201f" opacity="0.75"/>
+    <ellipse cx="120" cy="101" rx="4" ry="7" fill="#2d201f" opacity="0.75"/>
+
+    <g fill="#e9d7c9" opacity="0.55">
+      <circle cx="70" cy="106" r="4"/>
+      <circle cx="78" cy="116" r="3"/>
+      <circle cx="148" cy="106" r="4"/>
+      <circle cx="140" cy="116" r="3"/>
+    </g>
+
+    <path d="M57 52c19-20 87-20 106 0" fill="none" stroke="#7b4f22" stroke-width="14" stroke-linecap="round"/>
+    <ellipse cx="110" cy="49" rx="56" ry="15" fill="url(#hat)" stroke="#7b4f22" stroke-width="4"/>
+    <path d="M78 45c5-24 20-37 43-36 20 1 32 14 36 36" fill="url(#hat)" stroke="#7b4f22" stroke-width="4"/>
+    <path d="M81 36c18 9 48 9 67 0" stroke="#cf3f36" stroke-width="6" stroke-linecap="round"/>
+    <path d="M98 25h26" stroke="#2f5fb8" stroke-width="5" stroke-linecap="round"/>
+
+    <path d="M77 134c22 18 47 18 68 0" fill="#ffffff"/>
+    <path d="M82 136v39M99 141v39M117 141v39M135 136v39" stroke="#cf3f36" stroke-width="4" stroke-linecap="round"/>
+    <path d="M91 136v39M127 136v39" stroke="#2f5fb8" stroke-width="4" stroke-linecap="round"/>
+    <path d="M78 156h66" stroke="#202623" stroke-width="4" stroke-linecap="round" opacity="0.45"/>
+
+    <path d="M55 149c-14 5-27 15-39 31" fill="none" stroke="#6a4335" stroke-width="14" stroke-linecap="round"/>
+    <path d="M166 149c14 5 27 15 39 31" fill="none" stroke="#6a4335" stroke-width="14" stroke-linecap="round"/>
+
+    <path d="M81 174l-11 24M134 174l13 24" stroke="#5a382f" stroke-width="13" stroke-linecap="round"/>
+    <path d="M50 200h45M124 200h45" stroke="#ffffff" stroke-width="12" stroke-linecap="round"/>
+    <path d="M55 197h34M130 197h34" stroke="#2f5fb8" stroke-width="5" stroke-linecap="round"/>
+    <path d="M67 203h23M141 203h23" stroke="#cf3f36" stroke-width="4" stroke-linecap="round"/>
+
+    <circle cx="111" cy="164" r="9" fill="#f7d36b" stroke="#202623" stroke-width="4"/>
+    <path d="M111 173v13" stroke="#202623" stroke-width="4" stroke-linecap="round"/>
+    <path d="M104 164h14" stroke="#202623" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+runs.db
+export.xml
+*.zip
+apple_health_export/
+apple_health_export*/
+health-data/
+health-data*/
+workout-routes/
+workout-routes*/
