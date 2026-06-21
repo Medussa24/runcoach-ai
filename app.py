@@ -36,13 +36,17 @@ from sentinel_qa import SentinelQA
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "runcoach-ai-local-dev-secret")
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
-app.config["SENTINEL_RUN_PYTEST"] = True
+app.config["SENTINEL_INTERVAL_SECONDS"] = 15 * 60
 csrf = CSRFProtect(app)
 
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE = BASE_DIR / "runs.db"
 SCREENSHOT_UPLOAD_DIR = BASE_DIR / "uploads" / "screenshots"
-sentinel_qa = SentinelQA(app, BASE_DIR)
+sentinel_qa = SentinelQA(
+    app,
+    BASE_DIR,
+    interval_seconds=app.config["SENTINEL_INTERVAL_SECONDS"],
+)
 DEMO_EMAIL = "demo@runcoach.test"
 DEMO_PASSWORD = "demo123"
 AGENT_RICO = "rico"
@@ -443,11 +447,29 @@ def seed_coach_library():
 
 @app.before_request
 def initialize_app_once():
-    """Initialize shared database tables and coach data once per process."""
+    """Initialize data and opportunistically run the private health agent."""
     if not hasattr(app, "_db_setup_done"):
         setup_database()
         seed_coach_library()
         app._db_setup_done = True
+
+    if (
+        not app.config.get("TESTING")
+        and not sentinel_qa.is_running
+        and sentinel_qa.is_due()
+    ):
+        seed_demo_data()
+        demo_user = get_user_by_email(DEMO_EMAIL)
+        if demo_user:
+            report = sentinel_qa.run_periodic_if_due(demo_user["id"])
+            log_method = app.logger.info if report["status"] == "Healthy" else app.logger.warning
+            log_method(
+                "Sentinel QA backend check: status=%s checks=%s/%s warnings=%s",
+                report["status"],
+                report["checks_passed"],
+                report["checks_total"],
+                report["warnings_count"],
+            )
 
 
 def get_previous_run(user_id):
@@ -1302,7 +1324,6 @@ def dashboard_context(user, agent_question=""):
         "luna_summary": luna_agent.summary(),
         "luna_cards": luna_agent.cards(),
         "wellness_disclaimer": LunaRecoveryAgent.disclaimer,
-        "sentinel_report": sentinel_qa.get_report(),
     }
 
 
@@ -1372,32 +1393,6 @@ def index():
         return redirect(url_for("index", saved=1))
 
     return render_template("index.html", **dashboard_context(user))
-
-
-@app.route("/dashboard-section/<section_name>")
-@login_required
-def dashboard_section(section_name):
-    """Show a focused page for one collapsible dashboard section."""
-    sections = {
-        "training": "Training View",
-        "recovery": "Recovery",
-        "activity": "Recent Activity",
-        "summary": "Weekly Summary",
-        "visual-guide": "Coach Library - Visual Guide",
-        "schedule": "Weekly Workout Schedule",
-    }
-
-    if section_name not in sections:
-        return redirect(url_for("index"))
-
-    context = dashboard_context(current_user())
-    context.update(
-        {
-            "section_name": section_name,
-            "section_title": sections[section_name],
-        }
-    )
-    return render_template("section.html", **context)
 
 
 @app.route("/analyze-screenshot", methods=["POST"])
@@ -1483,10 +1478,6 @@ def agent_api():
                 "internal_data_analyst": (
                     "DataAnalystAgent creates structured summaries for Rico, "
                     "Iggy, and Luna. It does not chat with users."
-                ),
-                "internal_sentinel_qa": (
-                    "Sentinel QA runs bounded local route, rendering, demo, "
-                    "and defensive test checks. It does not chat with users."
                 ),
                 "example": {"question": "Give me a breathing exercise before my run."},
             }
@@ -1589,26 +1580,6 @@ def logout():
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"})
-
-
-@app.route("/sentinel/health")
-@login_required
-def sentinel_health():
-    """Return Sentinel QA's cached report without starting new work."""
-    return jsonify(sentinel_qa.get_report())
-
-
-@app.route("/sentinel/health-check", methods=["POST"])
-@login_required
-def run_sentinel_health_check():
-    """Run one manual, bounded Sentinel QA check."""
-    seed_demo_data()
-    demo_user = get_user_by_email(DEMO_EMAIL)
-    sentinel_qa.run_health_check(
-        demo_user["id"],
-        include_test_suite=app.config["SENTINEL_RUN_PYTEST"],
-    )
-    return redirect(url_for("index", sentinel=1) + "#system-health")
 
 
 @app.route("/coach-library")

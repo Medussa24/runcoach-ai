@@ -38,14 +38,14 @@ RunCoach AI is a web-based movement coach agent app. It lets users create an acc
 9. Rico summarizes progress, compares recent runs, mentions pace trends, considers context, and suggests a safe next workout.
 10. Iggy creates an easy walking routine, checklist guidance, breathing task, stretch, or nature-count prompt.
 11. Luna reads the same logged-in user's workout context and displays passive hydration, recovery, stretching, breathing, gratitude, and bad-day reset reminders.
-12. Sentinel QA runs a manual, bounded local check of routes, Try Demo, coach rendering, Previous Runs, imports, chat contracts, user separation, and defensive tests, then summarizes the result in a small System Health card.
+12. Backend-only Sentinel QA runs a lightweight, request-driven check at most once every 15 minutes during app activity. It verifies authentication boundaries, controlled SQL-injection rejection, CSRF enforcement, routes, Try Demo, agents, history, imports, and chat contracts, then reports only to server logs. Deeper penetration tests remain isolated in pytest/CI.
 13. Gemini receives only bounded data selected after the logged-in `user_id` filter through approved Python tools; missing credentials or provider errors activate the local fallback.
 14. Mood signals for stress, sadness, burnout, or frustration trigger gentle, persona-specific support without medical advice.
 
 ## Architecture
 
 ```text
-Browser run form + Rico/Iggy agent chats + Luna reminder cards + System Health card
+Browser run form + Rico/Iggy agent chats + Luna reminder cards
 -> Flask routes in app.py
 -> Flask session user_id
 -> SQLite runs.db
@@ -53,7 +53,7 @@ Browser run form + Rico/Iggy agent chats + Luna reminder cards + System Health c
 -> user-scoped Python tools (no Text-to-SQL and no model-selected user_id)
 -> GeminiService -> Gemini 2.5 Flash when GEMINI_API_KEY is configured
 -> deterministic coach fallback when Gemini is unavailable
--> DataAnalystAgent summaries + SentinelQA local quality checks
+-> DataAnalystAgent summaries + hidden SentinelQA periodic local quality checks
 -> HTML response or JSON /agent response
 ```
 

@@ -449,23 +449,6 @@ h2 {
     display: none;
 }
 
-.compact-section > summary::after {
-    content: "+";
-    display: inline-grid;
-    width: 36px;
-    height: 36px;
-    place-items: center;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #efffce, #dff2ff);
-    color: var(--accent-dark);
-    font-size: 1.3rem;
-    font-weight: 900;
-}
-
-.compact-section[open] > summary::after {
-    content: "-";
-}
-
 .compact-section summary strong {
     display: block;
     font-size: 1.2rem;
@@ -1080,37 +1063,6 @@ button:focus {
     display: block;
     color: var(--navy);
     font-size: 1.05rem;
-}
-
-.collapsible-panel > summary::after {
-    content: "+";
-    display: inline-grid;
-    flex: 0 0 auto;
-    width: 34px;
-    height: 34px;
-    place-items: center;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #eaf8d9, #dff2ff);
-    color: var(--accent-dark);
-    font-size: 1.25rem;
-    font-weight: 900;
-}
-
-.collapsible-panel[open] > summary::after {
-    content: "-";
-}
-
-.collapsible-panel > summary a {
-    position: relative;
-    z-index: 1;
-    margin-left: auto;
-    border: 1px solid rgba(15, 143, 107, 0.26);
-    border-radius: 999px;
-    color: var(--accent-dark);
-    padding: 7px 10px;
-    font-size: 0.78rem;
-    font-weight: 850;
-    text-decoration: none;
 }
 
 .legacy-title,
@@ -2240,6 +2192,20 @@ dd {
     margin-bottom: 10px;
 }
 
+.countdown-timer {
+    width: max-content;
+    margin: 0 auto 8px;
+    border: 1px solid rgba(9, 38, 58, 0.14);
+    border-radius: 999px;
+    background: var(--navy);
+    color: #ffffff;
+    padding: 6px 14px;
+    font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+    font-size: 1rem;
+    font-weight: 850;
+    letter-spacing: 0.08em;
+}
+
 .countdown-number {
     margin-bottom: 6px;
     color: #cf3f36;
@@ -2500,6 +2466,107 @@ dd {
     pointer-events: none;
 }
 
+.demo-tutorial {
+    margin: 0 0 18px;
+    border: 1px solid rgba(15, 143, 107, 0.2);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 12px 30px rgba(9, 38, 58, 0.08);
+    padding: 14px 18px;
+}
+
+.demo-tutorial > summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    color: var(--navy);
+    cursor: pointer;
+    list-style: none;
+}
+
+.demo-tutorial > summary::-webkit-details-marker {
+    display: none;
+}
+
+.demo-tutorial > summary span {
+    display: grid;
+}
+
+.demo-tutorial > summary small {
+    color: var(--accent-dark);
+    font-weight: 800;
+}
+
+.tutorial-steps {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 14px 0 2px;
+    padding: 0;
+    list-style: none;
+}
+
+.tutorial-steps li {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 9px;
+    border-radius: 7px;
+    background: #f7fafc;
+    padding: 11px;
+}
+
+.tutorial-steps li > span {
+    display: grid;
+    width: 28px;
+    height: 28px;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #ffffff;
+    font-weight: 850;
+}
+
+.tutorial-steps p {
+    margin: 4px 0 7px;
+    color: var(--muted);
+    font-size: 0.84rem;
+}
+
+.tutorial-steps a {
+    color: var(--accent-dark);
+    font-size: 0.82rem;
+    font-weight: 800;
+}
+
+.back-to-top {
+    position: fixed;
+    z-index: 12;
+    right: 20px;
+    bottom: 108px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.7);
+    border-radius: 999px;
+    background: var(--navy);
+    box-shadow: 0 12px 28px rgba(9, 38, 58, 0.24);
+    color: #ffffff;
+    padding: 10px 14px;
+    font-weight: 850;
+    cursor: pointer;
+}
+
+.back-to-top:hover,
+.back-to-top:focus-visible {
+    background: var(--accent-dark);
+    transform: translateY(-2px);
+}
+
+.back-to-top[hidden] {
+    display: none;
+}
+
 .dashboard-main .hero-card {
     position: absolute;
     display: block;
@@ -2563,82 +2630,6 @@ dd {
 
 .action-panel {
     margin-bottom: 18px;
-}
-
-.system-health-card {
-    margin-bottom: 18px;
-    border: 1px solid rgba(9, 38, 58, 0.1);
-    border-radius: 8px;
-    background: rgba(255, 255, 255, 0.94);
-    box-shadow: 0 12px 30px rgba(9, 38, 58, 0.08);
-    padding: 18px;
-}
-
-.system-health-heading {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 14px;
-}
-
-.system-health-heading h2,
-.system-health-heading p {
-    margin: 0;
-}
-
-.health-badge {
-    border-radius: 999px;
-    padding: 7px 11px;
-    background: #eef2f6;
-    color: var(--navy);
-    font-size: 0.78rem;
-    font-weight: 800;
-    white-space: nowrap;
-}
-
-.health-healthy {
-    background: #dff7e9;
-    color: #08633f;
-}
-
-.health-warning {
-    background: #fff3ca;
-    color: #7a5100;
-}
-
-.health-needs-review {
-    background: #ffe3df;
-    color: #8b2f25;
-}
-
-.system-health-stats {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
-    margin: 14px 0;
-}
-
-.system-health-stats div {
-    border-radius: 7px;
-    background: #f7fafc;
-    padding: 10px;
-}
-
-.system-health-stats dt {
-    color: var(--muted);
-    font-size: 0.76rem;
-}
-
-.system-health-stats dd {
-    margin: 3px 0 0;
-    color: var(--navy);
-    font-weight: 800;
-}
-
-.system-health-warnings {
-    margin: 10px 0;
-    color: #8b2f25;
-    font-size: 0.86rem;
 }
 
 .action-grid {
@@ -3083,21 +3074,23 @@ dd {
 
     .dashboard-search div,
     .section-page-header,
-    .schedule-grid,
-    .system-health-stats {
+    .schedule-grid {
         grid-template-columns: 1fr;
+    }
+
+    .tutorial-steps {
+        grid-template-columns: 1fr;
+    }
+
+    .back-to-top {
+        right: 12px;
+        bottom: 84px;
     }
 
     .collapsible-panel > summary {
         align-items: flex-start;
         display: grid;
         grid-template-columns: 1fr auto;
-    }
-
-    .collapsible-panel > summary a {
-        grid-column: 1 / -1;
-        justify-self: start;
-        margin-left: 0;
     }
 
     .library-heading,

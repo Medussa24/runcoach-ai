@@ -1,7 +1,11 @@
 __pycache__/
 *.pyc
+.git/
+.pytest_cache/
+.pytest-tmp/
 .venv/
 runs.db
+uploads/
 export.xml
 *.zip
 apple_health_export/

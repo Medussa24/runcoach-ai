@@ -34,7 +34,7 @@ RunCoach AI behaves like a lightweight personal running assistant. It helps begi
 - Import Apple Health `export.xml` workout history safely.
 - Summarize imported CSV/XML workout data for Rico, Iggy, and Luna through the AI Data Analyst panel.
 - Use an internal, non-chatting `DataAnalystAgent` for weekly mileage, longest run, average pace, mood trends, walk frequency, and recovery frequency.
-- Use an internal, non-chatting `SentinelQA` agent for bounded route, rendering, demo-login, and defensive-test health checks.
+- Use a backend-only, non-chatting `SentinelQA` agent for bounded route, authentication, injection-defense, rendering, and demo checks.
 - Store a demo workout screenshot locally and show an honest OCR-unavailable placeholder analysis.
 - Add optional weather, route, and wearable-style data.
 - Browse a visual coaching library for hydration, rest, recovery, stretching, warmups, cooldowns, meditation, gratitude, breathing, walking, easy runs, motivation, bad day resets, sleep, consistency, and pace awareness.
@@ -135,9 +135,9 @@ The app has three beginner-friendly coach agents and two internal agents:
 - Iggy is a curious green iguana and calm beginner coach who promotes small wins, nature tasks, breathing, and gentle walks.
 - Luna Recovery is a gentle Caribbean bird focused on hydration, gratitude, stretching, mindfulness, rest, and recovery reminders.
 - Data Analyst creates structured training summaries for the coaches and has no chat endpoint.
-- Sentinel QA checks key Flask routes, Try Demo markup, coach and Previous Runs rendering, imports, chat endpoint availability, and the pytest suite. It has no chat panel and uses no paid service.
+- Sentinel QA periodically checks key Flask routes, authentication boundaries, controlled SQL-injection rejection, CSRF enforcement, Try Demo markup, all four agent surfaces, Previous Runs, imports, and chat endpoint availability. It has no chat panel, web report, or paid service.
 
-The small **System Health** card shows Sentinel's cached app status, last check time, pytest pass count, warnings, and a manual **Run Health Check** button. Checks run only when requested; there is no polling loop. The cached report is also available to logged-in users at `/sentinel/health`.
+Sentinel is completely backend-only. During app activity, the server refreshes its lightweight report at most once every 15 minutes and writes a summary to server logs; there is no dashboard card, browser endpoint, polling loop, background thread, or automatic pytest process. Full prompt-injection, XSS, user-separation, and defensive penetration tests run in an isolated temporary database through pytest during development and CI.
 
 Rico, Iggy, and Luna each have a separate Gemini system prompt and personality. Every Gemini request is assembled only from the logged-in user's recent runs, agent-specific chat history, walking checklist, mood/recovery context, memories, and imported-workout summaries. Data Analyst and Sentinel QA remain deterministic internal agents.
 

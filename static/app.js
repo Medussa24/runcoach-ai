@@ -1,8 +1,18 @@
 (function () {
     const coachBubble = document.querySelector("#coachBubble");
     const iggyBubble = document.querySelector("#iggyBubble");
+    const coachLibrary = document.querySelector("#coach-library");
+    const motivationSection = document.querySelector(".motivation-section");
     const defaultTip = "Rico Runner here. Tap a field and I will point out what to enter.";
     const defaultIggyTip = "Iggy here. Start easy, breathe steady, and enjoy the walk.";
+
+    if (
+        coachLibrary
+        && motivationSection
+        && coachLibrary.parentElement === motivationSection.parentElement
+    ) {
+        motivationSection.before(coachLibrary);
+    }
 
     function setCoachTip(message) {
         if (coachBubble) {
@@ -385,37 +395,87 @@
         }
     }
 
-    function playWhistle() {
+    function createCelebrationAudioContext() {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
 
         if (!AudioContext) {
-            return;
+            return null;
         }
 
         const audioContext = new AudioContext();
+        if (audioContext.state === "suspended") {
+            audioContext.resume().catch(() => {});
+        }
+        return audioContext;
+    }
+
+    function playStartHorn() {
+        const audioContext = createCelebrationAudioContext();
+        if (!audioContext) {
+            return;
+        }
+
         const gain = audioContext.createGain();
-        gain.gain.setValueAtTime(0.0001, audioContext.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.2, audioContext.currentTime + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.5);
+        const now = audioContext.currentTime;
+        gain.gain.setValueAtTime(0.0001, now);
+        gain.gain.exponentialRampToValueAtTime(0.16, now + 0.04);
+        gain.gain.setValueAtTime(0.16, now + 0.38);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.72);
         gain.connect(audioContext.destination);
 
-        [0, 0.12].forEach((offset) => {
+        [165, 247].forEach((frequency, index) => {
             const oscillator = audioContext.createOscillator();
-            oscillator.type = "square";
-            oscillator.frequency.setValueAtTime(1800, audioContext.currentTime + offset);
-            oscillator.frequency.exponentialRampToValueAtTime(2600, audioContext.currentTime + offset + 0.12);
+            oscillator.type = index === 0 ? "sawtooth" : "triangle";
+            oscillator.frequency.setValueAtTime(frequency, now);
+            oscillator.frequency.exponentialRampToValueAtTime(frequency * 0.82, now + 0.7);
             oscillator.connect(gain);
-            oscillator.start(audioContext.currentTime + offset);
-            oscillator.stop(audioContext.currentTime + offset + 0.18);
+            oscillator.start(now);
+            oscillator.stop(now + 0.74);
         });
+
+        window.setTimeout(() => audioContext.close().catch(() => {}), 900);
+    }
+
+    function playCoachWhistle() {
+        const audioContext = createCelebrationAudioContext();
+        if (!audioContext) {
+            return;
+        }
+
+        const now = audioContext.currentTime;
+        [0, 0.2, 0.4].forEach((offset, burstIndex) => {
+            const gain = audioContext.createGain();
+            const start = now + offset;
+            gain.gain.setValueAtTime(0.0001, start);
+            gain.gain.exponentialRampToValueAtTime(0.18, start + 0.015);
+            gain.gain.setValueAtTime(0.18, start + 0.1);
+            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.17);
+            gain.connect(audioContext.destination);
+
+            [2750, 3300].forEach((frequency, toneIndex) => {
+                const oscillator = audioContext.createOscillator();
+                oscillator.type = toneIndex === 0 ? "square" : "sine";
+                oscillator.frequency.setValueAtTime(frequency, start);
+                oscillator.frequency.linearRampToValueAtTime(
+                    frequency + (burstIndex % 2 === 0 ? 180 : -120),
+                    start + 0.15,
+                );
+                oscillator.connect(gain);
+                oscillator.start(start);
+                oscillator.stop(start + 0.18);
+            });
+        });
+
+        window.setTimeout(() => audioContext.close().catch(() => {}), 1000);
     }
 
     function launchRaceStart() {
         const overlay = document.querySelector("#raceStartOverlay");
         const phrase = document.querySelector("#racePhrase");
         const number = document.querySelector("#countdownNumber");
+        const timer = document.querySelector("#countdownTimer");
 
-        if (!overlay || !phrase || !number) {
+        if (!overlay || !phrase || !number || !timer) {
             return;
         }
 
@@ -428,22 +488,26 @@
         addCelebrationPieces(overlay, "glitter-piece", 70);
 
         const sequence = [
-            { count: "3", text: "On your mark" },
-            { count: "2", text: "Get Set" },
-            { count: "1", text: "Go!" },
+            { count: "3", timer: "00:03", text: "On your mark" },
+            { count: "2", timer: "00:02", text: "Get set" },
+            { count: "1", timer: "00:01", text: "Ready" },
         ];
+
+        playStartHorn();
 
         sequence.forEach((step, index) => {
             window.setTimeout(() => {
                 number.textContent = step.count;
+                timer.textContent = step.timer;
                 phrase.textContent = step.text;
             }, index * 1000);
         });
 
         window.setTimeout(() => {
-            playWhistle();
+            playCoachWhistle();
             phrase.textContent = "On your mark, Get Set, Go!";
             number.textContent = "Go!";
+            timer.textContent = "00:00";
             setCoachTip("Rico blew the whistle. Time to build the next healthy mile.");
         }, 3000);
 
@@ -456,6 +520,23 @@
     }
 
     const celebration = document.body.dataset.celebrate;
+    const backToTopButton = document.querySelector("#backToTop");
+
+    function updateBackToTopButton() {
+        if (backToTopButton) {
+            backToTopButton.hidden = window.scrollY < 600;
+        }
+    }
+
+    if (backToTopButton) {
+        window.addEventListener("scroll", updateBackToTopButton, { passive: true });
+        backToTopButton.addEventListener("click", () => {
+            const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+            window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+        });
+        updateBackToTopButton();
+    }
+
     if (document.body.dataset.welcome === "race-start") {
         launchRaceStart();
     }

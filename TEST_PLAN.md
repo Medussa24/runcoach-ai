@@ -120,15 +120,17 @@ Verify that the capstone foundation works and that optional context data does no
 
 | Test | Expected Result |
 | --- | --- |
-| Cached report | Dashboard load reads the last result without starting pytest |
-| Manual health check | **Run Health Check** performs one bounded check and returns to the dashboard |
+| Hidden report | Dashboard does not render Sentinel status or a manual health-check button |
+| Backend-only access | No Sentinel report route or public agent-registry entry exists |
+| Periodic cadence | Active server requests refresh the bounded report at most once every 15 minutes |
+| Safe security probes | Authentication boundaries, SQL-injection rejection, and CSRF enforcement are checked without modifying user data |
 | Core routes | `/`, `/login`, `/import`, `/health`, and `/agent` respond as expected |
 | Chat contracts | `/ask` and `/agent` retain POST support |
 | Try Demo | Login page still renders the Try Demo form |
-| Coach rendering | Rico, Iggy, and Luna names render on the dashboard |
+| Agent rendering | Rico, Iggy, Luna, and Data Analyst render on the dashboard |
 | Previous Runs | Demo workout content renders in Previous Runs |
 | Defensive suite | Full pytest suite includes user_id separation and security defenses |
-| No polling | No timer or automatic repeated test process exists |
+| No polling | No browser timer, background loop, or automatic pytest process exists |
 
 ## Manual Commands
 
@@ -173,6 +175,7 @@ python -m pytest -q tests/test_sentinel_qa.py
 - Weather and route data are manually entered for stability.
 - SQLite is local-first; production persistence should use Cloud SQL or Firestore.
 - Luna guidance is intentionally general and non-medical.
-- Sentinel's cached report is process-local; multiple Gunicorn workers can briefly show different last-check timestamps.
+- Sentinel's cached report and cadence are process-local; multiple Gunicorn workers can briefly show different last-check timestamps.
+- Cloud Run scale-to-zero pauses request-driven checks while the app is idle; the next request resumes the cadence.
 - Gemini response quality and latency depend on Google's service; provider errors deliberately fall back to local responses.
 - Automated pytest verifies request contracts and privacy boundaries, not nondeterministic LLM wording.

@@ -17,8 +17,9 @@
             </div>
             <p class="eyebrow">Rico, Iggy, and Luna say</p>
             <h2 id="racePhrase">On your mark</h2>
+            <p class="countdown-timer" id="countdownTimer" aria-label="Countdown timer">00:03</p>
             <p class="countdown-number" id="countdownNumber">3</p>
-            <p class="notes">Ready to work out!</p>
+            <p class="notes">Horn at three. Rico's coach whistle means go!</p>
         </div>
         <div class="rainbow-arc"></div>
     </div>
@@ -96,6 +97,34 @@
             </div>
         </section>
 
+        <details class="demo-tutorial" id="demo-tutorial"{% if request.args.get('welcome') %} open{% endif %}>
+            <summary>
+                <span>
+                    <span class="eyebrow">New here?</span>
+                    <strong>Quick Demo Tutorial</strong>
+                </span>
+                <small>4 simple steps</small>
+            </summary>
+            <ol class="tutorial-steps">
+                <li>
+                    <span>1</span>
+                    <div><strong>Explore the demo</strong><p>Review the sample workout and Previous Runs.</p><a href="#previous-runs">View history</a></div>
+                </li>
+                <li>
+                    <span>2</span>
+                    <div><strong>Add your movement</strong><p>Log a run or safely import CSV/XML workout history.</p><a href="#log-run">Log a run</a> · <a href="{{ url_for('import_workouts') }}">Import</a></div>
+                </li>
+                <li>
+                    <span>3</span>
+                    <div><strong>Meet your coaches</strong><p>Ask Rico about running or Iggy about a gentle walk.</p><a href="#agentChatForm">Ask Rico</a> · <a href="#iggyChatForm">Ask Iggy</a></div>
+                </li>
+                <li>
+                    <span>4</span>
+                    <div><strong>Check progress</strong><p>Explore recovery guidance, charts, and coaching tips.</p><a href="#progress-visuals">View progress</a> · <a href="#luna-recovery">Recovery</a></div>
+                </li>
+            </ol>
+        </details>
+
         <section class="dashboard-board">
             <div class="dashboard-center">
                 <section class="action-panel" aria-label="Personalized actions">
@@ -137,37 +166,6 @@
                             <small>Rico and Iggy workouts</small>
                         </a>
                     </div>
-                </section>
-
-                <section class="system-health-card" id="system-health" aria-labelledby="systemHealthTitle" data-search-item data-search-text="sentinel qa system health tests warnings status">
-                    <div class="system-health-heading">
-                        <div>
-                            <p class="eyebrow">Internal Agent · Sentinel QA</p>
-                            <h2 id="systemHealthTitle">System Health</h2>
-                        </div>
-                        <span class="health-badge health-{{ sentinel_report['status']|lower|replace(' ', '-') }}">
-                            {{ sentinel_report["status"] }}
-                        </span>
-                    </div>
-                    <dl class="system-health-stats">
-                        <div><dt>App status</dt><dd>{{ sentinel_report["app_status"] }}</dd></div>
-                        <div><dt>Last check</dt><dd>{{ sentinel_report["last_check_time"] }}</dd></div>
-                        <div><dt>Tests passed</dt><dd>{{ sentinel_report["tests_passed"] }}</dd></div>
-                        <div><dt>Warnings</dt><dd>{{ sentinel_report["warnings_count"] }}</dd></div>
-                    </dl>
-                    <p class="notes">
-                        Route checks: {{ sentinel_report["checks_passed"] }}/{{ sentinel_report["checks_total"] }}.
-                        {{ sentinel_report["test_summary"] }}
-                    </p>
-                    {% if sentinel_report["warnings"] %}
-                        <ul class="system-health-warnings">
-                            {% for warning in sentinel_report["warnings"] %}<li>{{ warning }}</li>{% endfor %}
-                        </ul>
-                    {% endif %}
-                    <form method="post" action="{{ url_for('run_sentinel_health_check') }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <button type="submit">Run Health Check</button>
-                    </form>
                 </section>
 
                 <section class="dashboard-search" aria-label="Search dashboard">
@@ -212,7 +210,6 @@
                             <span class="eyebrow">Basic Workout Schedule</span>
                             <strong>Three workouts with Rico and Iggy</strong>
                         </span>
-                        <a href="{{ url_for('dashboard_section', section_name='schedule') }}">Open page</a>
                     </summary>
                     <div class="schedule-grid">
                         <section>
@@ -251,7 +248,6 @@
                                 <span class="eyebrow">Recent Activity</span>
                                 <strong>Activity graphs</strong>
                             </span>
-                            <a href="{{ url_for('dashboard_section', section_name='activity') }}">Open page</a>
                         </summary>
                         <div class="section-title-row legacy-title">
                             <p class="eyebrow">Recent Activity</p>
@@ -299,7 +295,6 @@
                                 <span class="eyebrow">Weekly Summary</span>
                                 <strong>Key metrics</strong>
                             </span>
-                            <a href="{{ url_for('dashboard_section', section_name='summary') }}">Open page</a>
                         </summary>
                         <div class="section-title-row legacy-title">
                             <p class="eyebrow">Weekly Summary</p>
@@ -561,7 +556,6 @@
                             <span class="eyebrow">Recovery Support</span>
                             <strong>Luna Recovery</strong>
                         </span>
-                        <a href="{{ url_for('dashboard_section', section_name='recovery') }}">Open page</a>
                     </summary>
                     <div class="visual-header">
                         <div>
@@ -589,7 +583,6 @@
                             <span class="eyebrow">Training View</span>
                             <strong>Progress visuals</strong>
                         </span>
-                        <a href="{{ url_for('dashboard_section', section_name='training') }}">Open page</a>
                     </summary>
                     <div class="visual-header">
                         <div>
@@ -845,7 +838,6 @@
                             <span class="eyebrow">Coach Library</span>
                             <strong>Visual Guide flash cards</strong>
                         </span>
-                        <a href="{{ url_for('dashboard_section', section_name='visual-guide') }}">Open page</a>
                     </summary>
                     <div class="library-heading">
                         <div>
@@ -1017,6 +1009,10 @@
         <p class="privacy-strip">Your data is private and local. Only you can see your information. The AI coaches use your data to provide personalized guidance.</p>
         </section>
     </main>
+    <button class="back-to-top" id="backToTop" type="button" aria-label="Return to the top of the page" title="Return to top" hidden>
+        <span aria-hidden="true">↑</span>
+        <span>Top</span>
+    </button>
     <div class="fireworks" id="fireworks" aria-hidden="true"></div>
     <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

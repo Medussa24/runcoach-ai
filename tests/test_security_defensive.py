@@ -342,13 +342,40 @@ def test_weekly_schedule_and_upload_limit_are_available(client):
     login_as(client, user_id)
 
     dashboard = client.get("/")
-    schedule_page = client.get("/dashboard-section/schedule")
 
     assert dashboard.status_code == 200
     assert b"Three workouts with Rico and Iggy" in dashboard.data
-    assert schedule_page.status_code == 200
-    assert schedule_page.data.count(b"schedule-workout") >= 6
+    assert dashboard.data.count(b"schedule-workout") >= 6
+    assert b"Open page" not in dashboard.data
     assert runcoach.app.config["MAX_CONTENT_LENGTH"] == 10 * 1024 * 1024
+
+
+def test_demo_tutorial_and_back_to_top_controls_render(client):
+    user_id = create_user("tutorial@example.test")
+    login_as(client, user_id)
+
+    dashboard = client.get("/?welcome=1")
+    html = dashboard.get_data(as_text=True)
+
+    assert dashboard.status_code == 200
+    assert 'id="demo-tutorial" open' in html
+    assert "Quick Demo Tutorial" in html
+    assert html.count('class="tutorial-steps"') == 1
+    assert 'id="backToTop"' in html
+    assert "Return to the top of the page" in html
+
+
+def test_race_start_renders_countdown_timer_and_audio_cues(client):
+    user_id = create_user("countdown@example.test")
+    login_as(client, user_id)
+
+    dashboard = client.get("/?welcome=1")
+    html = dashboard.get_data(as_text=True)
+
+    assert dashboard.status_code == 200
+    assert 'id="countdownTimer"' in html
+    assert "00:03" in html
+    assert "Horn at three" in html
 
 
 def test_csrf_rejects_missing_token_and_accepts_rendered_token(client):

@@ -20,7 +20,6 @@ def sentinel_client(tmp_path, monkeypatch):
         TESTING=True,
         SECRET_KEY="sentinel-test-secret",
         WTF_CSRF_ENABLED=False,
-        SENTINEL_RUN_PYTEST=False,
     )
 
     if hasattr(runcoach.app, "_db_setup_done"):
@@ -50,21 +49,39 @@ def test_sentinel_lightweight_check_verifies_routes_and_rendering(sentinel_clien
     assert report["checks_passed"] == report["checks_total"]
     assert report["warnings_count"] == 0
     assert report["last_check_time"] != "Never"
+    assert all(
+        status in {"Available", "Healthy"}
+        for status in report["agent_statuses"].values()
+    )
 
 
-def test_manual_sentinel_route_updates_dashboard_card(sentinel_client):
-    client, _demo_user_id = sentinel_client
+def test_periodic_sentinel_is_hidden_and_respects_interval(sentinel_client, monkeypatch):
+    client, demo_user_id = sentinel_client
+    sentinel = runcoach.sentinel_qa
+    original_check = sentinel.run_health_check
+    calls = []
 
-    response = client.post("/sentinel/health-check", follow_redirects=True)
+    def tracked_check(*args, **kwargs):
+        calls.append(1)
+        return original_check(*args, **kwargs)
+
+    monkeypatch.setattr(sentinel, "run_health_check", tracked_check)
+    first = sentinel.run_periodic_if_due(demo_user_id, now=100)
+    second = sentinel.run_periodic_if_due(demo_user_id, now=101)
+    third = sentinel.run_periodic_if_due(demo_user_id, now=1001)
+
+    response = client.get("/")
     html = response.get_data(as_text=True)
-    report = client.get("/sentinel/health").get_json()
+    hidden_endpoint = client.get("/sentinel/health")
+    agent_registry = client.get("/agent").get_json()
 
     assert response.status_code == 200
-    assert "System Health" in html
-    assert "Sentinel QA" in html
-    assert "Run Health Check" in html
-    assert report["status"] == "Healthy"
-    assert report["checks_passed"] == report["checks_total"]
+    assert "System Health" not in html
+    assert "Run Health Check" not in html
+    assert hidden_endpoint.status_code == 404
+    assert "internal_sentinel_qa" not in agent_registry
+    assert len(calls) == 2
+    assert first["status"] == second["status"] == third["status"] == "Healthy"
 
 
 def test_sentinel_summarizes_pytest_pass_count(tmp_path, monkeypatch):

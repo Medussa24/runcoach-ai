@@ -1,7 +1,7 @@
 """Deterministic, local quality checks for RunCoach AI.
 
 Sentinel QA is an internal agent. It never chats with users or calls an LLM.
-It verifies application contracts and caches the latest report for the dashboard.
+It verifies application contracts and caches the latest private report.
 """
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -19,11 +20,20 @@ from pathlib import Path
 class SentinelQA:
     """Run bounded health checks without polling or external services."""
 
-    def __init__(self, flask_app, project_root: Path, temp_root: Path | None = None):
+    def __init__(
+        self,
+        flask_app,
+        project_root: Path,
+        temp_root: Path | None = None,
+        interval_seconds: int = 900,
+    ):
         self.flask_app = flask_app
         self.project_root = Path(project_root)
         self.temp_root = Path(temp_root or tempfile.gettempdir())
+        self.interval_seconds = interval_seconds
         self._lock = threading.Lock()
+        self._is_running = False
+        self._last_check_monotonic = None
         self._last_report = self._not_checked_report()
 
     @staticmethod
@@ -37,19 +47,50 @@ class SentinelQA:
             "checks_total": 0,
             "warnings_count": 1,
             "status": "Needs Review",
-            "warnings": ["Run the first manual health check."],
-            "test_summary": "Defensive tests have not run in this process.",
+            "warnings": ["Waiting for the first periodic health check."],
+            "test_summary": "Full defensive tests run separately from runtime checks.",
+            "agent_statuses": {
+                "Rico Runner": "Pending",
+                "Iggy Walk Agent": "Pending",
+                "Luna Recovery": "Pending",
+                "Data Analyst Agent": "Pending",
+                "Sentinel QA": "Pending",
+            },
         }
+
+    @property
+    def is_running(self):
+        """Prevent recursive checks while Sentinel uses Flask's test client."""
+        return self._is_running
 
     def get_report(self):
         """Return a copy so templates cannot mutate shared state."""
         return dict(self._last_report)
 
-    def run_health_check(self, demo_user_id: int, include_test_suite: bool = True):
+    def run_periodic_if_due(self, demo_user_id: int, now: float | None = None):
+        """Run one cheap check when the request-driven interval has elapsed."""
+        current_time = time.monotonic() if now is None else now
+        if not self.is_due(current_time):
+            return self.get_report()
+
+        report = self.run_health_check(demo_user_id, include_test_suite=False)
+        if not self.is_running:
+            self._last_check_monotonic = current_time
+        return report
+
+    def is_due(self, now: float | None = None):
+        """Return whether the lightweight health interval has elapsed."""
+        current_time = time.monotonic() if now is None else now
+        return (
+            self._last_check_monotonic is None
+            or current_time - self._last_check_monotonic >= self.interval_seconds
+        )
+
+    def run_health_check(self, demo_user_id: int, include_test_suite: bool = False):
         """Run one bounded check and cache its result.
 
-        A non-blocking lock prevents repeated clicks from starting overlapping
-        pytest processes. No background timer or polling loop is used.
+        A non-blocking lock prevents overlapping work. Periodic runtime calls
+        always skip pytest; the optional suite remains available for explicit use.
         """
         if not self._lock.acquire(blocking=False):
             report = self.get_report()
@@ -59,6 +100,7 @@ class SentinelQA:
             return report
 
         try:
+            self._is_running = True
             checks = self._run_route_checks(demo_user_id)
             test_result = self._run_pytest() if include_test_suite else {
                 "passed": 0,
@@ -82,6 +124,15 @@ class SentinelQA:
             else:
                 status = "Healthy"
 
+            check_results = {check["name"]: check["passed"] for check in checks}
+            agent_statuses = {
+                "Rico Runner": self._availability(check_results.get("Rico Runner")),
+                "Iggy Walk Agent": self._availability(check_results.get("Iggy Walk Agent")),
+                "Luna Recovery": self._availability(check_results.get("Luna Recovery")),
+                "Data Analyst Agent": self._availability(check_results.get("Data Analyst Agent")),
+                "Sentinel QA": "Healthy" if status == "Healthy" else status,
+            }
+
             report = {
                 "agent": "Sentinel QA",
                 "app_status": "Online" if health_route_ok else "Issues found",
@@ -95,11 +146,17 @@ class SentinelQA:
                 "status": status,
                 "warnings": warnings,
                 "test_summary": test_result["summary"],
+                "agent_statuses": agent_statuses,
             }
             self._last_report = report
             return self.get_report()
         finally:
+            self._is_running = False
             self._lock.release()
+
+    @staticmethod
+    def _availability(passed):
+        return "Available" if passed else "Needs Review"
 
     def _run_route_checks(self, demo_user_id: int):
         checks = []
@@ -117,6 +174,36 @@ class SentinelQA:
                 "Try Demo form is missing from the login page.",
             )
 
+            csrf_match = re.search(
+                r'name="csrf_token" value="([^"]+)"',
+                login_html,
+            )
+            injection_payload = "' OR '1'='1'; DROP TABLE users; --"
+            injection_login = client.post(
+                "/login",
+                data={
+                    "csrf_token": csrf_match.group(1) if csrf_match else "",
+                    "email": injection_payload,
+                    "password": injection_payload,
+                },
+                follow_redirects=True,
+            )
+            with client.session_transaction() as anonymous_session:
+                injection_blocked = "user_id" not in anonymous_session
+            record(
+                "SQL injection defense",
+                injection_login.status_code == 200 and injection_blocked,
+                "The controlled login injection probe was not safely rejected.",
+            )
+
+            protected_dashboard = client.get("/")
+            record(
+                "authentication boundary",
+                protected_dashboard.status_code == 302
+                and "/login" in protected_dashboard.headers.get("Location", ""),
+                "An anonymous request reached the protected dashboard.",
+            )
+
             health = client.get("/health")
             record(
                 "health route",
@@ -127,16 +214,30 @@ class SentinelQA:
             with client.session_transaction() as session:
                 session["user_id"] = demo_user_id
 
+            if self.flask_app.config.get("WTF_CSRF_ENABLED", True):
+                csrf_probe = client.post(
+                    "/agent",
+                    json={"agent": "rico", "question": "Sentinel CSRF probe"},
+                )
+                csrf_protected = csrf_probe.status_code == 400
+            else:
+                csrf_protected = True
+            record(
+                "CSRF defense",
+                csrf_protected,
+                "A state-changing request was accepted without a CSRF token.",
+            )
+
             dashboard = client.get("/")
             dashboard_html = dashboard.get_data(as_text=True)
             record("dashboard route", dashboard.status_code == 200, "/ did not render.")
+            record("Rico Runner", "Rico Runner" in dashboard_html, "Rico Runner did not render.")
+            record("Iggy Walk Agent", "Iggy" in dashboard_html, "Iggy did not render.")
+            record("Luna Recovery", "Luna Recovery" in dashboard_html, "Luna Recovery did not render.")
             record(
-                "coach rendering",
-                all(
-                    name in dashboard_html
-                    for name in ("Rico Runner", "Iggy", "Luna Recovery")
-                ),
-                "One or more coach panels did not render.",
+                "Data Analyst Agent",
+                "AI Data Analyst" in dashboard_html,
+                "Data Analyst did not render.",
             )
             record(
                 "previous runs",
