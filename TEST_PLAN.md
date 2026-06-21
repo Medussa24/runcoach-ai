@@ -37,6 +37,7 @@ Verify that the capstone foundation works and that optional context data does no
 | Hydration reminder | Open dashboard with demo data | Luna shows a water or recovery reminder |
 | Bad day reset layer | Ask Rico or Iggy about a rough day | Response suggests low-pressure movement and includes crisis escalation wording for danger |
 | Passive behavior | Inspect dashboard | Luna does not require user input or a separate chat panel |
+| Luna API response | POST `/agent` with `agent: luna` | Gemini response is returned when configured; local summary is returned otherwise |
 | Weekly schedule | Expand Weekly Schedule | Three Rico workouts and three Iggy workouts appear |
 
 ## User Identity Tests
@@ -89,6 +90,21 @@ Verify that the capstone foundation works and that optional context data does no
 | Agent context answer | Ask `How did weather affect my run?` | Agent mentions available context |
 | Safe workout with hard context | Log hot, windy, hilly, or high-heart-rate run | Agent suggests an easier next workout |
 
+## Gemini Agent Tests
+
+| Test | Expected Result |
+| --- | --- |
+| Rico Gemini adapter | Mocked provider receives Rico's prompt, profile, history, runs, moods, recovery, and import context |
+| Iggy Gemini adapter | Mocked provider receives Iggy's prompt, agent-specific history, walks, and checklist |
+| Luna Gemini adapter | Mocked provider receives Luna's prompt and recovery context while cards still render |
+| User separation | Two users have distinct runs; mocked Gemini context contains only the logged-in user's note |
+| Tool scope | Inspect/invoke registered tools | Tools expose no `user_id` parameter and return only the authenticated user's records |
+| Missing key | Remove `GEMINI_API_KEY`; existing rule-based response remains available |
+| Provider safety | Shared prompt forbids diagnosis, treatment, secrets, and cross-user disclosure |
+| Emotional support | Stress, sadness, burnout, or frustration lowers intensity and produces coach-specific gentle suggestions |
+| Data Analyst tone | Structured summary exposes neutral emotional-support signals without conversational language |
+| No network in pytest | Gemini is mocked or disabled; tests consume no API quota |
+
 ## Documentation Tests
 
 | Test | Expected Result |
@@ -99,6 +115,20 @@ Verify that the capstone foundation works and that optional context data does no
 | ARCHITECTURE explains data flow | App is easy to explain |
 | Wellness note exists | Docs explain guidance is general and not medical advice |
 | Screenshot checklist exists | Reviewer knows what to capture |
+
+## Sentinel QA Tests
+
+| Test | Expected Result |
+| --- | --- |
+| Cached report | Dashboard load reads the last result without starting pytest |
+| Manual health check | **Run Health Check** performs one bounded check and returns to the dashboard |
+| Core routes | `/`, `/login`, `/import`, `/health`, and `/agent` respond as expected |
+| Chat contracts | `/ask` and `/agent` retain POST support |
+| Try Demo | Login page still renders the Try Demo form |
+| Coach rendering | Rico, Iggy, and Luna names render on the dashboard |
+| Previous Runs | Demo workout content renders in Previous Runs |
+| Defensive suite | Full pytest suite includes user_id separation and security defenses |
+| No polling | No timer or automatic repeated test process exists |
 
 ## Manual Commands
 
@@ -130,6 +160,12 @@ Luna render check:
 python -c "from app import app; c = app.test_client(); c.post('/demo-login'); html = c.get('/').data.decode(); print('Luna Recovery' in html); print('Wellness guidance is general and not medical advice.' in html)"
 ```
 
+Sentinel unit and integration checks:
+
+```bash
+python -m pytest -q tests/test_sentinel_qa.py
+```
+
 ## Known Limitations
 
 - Apple Watch / Apple Health integration is represented with wearable-style input fields.
@@ -137,3 +173,6 @@ python -c "from app import app; c = app.test_client(); c.post('/demo-login'); ht
 - Weather and route data are manually entered for stability.
 - SQLite is local-first; production persistence should use Cloud SQL or Firestore.
 - Luna guidance is intentionally general and non-medical.
+- Sentinel's cached report is process-local; multiple Gunicorn workers can briefly show different last-check timestamps.
+- Gemini response quality and latency depend on Google's service; provider errors deliberately fall back to local responses.
+- Automated pytest verifies request contracts and privacy boundaries, not nondeterministic LLM wording.

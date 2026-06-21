@@ -14,14 +14,14 @@ Many beginner runners track workouts but do not know how to interpret pace, dist
 
 ## Solution
 
-RunCoach AI is a web-based movement coach agent app. It lets users create an account, log runs, import historical Apple Health `export.xml` or workout CSV data, calculate pace, store history, review progress, and get safe next-workout guidance. Rico Runner coaches running progress, Iggy the iguana helps new runners start with walking routines, and Luna Recovery is a passive Puerto Rican rooster support layer for hydration, stretching, rest, breathing, gratitude, and gentle recovery reminders. The app includes optional context fields for weather, route/map context, and wearable-style data such as heart rate, cadence, and steps.
+RunCoach AI is a web-based movement coach agent app. It lets users create an account, log runs, import historical Apple Health `export.xml` or workout CSV data, calculate pace, store history, review progress, and get safe next-workout guidance. Gemini 2.5 Flash gives Rico Runner, Iggy, and Luna distinct natural-language personalities when an environment API key is configured, while established local fallbacks keep the demo reliable offline.
 
 ## Project Layers
 
 1. User identity: signup, login, logout, hashed passwords, Flask sessions.
 2. Core run logging: date, distance, duration, mood, notes.
 3. Training metrics: pace, distance changes, recent-run comparison, pace trends.
-4. RunCoach agents: Rico Runner chat, Iggy beginner-walk chat, Luna Recovery reminder cards, and `/agent` endpoint.
+4. RunCoach agents: Rico Runner chat, Iggy beginner-walk chat, Luna Recovery reminder cards, Data Analyst summaries, Sentinel QA health checks, and the `/agent` endpoint.
 5. Context layer: weather, route/map notes, wearable-style data.
 6. Capstone documentation: README, architecture, test plan, deployment notes, screenshot checklist.
 
@@ -38,15 +38,22 @@ RunCoach AI is a web-based movement coach agent app. It lets users create an acc
 9. Rico summarizes progress, compares recent runs, mentions pace trends, considers context, and suggests a safe next workout.
 10. Iggy creates an easy walking routine, checklist guidance, breathing task, stretch, or nature-count prompt.
 11. Luna reads the same logged-in user's workout context and displays passive hydration, recovery, stretching, breathing, gratitude, and bad-day reset reminders.
+12. Sentinel QA runs a manual, bounded local check of routes, Try Demo, coach rendering, Previous Runs, imports, chat contracts, user separation, and defensive tests, then summarizes the result in a small System Health card.
+13. Gemini receives only bounded data selected after the logged-in `user_id` filter through approved Python tools; missing credentials or provider errors activate the local fallback.
+14. Mood signals for stress, sadness, burnout, or frustration trigger gentle, persona-specific support without medical advice.
 
 ## Architecture
 
 ```text
-Browser run form + Rico/Iggy agent chats + Luna reminder cards
+Browser run form + Rico/Iggy agent chats + Luna reminder cards + System Health card
 -> Flask routes in app.py
 -> Flask session user_id
 -> SQLite runs.db
--> RunCoachAgent, IggyWalkAgent, and LunaRecoveryAgent in runcoach_agent.py
+-> RicoRunnerAgent, IggyWalkAgent, and LunaRecoveryAgent in runcoach_agent.py
+-> user-scoped Python tools (no Text-to-SQL and no model-selected user_id)
+-> GeminiService -> Gemini 2.5 Flash when GEMINI_API_KEY is configured
+-> deterministic coach fallback when Gemini is unavailable
+-> DataAnalystAgent summaries + SentinelQA local quality checks
 -> HTML response or JSON /agent response
 ```
 
@@ -58,6 +65,7 @@ Browser run form + Rico/Iggy agent chats + Luna reminder cards
 - HTML/CSS
 - Werkzeug password hashing
 - Gunicorn
+- Google GenAI SDK / Gemini 2.5 Flash
 - Google Cloud Run
 
 ## How To Run Locally
@@ -96,7 +104,7 @@ gcloud run deploy runcoach-ai --source . --region us-central1 --allow-unauthenti
 
 ## Why It Fits Concierge Agents
 
-RunCoach AI acts like a personal training concierge. It watches the user's logged training history, interprets the data in plain language, and gives safe, simple next steps. Rico, Iggy, and Luna turn workout history into personalized movement guidance without paid APIs or complex integrations. It does not replace a coach, doctor, or therapist; it helps a beginner runner make better everyday training decisions.
+RunCoach AI acts like a personal training concierge. It watches the user's logged training history, interprets the data in plain language, and gives safe, simple next steps. Rico, Iggy, and Luna use Gemini when configured and local fallbacks otherwise. It does not replace a coach, doctor, or therapist; it helps a beginner runner make better everyday training decisions.
 
 ## User Identity And Privacy
 

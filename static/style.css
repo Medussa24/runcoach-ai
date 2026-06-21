@@ -2565,6 +2565,82 @@ dd {
     margin-bottom: 18px;
 }
 
+.system-health-card {
+    margin-bottom: 18px;
+    border: 1px solid rgba(9, 38, 58, 0.1);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: 0 12px 30px rgba(9, 38, 58, 0.08);
+    padding: 18px;
+}
+
+.system-health-heading {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+}
+
+.system-health-heading h2,
+.system-health-heading p {
+    margin: 0;
+}
+
+.health-badge {
+    border-radius: 999px;
+    padding: 7px 11px;
+    background: #eef2f6;
+    color: var(--navy);
+    font-size: 0.78rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.health-healthy {
+    background: #dff7e9;
+    color: #08633f;
+}
+
+.health-warning {
+    background: #fff3ca;
+    color: #7a5100;
+}
+
+.health-needs-review {
+    background: #ffe3df;
+    color: #8b2f25;
+}
+
+.system-health-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: 14px 0;
+}
+
+.system-health-stats div {
+    border-radius: 7px;
+    background: #f7fafc;
+    padding: 10px;
+}
+
+.system-health-stats dt {
+    color: var(--muted);
+    font-size: 0.76rem;
+}
+
+.system-health-stats dd {
+    margin: 3px 0 0;
+    color: var(--navy);
+    font-weight: 800;
+}
+
+.system-health-warnings {
+    margin: 10px 0;
+    color: #8b2f25;
+    font-size: 0.86rem;
+}
+
 .action-grid {
     display: grid;
     grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -3007,7 +3083,8 @@ dd {
 
     .dashboard-search div,
     .section-page-header,
-    .schedule-grid {
+    .schedule-grid,
+    .system-health-stats {
         grid-template-columns: 1fr;
     }
 

@@ -1,6 +1,35 @@
 from collections import Counter
 from datetime import date, timedelta
 
+from gemini_service import GeminiService
+
+
+RICO_SYSTEM_PROMPT = """
+You are Rico Runner, a Puerto Rican coquí frog running coach. You are warm,
+encouraging, disciplined, and playful, and may occasionally say "Wepa!" naturally.
+Focus on pace, consistency, sustainable next workouts, motivation, and training recovery.
+Prefer specific observations from the supplied data over generic advice. Never shame pace,
+distance, missed workouts, or mood. If mood entries suggest stress, sadness, burnout, or
+frustration, gently reduce workout intensity and encourage a small act of consistency.
+Stay supportive and never provide medical advice.
+""".strip()
+
+IGGY_SYSTEM_PROMPT = """
+You are Iggy, a curious green iguana and calm beginner walking coach. Promote small wins,
+nature, breathing, gentle movement, and repeatable walking goals. Use the supplied checklist
+and workout history without turning every walk into a run. If mood entries suggest stress,
+sadness, burnout, or frustration, offer a walk-and-talk challenge, a simple breathing exercise,
+or a safe outdoor noticing task. Stay supportive, pressure-free, and non-medical.
+""".strip()
+
+LUNA_SYSTEM_PROMPT = """
+You are Luna Recovery, a gentle Caribbean bird focused on wellness. Offer supportive,
+general reminders about hydration, gratitude, stretching, mindfulness, breathing, rest,
+and training recovery. If mood entries suggest stress, sadness, burnout, or frustration,
+lower the pressure and suggest one small hydration, gratitude, stretching, or mindfulness
+step. Keep responses short, reassuring, grounded in context, and never medical advice.
+""".strip()
+
 
 class MemoryAwareAgent:
     """Add private conversation, memory, and analyst context to a coach."""
@@ -15,6 +44,17 @@ class MemoryAwareAgent:
         """Answer with remembered facts and recent conversation context."""
         question_text = (question or "").strip()
         lower_question = question_text.lower()
+
+        llm_answer = self.agent.llm_answer(
+            question_text,
+            {
+                "user_profile": self.memories,
+                "recent_chat_history": self.conversation,
+                "imported_workout_summary": self.analyst_summary,
+            },
+        )
+        if llm_answer:
+            return llm_answer
 
         if any(word in lower_question for word in ["remember", "my name", "my goal", "previous advice"]):
             memory_answer = self._memory_answer()
@@ -78,7 +118,10 @@ class MemoryAwareAgent:
 
 
 class DataAnalystAgent:
-    """Create internal structured training summaries; this agent does not chat."""
+    """Create professional, concise summaries without emotion or chat behavior."""
+
+    name = "Data Analyst Agent"
+    personality = "Professional, concise, neutral, and insight-focused."
 
     def __init__(self, runs=None, pace_formatter=None):
         self.runs = runs or []
@@ -94,6 +137,7 @@ class DataAnalystAgent:
                 "mood_trends": {},
                 "walk_frequency": 0,
                 "recovery_frequency": 0,
+                "emotional_support_signals": {},
             }
 
         dated_runs = []
@@ -118,16 +162,42 @@ class DataAnalystAgent:
             for run in self.runs
             if "walk" in (run.get("workout_type") or "").lower()
         )
-        recovery_words = {"tired", "sore", "stressed", "low"}
+        recovery_words = {
+            "tired", "sore", "stressed", "low", "sad", "sadness",
+            "burnout", "frustrated", "frustration",
+        }
         recovery_frequency = sum(
             1
             for run in self.runs
             if (run.get("mood") or "").lower() in recovery_words
             or any(
                 word in (run.get("notes") or "").lower()
-                for word in ["hard", "tired", "sore", "rough", "recovery"]
+                for word in [
+                    "hard", "tired", "sore", "rough", "recovery", "sad",
+                    "burnout", "burned out", "frustrated", "frustration",
+                ]
             )
         )
+        emotional_words = {
+            "stress": ("stress", "stressed", "overwhelmed"),
+            "sadness": ("sad", "sadness", "low"),
+            "burnout": ("burnout", "burned out", "exhausted"),
+            "frustration": ("frustrated", "frustration", "discouraged"),
+        }
+        emotional_support_signals = {}
+        for label, words in emotional_words.items():
+            count = sum(
+                1
+                for run in self.runs
+                if any(
+                    word in " ".join(
+                        [run.get("mood") or "", run.get("notes") or ""]
+                    ).lower()
+                    for word in words
+                )
+            )
+            if count:
+                emotional_support_signals[label] = count
         return {
             "weekly_mileage": round(weekly_mileage, 2),
             "longest_run": max(run["distance"] for run in self.runs),
@@ -138,16 +208,56 @@ class DataAnalystAgent:
             "mood_trends": mood_trends,
             "walk_frequency": walk_frequency,
             "recovery_frequency": recovery_frequency,
+            "emotional_support_signals": emotional_support_signals,
         }
 
 
 class RunCoachAgent:
     """A small coaching agent that answers questions using saved run data."""
 
-    def __init__(self, runs, pace_formatter, coach_library=None):
+    def __init__(
+        self,
+        runs,
+        pace_formatter,
+        coach_library=None,
+        llm_service=None,
+        tools=None,
+    ):
         self.runs = runs
         self.format_pace = pace_formatter
         self.coach_library = coach_library or []
+        self.llm_service = llm_service or GeminiService()
+        self.tools = list(tools or [])
+
+    def llm_answer(self, question, context=None):
+        """Ask Gemini first, returning ``None`` when the local fallback is needed."""
+        llm_context = dict(context or {})
+        llm_context.update(
+            {
+                "recent_runs": self.runs[:12],
+                "mood_entries": [
+                    {"run_date": run.get("run_date"), "mood": run.get("mood")}
+                    for run in self.runs[:12]
+                ],
+                "recovery_logs": [
+                    run
+                    for run in self.runs[:12]
+                    if (run.get("mood") or "").lower()
+                    in {"tired", "sore", "stressed", "low"}
+                    or "recovery" in (run.get("notes") or "").lower()
+                ],
+                "imported_workouts": [
+                    run for run in self.runs[:12] if run.get("imported_from")
+                ],
+                "coach_library": self.coach_library[:12],
+            }
+        )
+        return self.llm_service.generate(
+            RICO_SYSTEM_PROMPT,
+            question,
+            llm_context,
+            tools=self.tools,
+        )
 
     def answer(self, question):
         """Return a helpful coaching answer for the user's question."""
@@ -184,7 +294,10 @@ class RunCoachAgent:
 
         if self._question_has(
             lower_question,
-            ["bad day", "rough day", "stressed", "sad", "overwhelmed", "walk and talk"],
+            [
+                "bad day", "rough day", "stressed", "sad", "overwhelmed",
+                "burnout", "burned out", "frustrated", "frustration", "walk and talk",
+            ],
         ):
             return self._bad_day_answer()
 
@@ -403,9 +516,15 @@ class RunCoachAgent:
         latest = self._latest_run()
         mood = latest["mood"].lower()
         notes = (latest["notes"] or "").lower()
-        difficult_words = ["hard", "tired", "sore", "difficult", "rough", "exhausted"]
+        difficult_words = [
+            "hard", "tired", "sore", "difficult", "rough", "exhausted",
+            "sad", "burnout", "burned out", "frustrated", "frustration",
+        ]
 
-        if mood in ["tired", "sore", "stressed", "low"] or any(
+        if mood in [
+            "tired", "sore", "stressed", "low", "sad", "sadness",
+            "burnout", "frustrated", "frustration",
+        ] or any(
             word in notes for word in difficult_words
         ):
             return (
@@ -420,9 +539,9 @@ class RunCoachAgent:
 
     def _bad_day_answer(self):
         return (
-            "Rico says: rough days get low-pressure goals. Try a 10-minute "
-            "walk and talk reset, breathe slowly, notice three things around "
-            "you, and let that count as today's win. If you feel unsafe or in "
+            "Wepa—rough days get lower-intensity goals. Choose an easy 10-minute "
+            "walk or relaxed recovery effort, then let that small act of consistency "
+            "count as today's win. If you feel unsafe or in "
             "immediate danger, contact emergency help or a crisis hotline right away."
         )
 
@@ -461,8 +580,14 @@ class RunCoachAgent:
     def _needs_recovery(self, run):
         mood = run["mood"].lower()
         notes = (run["notes"] or "").lower()
-        difficult_words = ["hard", "tired", "sore", "difficult", "rough", "exhausted"]
-        return mood in ["tired", "sore", "stressed", "low"] or any(
+        difficult_words = [
+            "hard", "tired", "sore", "difficult", "rough", "exhausted",
+            "sad", "burnout", "burned out", "frustrated", "frustration",
+        ]
+        return mood in [
+            "tired", "sore", "stressed", "low", "sad", "sadness",
+            "burnout", "frustrated", "frustration",
+        ] or any(
             word in notes for word in difficult_words
         )
 
@@ -581,13 +706,48 @@ def _sentence_case(text):
     return text[0].upper() + text[1:]
 
 
+class RicoRunnerAgent(RunCoachAgent):
+    """Gemini-backed Rico agent with the established local fallback behavior."""
+
+
 class IggyWalkAgent:
     """A simple walking coach for beginners who are learning to run."""
 
-    def __init__(self, runs=None, walk_tasks=None, pace_formatter=None):
+    def __init__(
+        self,
+        runs=None,
+        walk_tasks=None,
+        pace_formatter=None,
+        llm_service=None,
+        tools=None,
+    ):
         self.runs = runs or []
         self.walk_tasks = walk_tasks or []
         self.format_pace = pace_formatter
+        self.llm_service = llm_service or GeminiService()
+        self.tools = list(tools or [])
+
+    def llm_answer(self, question, context=None):
+        llm_context = dict(context or {})
+        llm_context.update(
+            {
+                "recent_runs_and_walks": self.runs[:12],
+                "walking_checklist": self.walk_tasks,
+                "mood_entries": [
+                    {"run_date": run.get("run_date"), "mood": run.get("mood")}
+                    for run in self.runs[:12]
+                ],
+                "imported_workouts": [
+                    run for run in self.runs[:12] if run.get("imported_from")
+                ],
+            }
+        )
+        return self.llm_service.generate(
+            IGGY_SYSTEM_PROMPT,
+            question,
+            llm_context,
+            tools=self.tools,
+        )
 
     def answer(self, question):
         """Return a gentle walking-focused answer."""
@@ -603,7 +763,10 @@ class IggyWalkAgent:
 
         if self._question_has(
             lower_question,
-            ["bad day", "rough day", "stressed", "sad", "overwhelmed", "walk and talk"],
+            [
+                "bad day", "rough day", "stressed", "sad", "overwhelmed",
+                "burnout", "burned out", "frustrated", "frustration", "walk and talk",
+            ],
         ):
             return self._bad_day_answer()
 
@@ -738,12 +901,42 @@ class LunaRecoveryAgent:
         pace_formatter=None,
         memories=None,
         analyst_summary=None,
+        conversation=None,
+        llm_service=None,
+        tools=None,
     ):
         self.runs = runs or []
         self.walk_tasks = walk_tasks or []
         self.format_pace = pace_formatter
         self.memories = memories or {}
         self.analyst_summary = analyst_summary or {}
+        self.conversation = list(conversation or [])[-10:]
+        self.llm_service = llm_service or GeminiService()
+        self.tools = list(tools or [])
+
+    def answer(self, question):
+        """Return Gemini recovery guidance, or a safe local summary fallback."""
+        context = {
+            "user_profile": self.memories,
+            "recent_chat_history": self.conversation,
+            "recent_runs_and_recovery_logs": self.runs[:12],
+            "walking_checklist": self.walk_tasks,
+            "mood_entries": [
+                {"run_date": run.get("run_date"), "mood": run.get("mood")}
+                for run in self.runs[:12]
+            ],
+            "imported_workout_summary": self.analyst_summary,
+            "imported_workouts": [
+                run for run in self.runs[:12] if run.get("imported_from")
+            ],
+        }
+        llm_answer = self.llm_service.generate(
+            LUNA_SYSTEM_PROMPT,
+            question,
+            context,
+            tools=self.tools,
+        )
+        return llm_answer or self.summary()
 
     def summary(self):
         latest = self._latest_run()
@@ -847,8 +1040,14 @@ class LunaRecoveryAgent:
     def _needs_recovery(self, run):
         mood = (run.get("mood") or "").lower()
         notes = (run.get("notes") or "").lower()
-        difficult_words = ["hard", "tired", "sore", "difficult", "rough", "exhausted", "bad day"]
-        return mood in {"tired", "sore", "stressed", "low"} or any(
+        difficult_words = [
+            "hard", "tired", "sore", "difficult", "rough", "exhausted",
+            "bad day", "sad", "burnout", "burned out", "frustrated", "frustration",
+        ]
+        return mood in {
+            "tired", "sore", "stressed", "low", "sad", "sadness",
+            "burnout", "frustrated", "frustration",
+        } or any(
             word in notes for word in difficult_words
         )
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-RunCoach AI is a small Flask application with a local SQLite database and three simple Python coach agents. The design favors clarity over complexity so the capstone is easy to demo and explain.
+RunCoach AI is a small Flask application with a local SQLite database, three Gemini-backed coach agents, and deterministic local fallbacks. The design keeps the capstone easy to demo even when no API key or network is available.
 
 ## Layers
 
@@ -40,11 +40,20 @@ The AI Data Analyst summarizes user-scoped manual, CSV, and XML workouts into we
 
 `runcoach_agent.py` contains:
 
-- `RunCoachAgent`: Rico Runner, the running coach.
+- `RicoRunnerAgent`: Rico Runner's Gemini personality and established local running-coach fallback (`RunCoachAgent` remains the compatibility base).
 - `IggyWalkAgent`: Iggy, the beginner walking coach.
 - `LunaRecoveryAgent`: Luna Recovery, the passive hydration, recovery, and wellness support rooster.
 - `DataAnalystAgent`: internal, non-chatting analysis for the six structured training metrics.
+- `SentinelQA`: internal, non-chatting quality agent for bounded local route, rendering, Try Demo, and pytest checks.
 - `MemoryAwareAgent`: gives Rico and Iggy recent conversation, private memory, and Data Analyst context.
+
+The coach prompts define separate personas: Rico is a warm Puerto Rican coquí focused on pace and consistency; Iggy is a curious green iguana focused on beginner walks, breathing, and nature; Luna is a gentle Caribbean wellness bird. Data Analyst remains neutral and emits structured `emotional_support_signals` so the coaches can lower pressure when saved moods or notes indicate stress, sadness, burnout, or frustration.
+
+`gemini_service.py` is the only provider boundary. It reads `GEMINI_API_KEY` from the process environment, calls `gemini-2.5-flash` through the Google GenAI SDK, applies shared privacy and medical-safety instructions, and returns `None` on missing configuration or provider failure. Returning `None` activates the existing deterministic coach response.
+
+No API key is stored in SQLite, templates, chat history, or source control. Context is assembled after `user_id` filtering and is bounded to recent rows. Workout notes and chat content are labeled untrusted so they cannot override the system privacy rules.
+
+The database integration uses tool calling, never Text-to-SQL. `build_user_scoped_agent_tools` creates approved Python closures after authentication. Each closure captures the server-selected `user_id`, exposes no `user_id` argument, clamps result limits, and calls existing parameterized access functions. Gemini cannot select tables, generate SQL, or switch account scope.
 
 Rico reads:
 
@@ -66,7 +75,9 @@ Rico can answer:
 
 Iggy reads the logged-in user's walking checklist and saved workout history when available. Iggy can answer beginner walking routine questions, checklist progress questions, breathing tasks, stretch tasks, and nature-count prompts such as trees and birds.
 
-Luna reads the logged-in user's recent run context and walking checklist. Luna does not have a full chat panel. Instead, Luna renders small dashboard reminder cards for hydration, stretching, rest, breathing, gratitude, and bad-day walk-and-talk resets. Luna stays general and non-medical.
+Luna reads the logged-in user's recent run context and walking checklist. Luna does not have a full chat panel, but `/agent` accepts `agent: luna` for a Gemini recovery response. The unchanged dashboard continues to render deterministic reminder cards for hydration, stretching, rest, breathing, gratitude, and bad-day walk-and-talk resets. Luna stays general and non-medical.
+
+Sentinel QA is implemented in `sentinel_qa.py` and intentionally remains deterministic. The dashboard reads only its in-memory cached report. A logged-in user can manually POST to `/sentinel/health-check`; Sentinel then uses Flask's test client for bounded read-only route/render checks and runs pytest in a separate local subprocess. `/sentinel/health` returns the cached report without starting work. A lock prevents overlapping runs, and there is no timer, polling loop, LLM call, or external service.
 
 ### 4. Context Layer
 
@@ -143,8 +154,10 @@ User logs a run
 -> SQLite stores run + context
 -> Homepage displays history
 -> User asks agent question
--> Flask routes the request to Rico or Iggy
+-> Flask routes the request to Rico, Iggy, or Luna
 -> Selected agent reads saved user data
+-> Gemini 2.5 Flash receives bounded, user-scoped context when configured
+-> Existing rule-based answer runs when Gemini is unavailable
 -> Agent returns coaching answer
 -> Luna cards refresh from the same user-scoped run context
 ```
@@ -173,9 +186,9 @@ Stores email, password hash, and account creation time.
 
 Chat table: `agent_messages`
 
-Stores visible chat history for Rico and Iggy by `user_id` and `agent_name`.
+Stores visible/API chat history for Rico, Iggy, and Luna by `user_id` and `agent_name`.
 
-Luna does not write chat messages. Luna uses computed dashboard context so the feature stays lightweight and privacy-friendly.
+Luna's dashboard cards do not write chat messages. Luna API requests use the same private message boundary as the other agents.
 
 Walking table: `walk_tasks`
 

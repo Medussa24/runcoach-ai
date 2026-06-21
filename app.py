@@ -18,6 +18,7 @@ from runcoach_agent import (
     IggyWalkAgent,
     LunaRecoveryAgent,
     MemoryAwareAgent,
+    RicoRunnerAgent,
     RunCoachAgent,
 )
 from runcoach_services import (
@@ -29,22 +30,25 @@ from runcoach_services import (
     motivation_videos,
     weekly_workout_schedule,
 )
+from sentinel_qa import SentinelQA
 
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "runcoach-ai-local-dev-secret")
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
+app.config["SENTINEL_RUN_PYTEST"] = True
 csrf = CSRFProtect(app)
 
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE = BASE_DIR / "runs.db"
 SCREENSHOT_UPLOAD_DIR = BASE_DIR / "uploads" / "screenshots"
+sentinel_qa = SentinelQA(app, BASE_DIR)
 DEMO_EMAIL = "demo@runcoach.test"
 DEMO_PASSWORD = "demo123"
 AGENT_RICO = "rico"
 AGENT_IGGY = "iggy"
 AGENT_LUNA = "luna"
-VALID_AGENTS = {AGENT_RICO, AGENT_IGGY}
+VALID_AGENTS = {AGENT_RICO, AGENT_IGGY, AGENT_LUNA}
 
 
 @app.errorhandler(413)
@@ -894,8 +898,8 @@ def import_workouts_from_csv(file_storage, user_id):
 
             try:
                 run_date = row["date"].strip()
-                distance = float(row["distance_miles"])
-                duration = float(row["duration_minutes"])
+                distance = round(float(row["distance_miles"]), 4)
+                duration = round(float(row["duration_minutes"]), 2)
                 avg_heart_rate = optional_int(row.get("avg_heart_rate"))
                 max_heart_rate = optional_int(row.get("max_heart_rate"))
                 calories = optional_int(row.get("calories"))
@@ -1111,27 +1115,112 @@ def build_data_analyst(user_id, runs=None):
     return DataAnalystAgent(runs or get_all_runs(user_id), format_pace)
 
 
+def build_private_agent_summary(user_id, runs):
+    """Build imported and training summaries for one logged-in user only."""
+    summary = build_analyst_summary(runs, get_analyst_uploads(user_id))
+    summary.update(build_data_analyst(user_id, runs).summary())
+    return summary
+
+
+def build_user_scoped_agent_tools(user_id, agent_name):
+    """Create safe Gemini tools with account scope captured by the server.
+
+    The model never receives a SQL tool or a user_id parameter. These closures
+    call existing parameterized data-access functions for the authenticated user.
+    """
+
+    def get_user_profile_for_logged_in_user() -> dict:
+        """Return remembered profile facts for the logged-in user."""
+        return get_user_memories(user_id, agent_name)
+
+    def get_recent_chat_for_this_agent(limit: int = 10) -> list[dict]:
+        """Return recent messages for this coach and the logged-in user."""
+        safe_limit = max(1, min(int(limit), 10))
+        return get_agent_messages(user_id, agent_name, limit=safe_limit)
+
+    def get_recent_workouts_for_logged_in_user(limit: int = 10) -> list[dict]:
+        """Return recent workouts for the logged-in user."""
+        safe_limit = max(1, min(int(limit), 12))
+        return get_all_runs(user_id)[:safe_limit]
+
+    def get_walk_context_for_logged_in_user() -> dict:
+        """Return walking workouts and checklist tasks for the logged-in user."""
+        runs = get_all_runs(user_id)
+        return {
+            "walk_workouts": [
+                run
+                for run in runs[:12]
+                if "walk" in (run.get("workout_type") or "").lower()
+            ],
+            "walking_checklist": get_walk_tasks(user_id),
+        }
+
+    def get_recovery_context_for_logged_in_user() -> dict:
+        """Return mood and recovery signals for the logged-in user."""
+        runs = get_all_runs(user_id)[:12]
+        return {
+            "mood_entries": [
+                {"run_date": run.get("run_date"), "mood": run.get("mood")}
+                for run in runs
+            ],
+            "recovery_logs": [
+                run
+                for run in runs
+                if (run.get("mood") or "").lower()
+                in {"tired", "sore", "stressed", "low"}
+                or any(
+                    word in (run.get("notes") or "").lower()
+                    for word in ("hard", "tired", "sore", "recovery")
+                )
+            ],
+        }
+
+    def get_import_summary_for_logged_in_user() -> dict:
+        """Return imported-workout summaries for the logged-in user."""
+        runs = get_all_runs(user_id)
+        return build_private_agent_summary(user_id, runs)
+
+    return [
+        get_user_profile_for_logged_in_user,
+        get_recent_chat_for_this_agent,
+        get_recent_workouts_for_logged_in_user,
+        get_walk_context_for_logged_in_user,
+        get_recovery_context_for_logged_in_user,
+        get_import_summary_for_logged_in_user,
+    ]
+
+
 def build_agent(user_id, runs=None):
     """Create Rico with private memory and recent conversation context."""
     runs = runs or get_all_runs(user_id)
-    base_agent = RunCoachAgent(runs, format_pace, get_coach_library_items())
+    base_agent = RicoRunnerAgent(
+        runs,
+        format_pace,
+        get_coach_library_items(),
+        tools=build_user_scoped_agent_tools(user_id, AGENT_RICO),
+    )
     return MemoryAwareAgent(
         base_agent,
         get_agent_messages(user_id, AGENT_RICO, limit=10),
         get_user_memories(user_id, AGENT_RICO),
-        build_data_analyst(user_id, runs).summary(),
+        build_private_agent_summary(user_id, runs),
     )
 
 
 def build_iggy_agent(user_id, runs=None):
     """Create Iggy with private memory and recent conversation context."""
     runs = runs or get_all_runs(user_id)
-    base_agent = IggyWalkAgent(runs, get_walk_tasks(user_id), format_pace)
+    base_agent = IggyWalkAgent(
+        runs,
+        get_walk_tasks(user_id),
+        format_pace,
+        tools=build_user_scoped_agent_tools(user_id, AGENT_IGGY),
+    )
     return MemoryAwareAgent(
         base_agent,
         get_agent_messages(user_id, AGENT_IGGY, limit=10),
         get_user_memories(user_id, AGENT_IGGY),
-        build_data_analyst(user_id, runs).summary(),
+        build_private_agent_summary(user_id, runs),
     )
 
 
@@ -1143,7 +1232,9 @@ def build_luna_agent(user_id, runs=None):
         get_walk_tasks(user_id),
         format_pace,
         get_user_memories(user_id, AGENT_LUNA),
-        build_data_analyst(user_id, runs).summary(),
+        build_private_agent_summary(user_id, runs),
+        get_agent_messages(user_id, AGENT_LUNA, limit=10),
+        tools=build_user_scoped_agent_tools(user_id, AGENT_LUNA),
     )
 
 
@@ -1152,6 +1243,8 @@ def build_agent_for_name(user_id, agent_name):
     agent_name = normalize_agent_name(agent_name)
     if agent_name == AGENT_IGGY:
         return build_iggy_agent(user_id)
+    if agent_name == AGENT_LUNA:
+        return build_luna_agent(user_id)
     return build_agent(user_id)
 
 
@@ -1165,6 +1258,8 @@ def respond_with_memory(user_id, agent_name, question):
 
     if agent_name == AGENT_IGGY:
         agent = build_iggy_agent(user_id, runs)
+    elif agent_name == AGENT_LUNA:
+        agent = build_luna_agent(user_id, runs)
     else:
         agent = build_agent(user_id, runs)
 
@@ -1207,6 +1302,7 @@ def dashboard_context(user, agent_question=""):
         "luna_summary": luna_agent.summary(),
         "luna_cards": luna_agent.cards(),
         "wellness_disclaimer": LunaRecoveryAgent.disclaimer,
+        "sentinel_report": sentinel_qa.get_report(),
     }
 
 
@@ -1388,6 +1484,10 @@ def agent_api():
                     "DataAnalystAgent creates structured summaries for Rico, "
                     "Iggy, and Luna. It does not chat with users."
                 ),
+                "internal_sentinel_qa": (
+                    "Sentinel QA runs bounded local route, rendering, demo, "
+                    "and defensive test checks. It does not chat with users."
+                ),
                 "example": {"question": "Give me a breathing exercise before my run."},
             }
         )
@@ -1489,6 +1589,26 @@ def logout():
 @app.route("/health")
 def health():
     return jsonify({"status": "ok"})
+
+
+@app.route("/sentinel/health")
+@login_required
+def sentinel_health():
+    """Return Sentinel QA's cached report without starting new work."""
+    return jsonify(sentinel_qa.get_report())
+
+
+@app.route("/sentinel/health-check", methods=["POST"])
+@login_required
+def run_sentinel_health_check():
+    """Run one manual, bounded Sentinel QA check."""
+    seed_demo_data()
+    demo_user = get_user_by_email(DEMO_EMAIL)
+    sentinel_qa.run_health_check(
+        demo_user["id"],
+        include_test_suite=app.config["SENTINEL_RUN_PYTEST"],
+    )
+    return redirect(url_for("index", sentinel=1) + "#system-health")
 
 
 @app.route("/coach-library")

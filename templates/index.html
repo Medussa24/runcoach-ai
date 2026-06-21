@@ -139,6 +139,37 @@
                     </div>
                 </section>
 
+                <section class="system-health-card" id="system-health" aria-labelledby="systemHealthTitle" data-search-item data-search-text="sentinel qa system health tests warnings status">
+                    <div class="system-health-heading">
+                        <div>
+                            <p class="eyebrow">Internal Agent · Sentinel QA</p>
+                            <h2 id="systemHealthTitle">System Health</h2>
+                        </div>
+                        <span class="health-badge health-{{ sentinel_report['status']|lower|replace(' ', '-') }}">
+                            {{ sentinel_report["status"] }}
+                        </span>
+                    </div>
+                    <dl class="system-health-stats">
+                        <div><dt>App status</dt><dd>{{ sentinel_report["app_status"] }}</dd></div>
+                        <div><dt>Last check</dt><dd>{{ sentinel_report["last_check_time"] }}</dd></div>
+                        <div><dt>Tests passed</dt><dd>{{ sentinel_report["tests_passed"] }}</dd></div>
+                        <div><dt>Warnings</dt><dd>{{ sentinel_report["warnings_count"] }}</dd></div>
+                    </dl>
+                    <p class="notes">
+                        Route checks: {{ sentinel_report["checks_passed"] }}/{{ sentinel_report["checks_total"] }}.
+                        {{ sentinel_report["test_summary"] }}
+                    </p>
+                    {% if sentinel_report["warnings"] %}
+                        <ul class="system-health-warnings">
+                            {% for warning in sentinel_report["warnings"] %}<li>{{ warning }}</li>{% endfor %}
+                        </ul>
+                    {% endif %}
+                    <form method="post" action="{{ url_for('run_sentinel_health_check') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit">Run Health Check</button>
+                    </form>
+                </section>
+
                 <section class="dashboard-search" aria-label="Search dashboard">
                     <label for="dashboardSearch">Search RunCoach AI</label>
                     <div>

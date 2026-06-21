@@ -22,6 +22,7 @@ PROMPT_INJECTION = (
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
     """Run each defensive test against a temporary SQLite database."""
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
     monkeypatch.setattr(runcoach, "DATABASE", tmp_path / "runcoach_test.db")
     monkeypatch.setattr(runcoach, "SCREENSHOT_UPLOAD_DIR", tmp_path / "screenshots")
     runcoach.app.config.update(
@@ -81,6 +82,15 @@ def post_xml(client, xml_text):
     return client.post(
         "/import",
         data={"health_xml": (io.BytesIO(xml_text.encode("utf-8")), "export.xml")},
+        content_type="multipart/form-data",
+        follow_redirects=True,
+    )
+
+
+def post_csv(client, csv_text):
+    return client.post(
+        "/import",
+        data={"workouts_csv": (io.BytesIO(csv_text.encode("utf-8")), "workouts.csv")},
         content_type="multipart/form-data",
         follow_redirects=True,
     )
@@ -232,6 +242,25 @@ def test_xml_workouts_missing_distance_or_duration_are_skipped(client):
     assert "Workout 2 is missing valid distance or duration values." in html_text
     assert "<dd>0</dd>" in html_text
     assert runcoach.get_all_runs(user_id) == []
+
+
+def test_csv_duplicate_detection_uses_the_same_rounded_values_as_storage(client):
+    user_id = create_user("csv-rounding@example.test")
+    login_as(client, user_id)
+    csv_text = """date,workout_type,distance_miles,duration_minutes,avg_heart_rate,max_heart_rate,calories,source
+2026-06-20,Running,3.123456,30.129,145,170,300,Precision Watch
+"""
+
+    first = post_csv(client, csv_text)
+    second = post_csv(client, csv_text)
+    runs = runcoach.get_all_runs(user_id)
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert len(runs) == 1
+    assert runs[0]["distance"] == 3.1235
+    assert runs[0]["duration"] == 30.13
+    assert "Duplicates" in second.get_data(as_text=True)
 
 
 def test_user_id_separation_blocks_other_users_dashboard_and_agent_data(client):

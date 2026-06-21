@@ -1,6 +1,6 @@
 # RunCoach AI
 
-RunCoach AI is a polished Kaggle Capstone project for the **Concierge Agents** track. It is a beginner-friendly movement coach web app that logs runs, calculates pace, stores history, and uses simple coach agents to explain progress, suggest safe next workouts, help new runners start with walking, and support hydration and recovery basics.
+RunCoach AI is a polished Kaggle Capstone project for the **Concierge Agents** track. It is a beginner-friendly movement coach web app that logs runs, calculates pace, stores history, and uses Gemini-backed coach agents to explain progress, suggest safe next workouts, help new runners start with walking, and support hydration and recovery basics.
 
 ## Project Organization
 
@@ -26,6 +26,7 @@ RunCoach AI behaves like a lightweight personal running assistant. It helps begi
 - Show previous runs and feedback.
 - Ask the RunCoach Agent questions in the web chat box.
 - Chat with Rico Runner for run coaching and Iggy the iguana for beginner walking help.
+- Use Google Gemini 2.5 Flash for natural Rico, Iggy, and Luna responses when `GEMINI_API_KEY` is configured.
 - Review Luna Recovery's passive Puerto Rican rooster support cards for hydration, stretching, rest, breathing, gratitude, and recovery reminders.
 - Use Iggy's walking checklist for warmups, walking, nature-count tasks, breathing, stretching, and reflection.
 - Use `/agent` as a JSON endpoint.
@@ -33,6 +34,7 @@ RunCoach AI behaves like a lightweight personal running assistant. It helps begi
 - Import Apple Health `export.xml` workout history safely.
 - Summarize imported CSV/XML workout data for Rico, Iggy, and Luna through the AI Data Analyst panel.
 - Use an internal, non-chatting `DataAnalystAgent` for weekly mileage, longest run, average pace, mood trends, walk frequency, and recovery frequency.
+- Use an internal, non-chatting `SentinelQA` agent for bounded route, rendering, demo-login, and defensive-test health checks.
 - Store a demo workout screenshot locally and show an honest OCR-unavailable placeholder analysis.
 - Add optional weather, route, and wearable-style data.
 - Browse a visual coaching library for hydration, rest, recovery, stretching, warmups, cooldowns, meditation, gratitude, breathing, walking, easy runs, motivation, bad day resets, sleep, consistency, and pace awareness.
@@ -127,13 +129,34 @@ Real Apple HealthKit sync is a future upgrade. This version does not use HealthK
 
 ## RunCoach Agents
 
-The app has three beginner-friendly coach agents:
+The app has three beginner-friendly coach agents and two internal agents:
 
-- Rico Runner reads saved runs, pace trends, mood, notes, coaching library data, and optional context fields.
-- Iggy reads the walking checklist and helps beginners with walk routines, stretches, breathing tasks, and nature-count prompts.
-- Luna Recovery is a passive Puerto Rican rooster support agent. Luna does not need a chat panel; she displays small dashboard cards for hydration, stretching, rest, meditation, gratitude, and gentle recovery reminders.
+- Rico Runner is a warm, playful Puerto Rican coquí coach who occasionally says “Wepa!” and focuses on discipline, pace, and consistency.
+- Iggy is a curious green iguana and calm beginner coach who promotes small wins, nature tasks, breathing, and gentle walks.
+- Luna Recovery is a gentle Caribbean bird focused on hydration, gratitude, stretching, mindfulness, rest, and recovery reminders.
+- Data Analyst creates structured training summaries for the coaches and has no chat endpoint.
+- Sentinel QA checks key Flask routes, Try Demo markup, coach and Previous Runs rendering, imports, chat endpoint availability, and the pytest suite. It has no chat panel and uses no paid service.
+
+The small **System Health** card shows Sentinel's cached app status, last check time, pytest pass count, warnings, and a manual **Run Health Check** button. Checks run only when requested; there is no polling loop. The cached report is also available to logged-in users at `/sentinel/health`.
+
+Rico, Iggy, and Luna each have a separate Gemini system prompt and personality. Every Gemini request is assembled only from the logged-in user's recent runs, agent-specific chat history, walking checklist, mood/recovery context, memories, and imported-workout summaries. Data Analyst and Sentinel QA remain deterministic internal agents.
+
+Gemini never receives a Text-to-SQL capability. Approved Python tool functions capture the authenticated `user_id` on the server and expose no account selector to the model. Those tools call the existing parameterized data-access functions for profile, agent-specific chat, recent workouts, walks, recovery context, and import summaries.
+
+### Gemini configuration
+
+Set the API key in the environment before starting Flask. Never place the key in source code or commit it to Git.
+
+```powershell
+$env:GEMINI_API_KEY="your-key"
+python app.py
+```
+
+The default model is `gemini-2.5-flash`. `GEMINI_MODEL` may override the model name. If the key or SDK is unavailable, Gemini returns no text, or the provider request fails, the existing local rule-based response runs automatically so Try Demo and offline demonstrations continue working.
 
 Wellness guidance is general and not medical advice. The app does not diagnose, treat, or provide therapy. If a user expresses crisis, self-harm, or immediate danger, the coaching response should be supportive and direct them to emergency help or a crisis hotline.
+
+Stress, sadness, burnout, and frustration signals lower the pressure: Rico reduces intensity while preserving consistency, Iggy offers walk-and-talk or breathing/nature tasks, and Luna suggests one small hydration, gratitude, stretching, or mindfulness step. Data Analyst reports these signals concisely without adopting an emotional persona.
 
 They can answer questions like:
 
@@ -151,6 +174,8 @@ RunCoach AI/
 |-- app.py
 |-- runcoach_services.py
 |-- data_analyst.py
+|-- gemini_service.py
+|-- sentinel_qa.py
 |-- runcoach_agent.py
 |-- templates/
 |   |-- auth.html
@@ -175,6 +200,7 @@ RunCoach AI/
 |-- PROJECT_PLAN.md
 |-- SUBMISSION_BRIEF.md
 |-- TIER1_CHECKLIST.md
+|-- tests/
 `-- runs.db
 ```
 
