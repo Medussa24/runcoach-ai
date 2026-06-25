@@ -748,7 +748,8 @@ def test_data_analyst_creates_internal_structured_summary(client):
     analyst = runcoach.DataAnalystAgent(runs, runcoach.format_pace)
     summary = analyst.summary()
 
-    assert not hasattr(analyst, "answer")
+    assert hasattr(analyst, "answer")
+    assert callable(analyst.answer)
     assert summary["weekly_mileage"] == 5
     assert summary["longest_run"] == 3
     assert summary["average_pace_label"] == "10:30"

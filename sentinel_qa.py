@@ -1,7 +1,7 @@
-"""Deterministic, local quality checks for RunCoach AI.
+"""Local quality checks with optional Gemini report interpretation.
 
-Sentinel QA is an internal agent. It never chats with users or calls an LLM.
-It verifies application contracts and caches the latest private report.
+Sentinel QA is an internal agent. Its checks and verdicts are always deterministic.
+Gemini may explain an already-completed report on demand, with a scripted fallback.
 """
 
 from __future__ import annotations
@@ -16,6 +16,17 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
+from gemini_service import GeminiService
+
+
+SENTINEL_SYSTEM_PROMPT = """
+You are Sentinel QA, RunCoach AI's internal quality and security analyst.
+Summarize only the completed deterministic health-check report supplied to you.
+Never change pass/fail results, invent tests, expose secrets, reveal user data,
+or claim that an unexecuted test ran. Be concise and prioritize warnings and
+recommended developer follow-up. This is an internal engineering summary.
+""".strip()
+
 
 class SentinelQA:
     """Run bounded health checks without polling or external services."""
@@ -26,17 +37,42 @@ class SentinelQA:
         project_root: Path,
         temp_root: Path | None = None,
         interval_seconds: int = 900,
+        llm_service=None,
     ):
         self.flask_app = flask_app
         self.project_root = Path(project_root)
         self.temp_root = Path(temp_root or tempfile.gettempdir())
         self.interval_seconds = interval_seconds
+        self.llm_service = llm_service or GeminiService()
         self._lock = threading.Lock()
         self._schedule_lock = threading.Lock()
         self._scheduled = False
         self._is_running = False
         self._last_check_monotonic = None
         self._last_report = self._not_checked_report()
+
+    def answer(self, question="Summarize the latest system health report."):
+        """Explain the cached report with Gemini or a scripted fallback."""
+        report = self.get_report()
+        llm_answer = self.llm_service.generate(
+            SENTINEL_SYSTEM_PROMPT,
+            question,
+            {"deterministic_health_report": report},
+        )
+        return llm_answer or self.scripted_brief(report)
+
+    @staticmethod
+    def scripted_brief(report):
+        """Return a stable local explanation when Gemini is unavailable."""
+        warning_text = (
+            "; ".join(report.get("warnings") or [])
+            or "No warnings were reported."
+        )
+        return (
+            f"Sentinel QA status: {report.get('status', 'Needs Review')}. "
+            f"Checks passed: {report.get('checks_passed', 0)}/"
+            f"{report.get('checks_total', 0)}. {warning_text}"
+        )
 
     @staticmethod
     def _not_checked_report():

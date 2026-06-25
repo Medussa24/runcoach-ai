@@ -13,6 +13,7 @@ from runcoach_agent import (
     MemoryAwareAgent,
     RicoRunnerAgent,
 )
+from sentinel_qa import SentinelQA
 
 
 class RecordingService:
@@ -101,6 +102,61 @@ def test_luna_uses_gemini_while_cards_remain_available():
     assert "Caribbean bird" in call["system_prompt"]
     assert call["context"]["user_profile"] == {"name": "Ana"}
     assert call["context"]["mood_entries"][0]["mood"] == "Tired"
+
+
+def test_data_analyst_uses_gemini_with_structured_user_summary():
+    service = RecordingService("A concise Gemini analyst brief.")
+    analyst = DataAnalystAgent(
+        [sample_run()],
+        lambda pace: "10:00",
+        llm_service=service,
+    )
+
+    assert analyst.answer() == "A concise Gemini analyst brief."
+    call = service.calls[0]
+    assert "Data Analyst Agent" in call["system_prompt"]
+    summary = call["context"]["structured_training_summary"]
+    assert summary["weekly_mileage"] == 2.0
+    assert summary["longest_run"] == 2.0
+
+
+def test_sentinel_uses_gemini_only_to_explain_deterministic_report(tmp_path):
+    service = RecordingService("A concise Gemini Sentinel brief.")
+    sentinel = SentinelQA(
+        runcoach.app,
+        tmp_path,
+        llm_service=service,
+    )
+    sentinel._last_report = {
+        **sentinel.get_report(),
+        "status": "Healthy",
+        "checks_passed": 8,
+        "checks_total": 8,
+        "warnings": [],
+        "warnings_count": 0,
+    }
+
+    assert sentinel.answer() == "A concise Gemini Sentinel brief."
+    call = service.calls[0]
+    assert "Sentinel QA" in call["system_prompt"]
+    assert call["context"]["deterministic_health_report"]["checks_passed"] == 8
+
+
+def test_internal_agents_fall_back_when_gemini_is_unavailable(tmp_path):
+    unavailable = RecordingService(None)
+    analyst = DataAnalystAgent(
+        [sample_run()],
+        lambda pace: "10:00",
+        llm_service=unavailable,
+    )
+    sentinel = SentinelQA(
+        runcoach.app,
+        tmp_path,
+        llm_service=unavailable,
+    )
+
+    assert "Training summary:" in analyst.answer()
+    assert "Sentinel QA status:" in sentinel.answer()
 
 
 def test_missing_gemini_key_keeps_rule_based_fallback(monkeypatch):

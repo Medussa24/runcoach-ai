@@ -2,7 +2,7 @@
 
 ## Overview
 
-RunCoach AI is a small Flask application with a local SQLite database, three Gemini-backed coach agents, and deterministic local fallbacks. The design keeps the capstone easy to demo even when no API key or network is available.
+RunCoach AI is a small Flask application with a local SQLite database, five Gemini-capable agents, and deterministic local fallbacks. The design keeps the capstone easy to demo even when no API key or network is available.
 
 ## Layers
 
@@ -45,8 +45,8 @@ The AI Data Analyst summarizes user-scoped manual, CSV, and XML workouts into we
 - `RicoRunnerAgent`: Rico Runner's Gemini personality and established local running-coach fallback (`RunCoachAgent` remains the compatibility base).
 - `IggyWalkAgent`: Iggy, the beginner walking coach.
 - `LunaRecoveryAgent`: Luna Recovery, the passive hydration, recovery, and wellness support rooster.
-- `DataAnalystAgent`: internal, non-chatting analysis for the six structured training metrics.
-- `SentinelQA`: backend-only security and quality agent for bounded route, authentication, injection-defense, CSRF, rendering, and Try Demo checks.
+- `DataAnalystAgent`: internal analysis for structured training metrics, with optional Gemini interpretation and a scripted analytical fallback.
+- `SentinelQA`: backend-only security and quality agent for bounded route, authentication, injection-defense, CSRF, rendering, and Try Demo checks, plus optional Gemini explanation of completed reports and a scripted fallback.
 - `MemoryAwareAgent`: gives Rico and Iggy recent conversation, private memory, and Data Analyst context.
 
 The coach prompts define separate personas: Rico is a warm Puerto Rican coquí focused on pace and consistency; Iggy is a curious green iguana focused on beginner walks, breathing, and nature; Luna is a gentle Caribbean wellness bird. Data Analyst remains neutral and emits structured `emotional_support_signals` so the coaches can lower pressure when saved moods or notes indicate stress, sadness, burnout, or frustration.
@@ -79,7 +79,13 @@ Iggy reads the logged-in user's walking checklist and saved workout history when
 
 Luna reads the logged-in user's recent run context and walking checklist. Luna does not have a full chat panel, but `/agent` accepts `agent: luna` for a Gemini recovery response. The unchanged dashboard continues to render deterministic reminder cards for hydration, stretching, rest, breathing, gratitude, and bad-day walk-and-talk resets. Luna stays general and non-medical.
 
-Sentinel QA is implemented in `sentinel_qa.py` and is deterministic and completely backend-only. During normal request activity, Flask schedules bounded route, authentication-boundary, SQL-injection rejection, CSRF, and render probes in a guarded daemon thread after safe responses when the 15-minute interval is due, then writes a status summary to server logs. Login and demo-login requests never start Sentinel, preventing nested test-client work from touching browser session or CSRF context. It has no dashboard component, agent-registry entry, or web report endpoint. Locks prevent overlapping or recursive checks. There is no browser polling, LLM call, paid service, or automatic runtime pytest process. Deeper tests use temporary databases in pytest/CI. Because Cloud Run can scale to zero, checks resume with the next request rather than waking an idle container.
+Sentinel QA is implemented in `sentinel_qa.py` and is deterministic and completely backend-only. During normal request activity, Flask schedules bounded route, authentication-boundary, SQL-injection rejection, CSRF, and render probes in a guarded daemon thread after safe responses when the 15-minute interval is due, then writes a status summary to server logs. Login and demo-login requests never start Sentinel, preventing nested test-client work from touching browser session or CSRF context. It has no dashboard component, agent-registry entry, or web report endpoint. Locks prevent overlapping or recursive checks. The periodic scheduler performs no browser polling, LLM call, paid service, or automatic runtime pytest process. Deeper tests use temporary databases in pytest/CI. Because Cloud Run can scale to zero, checks resume with the next request rather than waking an idle container.
+
+Sentinel's scheduled checks never require Gemini. Its `answer()` method may use Gemini
+to explain the cached deterministic report when explicitly invoked, but Gemini cannot
+alter test execution, status, warning counts, or pass/fail results. Data Analyst follows
+the same boundary: Python calculates the metrics first, then Gemini may interpret them;
+provider failure returns the scripted brief.
 
 ### 4. Context Layer
 

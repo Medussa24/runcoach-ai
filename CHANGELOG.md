@@ -2,6 +2,23 @@
 
 This file records user-visible features, architecture decisions, reliability fixes, and validation evidence so reviewers can understand how the project evolved.
 
+## 2026-06-25 - All-agent Gemini fallback alignment
+
+### Changed
+
+- Made Data Analyst Gemini-capable through an internal `answer()` method that sends only its precomputed structured training summary.
+- Made Sentinel QA Gemini-capable through an internal `answer()` method that sends only its completed deterministic health report.
+- Preserved deterministic Python calculations, security checks, status decisions, and scripted responses as the authoritative fallback.
+- Kept Gemini out of Sentinel's periodic scheduler so routine health checks do not create model cost or depend on provider availability.
+
+### Validation
+
+- Confirmed Rico, Iggy, Luna, Data Analyst, and Sentinel each attempt Gemini through the shared `GeminiService`.
+- Confirmed all five return scripted output when Gemini is unavailable or returns no text.
+- Python syntax check: passed.
+- JavaScript syntax check: passed.
+- Pytest: **52 passed**.
+
 ## 2026-06-25 - Agentic coaching, visual progress, and demo hardening
 
 ### Added

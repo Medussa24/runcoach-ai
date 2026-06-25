@@ -6,7 +6,7 @@ RunCoach AI is a polished Kaggle Capstone project for the **Concierge Agents** t
 
 - Cloud Run: <https://runcoach-ai-212640849356.us-central1.run.app>
 - One-click evaluator access: select **Try Demo** on the login page.
-- Current automated validation: **49 pytest tests passing**, plus Python syntax, JavaScript syntax, Flask transaction, and browser-runtime checks.
+- Current automated validation: **52 pytest tests passing**, plus Python syntax, JavaScript syntax, Flask transaction, and browser-runtime checks.
 - Detailed release history and the reasons behind each major change: [CHANGELOG.md](CHANGELOG.md).
 
 The June 25, 2026 release adds real Gemini-backed coaching, user-scoped chart data, chart-first progress views, backend-only Sentinel QA, hardened demo authentication, clickable coach advice bubbles, a richer motivation feed, the visual coach introduction, and stricter manual-run input validation.
@@ -139,15 +139,20 @@ Real Apple HealthKit sync is a future upgrade. This version does not use HealthK
 
 ## RunCoach Agents
 
-The app has three beginner-friendly coach agents and two internal agents:
+The app has three beginner-friendly coach agents and two internal agents. All five
+are Gemini-capable and have deterministic scripted fallbacks:
 
 - Rico Runner is a warm, playful Puerto Rican coquí coach who occasionally says “Wepa!” and focuses on discipline, pace, and consistency.
 - Iggy is a curious green iguana and calm beginner coach who promotes small wins, nature tasks, breathing, and gentle walks.
 - Luna Recovery is a gentle Caribbean bird focused on hydration, gratitude, stretching, mindfulness, rest, and recovery reminders.
-- Data Analyst creates structured training summaries for the coaches and has no chat endpoint.
-- Sentinel QA periodically checks key Flask routes, authentication boundaries, controlled SQL-injection rejection, CSRF enforcement, Try Demo markup, all four agent surfaces, Previous Runs, imports, and chat endpoint availability. It has no chat panel, web report, or paid service.
+- Data Analyst creates structured training summaries for the coaches and can ask Gemini to interpret those already-calculated metrics; its local analytical brief remains available if Gemini fails.
+- Sentinel QA periodically checks key Flask routes, authentication boundaries, controlled SQL-injection rejection, CSRF enforcement, Try Demo markup, all four agent surfaces, Previous Runs, imports, and chat endpoint availability. Its checks and verdicts are always deterministic. Gemini can explain a completed report on demand, with a scripted explanation if Gemini fails.
 
 Sentinel is completely backend-only. During app activity, the server schedules a lightweight check at most once every 15 minutes in one guarded daemon thread and writes a summary to server logs; there is no dashboard card, browser endpoint, polling loop, or automatic pytest process. Full prompt-injection, XSS, user-separation, and defensive penetration tests run in an isolated temporary database through pytest during development and CI.
+
+Gemini is not called by Sentinel's periodic scheduler, so health checks remain free,
+bounded, and reliable. Gemini interpretation is an optional internal capability and
+never changes the deterministic report.
 
 > **Demo access:** **Try Demo** posts a rendered CSRF token, resets only the privacy-safe `demo@runcoach.test` account, and creates an eight-hour authenticated demo session. Evaluators can then save runs, use mood fields and walking/recovery tools, import fake data, and chat with Rico or Iggy without typing credentials. Sentinel runs asynchronously only after safe authenticated/health responses so it cannot interfere with login cookies or CSRF state.
 
@@ -155,7 +160,7 @@ Sentinel is completely backend-only. During app activity, the server schedules a
 
 The dashboard uses dependency-free responsive canvas charts generated from Data Analyst's user-scoped JSON summary. Progress includes distance and pace lines, weekly mileage bars, mood scores, and weekly walking/recovery activity. Previous Runs opens with growth insights and a visual overview; complete individual run cards remain available under **View run history**. Pace charts explicitly explain that lower minutes per mile indicates improvement. Empty accounts receive friendly chart states rather than fabricated trends.
 
-Rico, Iggy, and Luna each have a separate Gemini system prompt and personality. Every Gemini request is assembled only from the logged-in user's recent runs, agent-specific chat history, walking checklist, mood/recovery context, memories, and imported-workout summaries. Data Analyst and Sentinel QA remain deterministic internal agents.
+Rico, Iggy, Luna, Data Analyst, and Sentinel QA each have a separate Gemini system prompt and scripted fallback. Every Gemini request is assembled from an intentionally bounded context. User-facing coaches receive only the logged-in user's recent runs, agent-specific chat history, walking checklist, mood/recovery context, memories, and imported-workout summaries. Data Analyst receives its precomputed structured summary, and Sentinel receives only its completed deterministic report.
 
 Gemini never receives a Text-to-SQL capability. Approved Python tool functions capture the authenticated `user_id` on the server and expose no account selector to the model. Those tools call the existing parameterized data-access functions for profile, agent-specific chat, recent workouts, walks, recovery context, and import summaries.
 

@@ -105,6 +105,8 @@ Verify that the capstone foundation works and that optional context data does no
 | Emotional support | Stress, sadness, burnout, or frustration lowers intensity and produces coach-specific gentle suggestions |
 | Data Analyst tone | Structured summary exposes neutral emotional-support signals without conversational language |
 | No network in pytest | Gemini is mocked or disabled; tests consume no API quota |
+| Data Analyst Gemini fallback | Gemini receives only the structured summary; provider failure returns the scripted analytical brief |
+| Sentinel Gemini fallback | Gemini may explain a completed report but cannot alter checks; provider failure returns the scripted Sentinel brief |
 
 ## Documentation Tests
 
@@ -201,7 +203,7 @@ node --check static/app.js
 python -m pytest -q
 ```
 
-Latest verified result on June 25, 2026: **49 passed**.
+Latest verified result on June 25, 2026: **52 passed**.
 
 ## Known Limitations
 

@@ -30,6 +30,15 @@ lower the pressure and suggest one small hydration, gratitude, stretching, or mi
 step. Keep responses short, reassuring, grounded in context, and never medical advice.
 """.strip()
 
+DATA_ANALYST_SYSTEM_PROMPT = """
+You are the internal RunCoach AI Data Analyst Agent. Be professional, concise,
+neutral, and evidence-focused. Interpret only the supplied structured, user-scoped
+training summary. Explain useful trends for Rico, Iggy, and Luna without inventing
+measurements or using emotional language. Mention that lower pace minutes per mile
+indicates improvement when pace is discussed. Do not diagnose or provide medical advice.
+Return a short analytical brief, not a conversational coaching response.
+""".strip()
+
 
 class MemoryAwareAgent:
     """Add private conversation, memory, and analyst context to a coach."""
@@ -125,10 +134,39 @@ class DataAnalystAgent:
 
     mood_scores = {"Great": 5, "Good": 4, "Okay": 3, "Tired": 2, "Bad": 1}
 
-    def __init__(self, runs=None, pace_formatter=None, walk_tasks=None):
+    def __init__(
+        self,
+        runs=None,
+        pace_formatter=None,
+        walk_tasks=None,
+        llm_service=None,
+    ):
         self.runs = runs or []
         self.format_pace = pace_formatter
         self.walk_tasks = walk_tasks or []
+        self.llm_service = llm_service or GeminiService()
+
+    def answer(self, question="Summarize the user's training trends for the coach agents."):
+        """Return a Gemini analytical brief or a deterministic local fallback."""
+        structured_summary = self.summary()
+        llm_answer = self.llm_service.generate(
+            DATA_ANALYST_SYSTEM_PROMPT,
+            question,
+            {"structured_training_summary": structured_summary},
+        )
+        return llm_answer or self.scripted_brief(structured_summary)
+
+    @staticmethod
+    def scripted_brief(summary):
+        """Create a concise local brief when Gemini is unavailable."""
+        pace_label = summary.get("average_pace_label") or "not available"
+        return (
+            f"Training summary: {summary.get('weekly_mileage', 0):.2f} miles in "
+            f"the latest training window; longest run "
+            f"{summary.get('longest_run', 0):.2f} miles; average pace "
+            f"{pace_label} per mile; {summary.get('walk_frequency', 0)} walking "
+            f"workouts; {summary.get('recovery_frequency', 0)} recovery signals."
+        )
 
     def chart_summary(self):
         """Build bounded, JSON-ready chart series from user-scoped activity."""

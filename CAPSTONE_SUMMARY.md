@@ -14,7 +14,7 @@ Many beginner runners track workouts but do not know how to interpret pace, dist
 
 ## Solution
 
-RunCoach AI is a web-based movement coach agent app. It lets users create an account, log runs, import historical Apple Health `export.xml` or workout CSV data, calculate pace, store history, review progress, and get safe next-workout guidance. Gemini 2.5 Flash gives Rico Runner, Iggy, and Luna distinct natural-language personalities when an environment API key is configured, while established local fallbacks keep the demo reliable offline.
+RunCoach AI is a web-based movement coach agent app. It lets users create an account, log runs, import historical Apple Health `export.xml` or workout CSV data, calculate pace, store history, review progress, and get safe next-workout guidance. Gemini 2.5 Flash powers all five agents when an environment API key is configured, while established scripted fallbacks keep coaching, analysis, and health reporting reliable offline.
 
 Live capstone demo: <https://runcoach-ai-212640849356.us-central1.run.app>
 
@@ -46,6 +46,7 @@ Live capstone demo: <https://runcoach-ai-212640849356.us-central1.run.app>
 15. Mood signals for stress, sadness, burnout, or frustration trigger gentle, persona-specific support without medical advice.
 16. Data Analyst produces user-scoped chart JSON for responsive distance, pace, weekly mileage, mood, walking, and recovery visuals; full run details remain available in a disclosure.
 17. Server-side validation rejects malformed or unsafe manual run values before pace calculation and persistence, returning a clear form message instead of an application error.
+18. All five agents are Gemini-capable and retain scripted fallbacks. Data Analyst gives Gemini only its calculated summary, while Sentinel gives Gemini only a completed deterministic report; neither model can change metrics or security verdicts.
 
 ## Architecture
 
@@ -91,7 +92,7 @@ gcloud config set project YOUR_PROJECT_ID
 gcloud run deploy runcoach-ai --source . --region us-central1 --allow-unauthenticated
 ```
 
-The June 25, 2026 audited release passed Python and JavaScript syntax checks, 49 pytest tests, authenticated demo transactions, live coach requests, browser asset checks, and a Cloud Run error-log review.
+The June 25, 2026 audited release passed Python and JavaScript syntax checks, 52 pytest tests, authenticated demo transactions, live coach requests, browser asset checks, and a Cloud Run error-log review.
 
 ## Screenshots To Capture
 
@@ -111,7 +112,7 @@ The June 25, 2026 audited release passed Python and JavaScript syntax checks, 49
 
 ## Why It Fits Concierge Agents
 
-RunCoach AI acts like a personal training concierge. It watches the user's logged training history, interprets the data in plain language, and gives safe, simple next steps. Rico, Iggy, and Luna use Gemini when configured and local fallbacks otherwise. It does not replace a coach, doctor, or therapist; it helps a beginner runner make better everyday training decisions.
+RunCoach AI acts like a personal training concierge. It watches the user's logged training history, interprets the data in plain language, and gives safe, simple next steps. All five agents are Gemini-capable and use local fallbacks when Gemini is unavailable. It does not replace a coach, doctor, or therapist; it helps a beginner runner make better everyday training decisions.
 
 ## User Identity And Privacy
 
