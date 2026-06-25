@@ -8,6 +8,7 @@ RunCoach AI is a polished Kaggle Capstone project for the **Concierge Agents** t
 - One-click evaluator access: select **Try Demo** on the login page.
 - Current automated validation includes Python syntax, JavaScript syntax, Flask transactions, user-isolation tests, and browser-runtime checks.
 - Detailed release history and the reasons behind each major change: [CHANGELOG.md](CHANGELOG.md).
+- Full design, fallback, privacy, route, and validation explanation for the new calendar: [PERSONAL_PLANNER_FEATURE.md](PERSONAL_PLANNER_FEATURE.md).
 
 The June 25, 2026 release adds real Gemini-backed coaching, user-scoped chart data, chart-first progress views, backend-only Sentinel QA, hardened demo authentication, clickable coach advice bubbles, a richer motivation feed, the visual coach introduction, and stricter manual-run input validation.
 
@@ -237,6 +238,7 @@ RunCoach AI/
 |-- gemini_service.py
 |-- planner_agent.py
 |-- notification_service.py
+|-- PERSONAL_PLANNER_FEATURE.md
 |-- sentinel_qa.py
 |-- runcoach_agent.py
 |-- templates/

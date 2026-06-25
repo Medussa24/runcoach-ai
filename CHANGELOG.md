@@ -27,6 +27,7 @@ This file records user-visible features, architecture decisions, reliability fix
 - Python syntax check: passed.
 - JavaScript syntax check: passed.
 - Pytest: **60 passed**.
+- Added `PERSONAL_PLANNER_FEATURE.md` as a reviewer-facing explanation of the feature's purpose, architecture, fallback behavior, privacy model, routes, validation, and limitations.
 
 ## 2026-06-25 - Intro copy cleanup
 
