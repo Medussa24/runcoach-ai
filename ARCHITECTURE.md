@@ -51,7 +51,7 @@ The AI Data Analyst summarizes user-scoped manual, CSV, and XML workouts into we
 
 The coach prompts define separate personas: Rico is a warm Puerto Rican coquí focused on pace and consistency; Iggy is a curious green iguana focused on beginner walks, breathing, and nature; Luna is a gentle Caribbean wellness bird. Data Analyst remains neutral and emits structured `emotional_support_signals` so the coaches can lower pressure when saved moods or notes indicate stress, sadness, burnout, or frustration.
 
-`gemini_service.py` is the only provider boundary. It reads `GEMINI_API_KEY` from the process environment, calls `gemini-2.5-flash` through the Google GenAI SDK, applies shared privacy and medical-safety instructions, and returns `None` on missing configuration or provider failure. Returning `None` activates the existing deterministic coach response.
+`gemini_service.py` is the only provider boundary. In Cloud Run it uses Vertex AI through Application Default Credentials when `GEMINI_USE_VERTEX=true`; local development can use `GEMINI_API_KEY`. Both paths call `gemini-2.5-flash` through the Google GenAI SDK, apply shared privacy and medical-safety instructions, and return `None` on missing configuration or provider failure. Returning `None` activates the existing deterministic coach response. Provider failures are logged by exception type without exposing prompts, user data, or secrets.
 
 No API key is stored in SQLite, templates, chat history, or source control. Context is assembled after `user_id` filtering and is bounded to recent rows. Workout notes and chat content are labeled untrusted so they cannot override the system privacy rules.
 

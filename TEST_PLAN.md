@@ -101,6 +101,7 @@ Verify that the capstone foundation works and that optional context data does no
 | User separation | Two users have distinct runs; mocked Gemini context contains only the logged-in user's note |
 | Tool scope | Inspect/invoke registered tools | Tools expose no `user_id` parameter and return only the authenticated user's records |
 | Missing key | Remove `GEMINI_API_KEY`; existing rule-based response remains available |
+| Vertex provider | Set `GEMINI_USE_VERTEX=true` and project/location variables; SDK client uses Vertex AI and Application Default Credentials |
 | Provider safety | Shared prompt forbids diagnosis, treatment, secrets, and cross-user disclosure |
 | Emotional support | Stress, sadness, burnout, or frustration lowers intensity and produces coach-specific gentle suggestions |
 | Data Analyst tone | Structured summary exposes neutral emotional-support signals without conversational language |

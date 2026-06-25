@@ -166,7 +166,7 @@ Gemini never receives a Text-to-SQL capability. Approved Python tool functions c
 
 ### Gemini configuration
 
-Set the API key in the environment before starting Flask. Never place the key in source code or commit it to Git.
+For local AI Studio development, set the API key in the environment before starting Flask. Never place the key in source code or commit it to Git.
 
 ```powershell
 $env:GEMINI_API_KEY="your-key"
@@ -174,6 +174,19 @@ python app.py
 ```
 
 The default model is `gemini-2.5-flash`. `GEMINI_MODEL` may override the model name. If the key or SDK is unavailable, Gemini returns no text, or the provider request fails, the existing local rule-based response runs automatically so Try Demo and offline demonstrations continue working.
+
+The deployed Cloud Run service uses Vertex AI with Application Default
+Credentials instead of consuming the AI Studio API key:
+
+```text
+GEMINI_USE_VERTEX=true
+GOOGLE_CLOUD_PROJECT=gen-lang-client-0491696796
+GOOGLE_CLOUD_LOCATION=global
+```
+
+The Cloud Run runtime service account has `roles/aiplatform.user`. Local
+development can continue using `GEMINI_API_KEY`; both provider paths share the
+same safety prompts and scripted fallback.
 
 Wellness guidance is general and not medical advice. The app does not diagnose, treat, or provide therapy. If a user expresses crisis, self-harm, or immediate danger, the coaching response should be supportive and direct them to emergency help or a crisis hotline.
 

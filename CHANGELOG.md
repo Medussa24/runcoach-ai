@@ -2,6 +2,20 @@
 
 This file records user-visible features, architecture decisions, reliability fixes, and validation evidence so reviewers can understand how the project evolved.
 
+## 2026-06-25 - Production Vertex AI activation
+
+### Fixed
+
+- Identified that Cloud Run had no `GEMINI_API_KEY`, causing Rico and Iggy to use scripted fallback responses.
+- Attached the key through Secret Manager, then discovered its AI Studio prepayment credits were depleted.
+- Verified the same Google Cloud project can call Gemini 2.5 Flash successfully through Vertex AI.
+- Added a Vertex AI production provider path using Cloud Run Application Default Credentials, while preserving API-key support for local development.
+- Added safe provider-failure logging that records only the exception type before falling back.
+
+### Why
+
+The previous agent orchestration was Gemini-first in code, but production lacked a usable provider configuration. Repeated answers were therefore expected scripted fallback behavior. Vertex AI now supplies the production model connection without hardcoded credentials.
+
 ## 2026-06-25 - All-agent Gemini fallback alignment
 
 ### Changed

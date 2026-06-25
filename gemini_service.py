@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 
 try:
@@ -14,6 +15,7 @@ except ImportError:  # The local fallback remains usable without the optional SD
 
 
 GEMINI_MODEL = "gemini-2.5-flash"
+LOGGER = logging.getLogger(__name__)
 SHARED_SAFETY_INSTRUCTIONS = """
 Safety and privacy rules:
 - Use only the user context included in this request.
@@ -33,11 +35,38 @@ class GeminiService:
     def __init__(self, client=None, model=None):
         self.api_key = os.environ.get("GEMINI_API_KEY")
         self.model = model or os.environ.get("GEMINI_MODEL", GEMINI_MODEL)
+        self.project = os.environ.get("GOOGLE_CLOUD_PROJECT")
+        self.location = os.environ.get("GOOGLE_CLOUD_LOCATION", "global")
+        self.use_vertex = os.environ.get("GEMINI_USE_VERTEX", "").lower() in {
+            "1",
+            "true",
+            "yes",
+        }
         self._client = client
 
     @property
     def is_configured(self):
-        return bool(self._client or (self.api_key and genai is not None))
+        return bool(
+            self._client
+            or (
+                genai is not None
+                and (
+                    (self.use_vertex and self.project)
+                    or self.api_key
+                )
+            )
+        )
+
+    def _build_client(self):
+        if self._client:
+            return self._client
+        if self.use_vertex and self.project:
+            return genai.Client(
+                vertexai=True,
+                project=self.project,
+                location=self.location,
+            )
+        return genai.Client(api_key=self.api_key)
 
     def generate(self, system_prompt, question, context, tools=None):
         """Return Gemini text or ``None`` so the caller can use its local fallback."""
@@ -45,7 +74,7 @@ class GeminiService:
             return None
 
         try:
-            client = self._client or genai.Client(api_key=self.api_key)
+            client = self._build_client()
             prompt = json.dumps(
                 {
                     "user_question": question,
@@ -67,6 +96,10 @@ class GeminiService:
             )
             text = (getattr(response, "text", None) or "").strip()
             return text or None
-        except Exception:
+        except Exception as error:
             # Provider errors must not take down login, demo, or coaching flows.
+            LOGGER.warning(
+                "Gemini provider unavailable; using scripted fallback (%s).",
+                type(error).__name__,
+            )
             return None

@@ -42,7 +42,7 @@ Live capstone demo: <https://runcoach-ai-212640849356.us-central1.run.app>
 11. Luna reads the same logged-in user's workout context and displays passive hydration, recovery, stretching, breathing, gratitude, and bad-day reset reminders.
 12. Backend-only Sentinel QA runs a lightweight, request-driven check at most once every 15 minutes during app activity. It verifies authentication boundaries, controlled SQL-injection rejection, CSRF enforcement, routes, Try Demo, agents, history, imports, and chat contracts, then reports only to server logs. Deeper penetration tests remain isolated in pytest/CI.
 13. Try Demo creates a real CSRF-protected, authenticated session for the privacy-safe demo user; Sentinel is scheduled only after safe responses so it cannot disturb authentication.
-14. Gemini receives only bounded data selected after the logged-in `user_id` filter through approved Python tools; missing credentials or provider errors activate the local fallback.
+14. Gemini receives only bounded data selected after the logged-in `user_id` filter through approved Python tools. Cloud Run uses Vertex AI with its service account, local development may use an AI Studio key, and missing credentials or provider errors activate the local fallback.
 15. Mood signals for stress, sadness, burnout, or frustration trigger gentle, persona-specific support without medical advice.
 16. Data Analyst produces user-scoped chart JSON for responsive distance, pace, weekly mileage, mood, walking, and recovery visuals; full run details remain available in a disclosure.
 17. Server-side validation rejects malformed or unsafe manual run values before pace calculation and persistence, returning a clear form message instead of an application error.
