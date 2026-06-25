@@ -2,6 +2,11 @@
 
 This file records user-visible features, architecture decisions, reliability fixes, and validation evidence so reviewers can understand how the project evolved.
 
+## 2026-06-25 - Intro copy cleanup
+
+- Removed the visible note announcing the completion chime and coquí sound.
+- Kept the sound behavior unchanged so it remains a subtle tutorial surprise rather than instructional copy.
+
 ## 2026-06-25 - Production Vertex AI activation
 
 ### Fixed

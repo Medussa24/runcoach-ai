@@ -434,8 +434,8 @@ def test_demo_intro_renders_silent_dialogue_and_completion_sounds(client):
     assert 'data-intro-agent="rico"' in html
     assert 'data-intro-agent="iggy"' in html
     assert 'data-intro-agent="luna"' in html
-    assert "gentle chime" in html
-    assert "coquí-style chirp" in html
+    assert "gentle chime" not in html
+    assert "coquí-style chirp" not in html
 
 
 def test_progress_and_previous_runs_render_growth_charts(client):
