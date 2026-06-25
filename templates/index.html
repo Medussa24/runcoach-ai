@@ -42,6 +42,7 @@
                 <a href="#luna-recovery"><img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">Luna Recovery</a>
                 <a href="#progress-visuals"><span>▧</span>Progress</a>
                 <a href="#previous-runs"><span>◷</span>History</a>
+                <a href="{{ url_for('planner') }}"><span>▦</span>My Plan</a>
                 <a href="{{ url_for('import_workouts') }}"><span>⇧</span>Import Data</a>
                 <a href="#coach-library"><span>☷</span>Coach Library</a>
                 <a href="{{ url_for('logout') }}"><span>↩</span>Log Out</a>
@@ -69,6 +70,7 @@
                 <div class="nav-actions">
                     <a href="#log-run">Log a Run</a>
                     <a href="#beginner-path">Beginner Path</a>
+                    <a href="{{ url_for('planner') }}">My Plan</a>
                     <a href="{{ url_for('import_workouts') }}">Import Workouts</a>
                     <a href="{{ url_for('logout') }}">Log Out</a>
                 </div>

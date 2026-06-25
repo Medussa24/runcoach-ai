@@ -68,7 +68,16 @@ class GeminiService:
             )
         return genai.Client(api_key=self.api_key)
 
-    def generate(self, system_prompt, question, context, tools=None):
+    def generate(
+        self,
+        system_prompt,
+        question,
+        context,
+        tools=None,
+        max_output_tokens=500,
+        response_mime_type=None,
+        thinking_budget=None,
+    ):
         """Return Gemini text or ``None`` so the caller can use its local fallback."""
         if not self.is_configured:
             return None
@@ -83,11 +92,22 @@ class GeminiService:
                 ensure_ascii=False,
                 default=str,
             )
+            config_options = {
+                "system_instruction": (
+                    f"{system_prompt}\n\n{SHARED_SAFETY_INSTRUCTIONS}"
+                ),
+                "temperature": 0.5,
+                "max_output_tokens": max_output_tokens,
+                "tools": list(tools or []),
+            }
+            if response_mime_type:
+                config_options["response_mime_type"] = response_mime_type
+            if thinking_budget is not None:
+                config_options["thinking_config"] = types.ThinkingConfig(
+                    thinking_budget=thinking_budget
+                )
             config = types.GenerateContentConfig(
-                system_instruction=f"{system_prompt}\n\n{SHARED_SAFETY_INSTRUCTIONS}",
-                temperature=0.5,
-                max_output_tokens=500,
-                tools=list(tools or []),
+                **config_options
             )
             response = client.models.generate_content(
                 model=self.model,

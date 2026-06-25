@@ -4,17 +4,19 @@ import math
 import os
 import sqlite3
 import xml.etree.ElementTree as ET
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from functools import wraps
 from pathlib import Path
 
-from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, Response, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from agent_memory import extract_memory_facts, pace_improvement_memory
 from coach_data import STARTER_COACH_ITEMS
 from data_analyst import build_analyst_summary, save_demo_screenshot
+from notification_service import PlanEmailService, build_calendar_ics
+from planner_agent import WeeklyPlannerAgent
 from runcoach_agent import (
     DataAnalystAgent,
     IggyWalkAgent,
@@ -168,6 +170,29 @@ def setup_database():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 UNIQUE(user_id, agent_name, memory_key)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS planner_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                event_type TEXT NOT NULL DEFAULT 'workout',
+                event_date TEXT NOT NULL,
+                start_time TEXT NOT NULL,
+                duration_minutes INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                coach TEXT,
+                hydration TEXT,
+                warmup TEXT,
+                main_workout TEXT,
+                cooldown TEXT,
+                details TEXT,
+                notes TEXT,
+                source TEXT NOT NULL DEFAULT 'Personal',
+                is_completed INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """
         )
@@ -358,6 +383,10 @@ def reset_demo_account():
         )
         connection.execute(
             "DELETE FROM user_memories WHERE user_id = ?",
+            (demo_user_id,),
+        )
+        connection.execute(
+            "DELETE FROM planner_events WHERE user_id = ?",
             (demo_user_id,),
         )
         insert_demo_run(connection, demo_user_id)
@@ -1232,6 +1261,149 @@ def build_private_agent_summary(user_id, runs):
     return summary
 
 
+def get_planner_events(user_id, start_date=None, end_date=None):
+    """Return calendar events for one authenticated user."""
+    query = "SELECT * FROM planner_events WHERE user_id = ?"
+    parameters = [user_id]
+    if start_date:
+        query += " AND event_date >= ?"
+        parameters.append(str(start_date))
+    if end_date:
+        query += " AND event_date <= ?"
+        parameters.append(str(end_date))
+    query += " ORDER BY event_date, start_time, id"
+
+    connection = get_database_connection()
+    try:
+        return [
+            dict(row)
+            for row in connection.execute(query, parameters).fetchall()
+        ]
+    finally:
+        connection.close()
+
+
+def save_generated_plan(user_id, events, week_start, source):
+    """Replace generated workouts for one user's selected week."""
+    week_end = week_start + timedelta(days=6)
+    connection = get_database_connection()
+    try:
+        connection.execute(
+            """
+            DELETE FROM planner_events
+            WHERE user_id = ? AND event_type = 'workout'
+              AND source IN ('Gemini', 'Scripted fallback')
+              AND event_date BETWEEN ? AND ?
+            """,
+            (user_id, week_start.isoformat(), week_end.isoformat()),
+        )
+        for event in events:
+            connection.execute(
+                """
+                INSERT INTO planner_events (
+                    user_id, event_type, event_date, start_time,
+                    duration_minutes, title, coach, hydration, warmup,
+                    main_workout, cooldown, notes, source
+                )
+                VALUES (?, 'workout', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    user_id,
+                    event["date"],
+                    event["start_time"],
+                    event["duration_minutes"],
+                    event["title"],
+                    event["coach"],
+                    event["hydration"],
+                    event["warmup"],
+                    event["main_workout"],
+                    event["cooldown"],
+                    event.get("notes", ""),
+                    source,
+                ),
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def add_personal_planner_event(user_id, form):
+    """Validate and store one personal calendar event."""
+    title = (form.get("title") or "").strip()
+    details = (form.get("details") or "").strip()
+    try:
+        event_date = date.fromisoformat(form.get("event_date", ""))
+        start_time = datetime.strptime(
+            form.get("start_time", ""),
+            "%H:%M",
+        ).strftime("%H:%M")
+        duration = int(form.get("duration_minutes", ""))
+    except (TypeError, ValueError) as error:
+        raise ValueError("Choose a valid date, time, and duration.") from error
+    if not title:
+        raise ValueError("Add a title for the event.")
+    if not 5 <= duration <= 720:
+        raise ValueError("Event duration must be between 5 minutes and 12 hours.")
+
+    connection = get_database_connection()
+    try:
+        connection.execute(
+            """
+            INSERT INTO planner_events (
+                user_id, event_type, event_date, start_time,
+                duration_minutes, title, details, source
+            )
+            VALUES (?, 'personal', ?, ?, ?, ?, ?, 'Personal')
+            """,
+            (
+                user_id,
+                event_date.isoformat(),
+                start_time,
+                duration,
+                title[:120],
+                details[:1000],
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+def planner_calendar_days(user_id, week_start):
+    """Build seven display-ready calendar columns."""
+    events = get_planner_events(
+        user_id,
+        week_start,
+        week_start + timedelta(days=6),
+    )
+    by_date = {}
+    for event in events:
+        by_date.setdefault(event["event_date"], []).append(event)
+    today = date.today()
+    return [
+        {
+            "date": day.isoformat(),
+            "weekday": day.strftime("%A"),
+            "day_number": day.day,
+            "month": day.strftime("%b"),
+            "is_today": day == today,
+            "events": by_date.get(day.isoformat(), []),
+        }
+        for day in (week_start + timedelta(days=offset) for offset in range(7))
+    ]
+
+
+def parse_planner_week_start(value=None):
+    """Use the requested date or the current week's Monday."""
+    if value:
+        try:
+            return date.fromisoformat(value)
+        except ValueError:
+            pass
+    today = date.today()
+    return today - timedelta(days=today.weekday())
+
+
 def build_user_scoped_agent_tools(user_id, agent_name):
     """Create safe Gemini tools with account scope captured by the server.
 
@@ -1290,6 +1462,15 @@ def build_user_scoped_agent_tools(user_id, agent_name):
         runs = get_all_runs(user_id)
         return build_private_agent_summary(user_id, runs)
 
+    def get_upcoming_plan_for_logged_in_user() -> list[dict]:
+        """Return upcoming calendar events for the logged-in user."""
+        today = date.today()
+        return get_planner_events(
+            user_id,
+            today,
+            today + timedelta(days=14),
+        )[:20]
+
     return [
         get_user_profile_for_logged_in_user,
         get_recent_chat_for_this_agent,
@@ -1297,6 +1478,7 @@ def build_user_scoped_agent_tools(user_id, agent_name):
         get_walk_context_for_logged_in_user,
         get_recovery_context_for_logged_in_user,
         get_import_summary_for_logged_in_user,
+        get_upcoming_plan_for_logged_in_user,
     ]
 
 
@@ -1586,6 +1768,121 @@ def agent_api():
     answer = respond_with_memory(user_id, agent_name, question)
 
     return jsonify({"answer": answer, "agent": agent_name})
+
+
+@app.route("/planner")
+@login_required
+def planner():
+    user = current_user()
+    week_start = parse_planner_week_start(request.args.get("week_start"))
+    week_end = week_start + timedelta(days=6)
+    return render_template(
+        "planner.html",
+        current_user=user,
+        week_start=week_start.isoformat(),
+        week_label=(
+            f"{week_start.strftime('%b %d')} – "
+            f"{week_end.strftime('%b %d, %Y')}"
+        ),
+        previous_week=(week_start - timedelta(days=7)).isoformat(),
+        next_week=(week_start + timedelta(days=7)).isoformat(),
+        calendar_days=planner_calendar_days(user["id"], week_start),
+    )
+
+
+@app.route("/planner/generate", methods=["POST"])
+@login_required
+def generate_weekly_plan():
+    user_id = current_user_id()
+    week_start = parse_planner_week_start(request.form.get("week_start"))
+    preferred_time = request.form.get("preferred_time", "07:00")
+    goal = request.form.get("goal", "")
+    summary = build_private_agent_summary(user_id, get_all_runs(user_id))
+    events, source = WeeklyPlannerAgent().generate(
+        week_start,
+        preferred_time,
+        goal,
+        summary,
+    )
+    save_generated_plan(user_id, events, week_start, source)
+    flash(
+        f"{len(events)} workouts added using {source}.",
+        "success",
+    )
+    return redirect(url_for("planner", week_start=week_start.isoformat()))
+
+
+@app.route("/planner/event", methods=["POST"])
+@login_required
+def add_planner_event():
+    event_day = parse_planner_week_start(request.form.get("event_date"))
+    week_start = event_day - timedelta(days=event_day.weekday())
+    try:
+        add_personal_planner_event(current_user_id(), request.form)
+    except ValueError as error:
+        flash(str(error), "error")
+    else:
+        flash("Personal event added.", "success")
+    return redirect(url_for("planner", week_start=week_start.isoformat()))
+
+
+@app.route("/planner/event/<int:event_id>/toggle", methods=["POST"])
+@login_required
+def toggle_planner_event(event_id):
+    connection = get_database_connection()
+    try:
+        connection.execute(
+            """
+            UPDATE planner_events
+            SET is_completed = CASE is_completed WHEN 1 THEN 0 ELSE 1 END
+            WHERE id = ? AND user_id = ?
+            """,
+            (event_id, current_user_id()),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    return redirect(request.referrer or url_for("planner"))
+
+
+@app.route("/planner/calendar.ics")
+@login_required
+def planner_calendar():
+    start = parse_planner_week_start(request.args.get("week_start"))
+    events = get_planner_events(
+        current_user_id(),
+        start,
+        start + timedelta(days=6),
+    )
+    return Response(
+        build_calendar_ics(events),
+        mimetype="text/calendar",
+        headers={
+            "Content-Disposition": "attachment; filename=runcoach-week.ics"
+        },
+    )
+
+
+@app.route("/planner/email", methods=["POST"])
+@login_required
+def email_weekly_plan():
+    user = current_user()
+    start = parse_planner_week_start(request.form.get("week_start"))
+    events = get_planner_events(
+        user["id"],
+        start,
+        start + timedelta(days=6),
+    )
+    if not events:
+        flash("Add or generate events before emailing your week.", "error")
+        return redirect(url_for("planner", week_start=start.isoformat()))
+    sent, message = PlanEmailService().send_week(
+        user["email"],
+        events,
+        build_calendar_ics(events),
+    )
+    flash(message, "success" if sent else "warning")
+    return redirect(url_for("planner", week_start=start.isoformat()))
 
 
 @app.route("/walk-task/<int:task_id>/toggle", methods=["POST"])

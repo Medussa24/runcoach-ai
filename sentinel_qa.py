@@ -313,6 +313,14 @@ class SentinelQA:
                 "/import did not render.",
             )
 
+            planner = client.get("/planner")
+            record(
+                "personal planner",
+                planner.status_code == 200
+                and "My Plan" in planner.get_data(as_text=True),
+                "/planner did not render the personal calendar.",
+            )
+
             agent = client.get("/agent")
             agent_routes = {
                 rule.rule: rule.methods for rule in self.flask_app.url_map.iter_rules()

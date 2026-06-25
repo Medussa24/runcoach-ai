@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>My Plan · RunCoach AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='planner-1') }}">
+</head>
+<body class="planner-page">
+    <main class="planner-shell">
+        <header class="planner-header">
+            <div>
+                <p class="eyebrow">Personal calendar</p>
+                <h1>My Plan</h1>
+                <p>Weekly workouts and personal events, organized by date and time.</p>
+            </div>
+            <nav class="planner-actions" aria-label="Planner actions">
+                <a href="{{ url_for('index') }}">Dashboard</a>
+                <a href="{{ url_for('planner_calendar', week_start=week_start) }}">Download calendar</a>
+            </nav>
+        </header>
+
+        <nav class="planner-week-nav" aria-label="Calendar week navigation">
+            <a href="{{ url_for('planner', week_start=previous_week) }}">← Previous week</a>
+            <strong>{{ week_label }}</strong>
+            <a href="{{ url_for('planner', week_start=next_week) }}">Next week →</a>
+        </nav>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% for category, message in messages %}
+                <p class="planner-notice planner-notice-{{ category }}" role="status">{{ message }}</p>
+            {% endfor %}
+        {% endwith %}
+
+        <section class="planner-controls">
+            <form class="planner-form planner-generate" method="post" action="{{ url_for('generate_weekly_plan') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div>
+                    <p class="eyebrow">Agent planner</p>
+                    <h2>Generate my week</h2>
+                    <p>Gemini uses your private training summary. A complete scripted plan is used if Gemini is unavailable.</p>
+                </div>
+                <label>Week starts
+                    <input type="date" name="week_start" value="{{ week_start }}" required>
+                </label>
+                <label>Preferred workout time
+                    <input type="time" name="preferred_time" value="07:00" required>
+                </label>
+                <label class="planner-wide">Goal for this week
+                    <input type="text" name="goal" maxlength="300" placeholder="Build consistency, prepare for a 5K, recover gently">
+                </label>
+                <button type="submit">Generate Weekly Workouts</button>
+            </form>
+
+            <form class="planner-form" method="post" action="{{ url_for('add_planner_event') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div>
+                    <p class="eyebrow">Personal event</p>
+                    <h2>Add an event</h2>
+                </div>
+                <label>Title
+                    <input type="text" name="title" maxlength="120" required>
+                </label>
+                <label>Date
+                    <input type="date" name="event_date" value="{{ week_start }}" required>
+                </label>
+                <label>Time
+                    <input type="time" name="start_time" value="09:00" required>
+                </label>
+                <label>Duration
+                    <input type="number" name="duration_minutes" min="5" max="720" value="30" required>
+                </label>
+                <label class="planner-wide">Details
+                    <textarea name="details" rows="2" maxlength="1000" placeholder="Appointment, race date, group walk, or reminder"></textarea>
+                </label>
+                <button type="submit">Add to Calendar</button>
+            </form>
+        </section>
+
+        <section class="planner-week" aria-label="Seven day personal calendar">
+            {% for day in calendar_days %}
+                <article class="planner-day {% if day['is_today'] %}is-today{% endif %}">
+                    <header>
+                        <span>{{ day["weekday"] }}</span>
+                        <strong>{{ day["day_number"] }}</strong>
+                        <small>{{ day["month"] }}</small>
+                    </header>
+                    <div class="planner-day-events">
+                        {% for event in day["events"] %}
+                            <article class="planner-event coach-{{ (event['coach'] or 'personal')|lower }} {% if event['is_completed'] %}is-complete{% endif %}">
+                                <div class="planner-event-heading">
+                                    <div>
+                                        <time>{{ event["start_time"] }}</time>
+                                        <span>{{ event["duration_minutes"] }} min</span>
+                                    </div>
+                                    <span class="planner-source">{{ event["coach"] or "Personal" }}</span>
+                                </div>
+                                <h3>{{ event["title"] }}</h3>
+                                {% if event["event_type"] == "workout" %}
+                                    <ol class="workout-outline">
+                                        <li><strong>Hydrate</strong><span>{{ event["hydration"] }}</span></li>
+                                        <li><strong>Warm up</strong><span>{{ event["warmup"] }}</span></li>
+                                        <li><strong>Workout</strong><span>{{ event["main_workout"] }}</span></li>
+                                        <li><strong>Cool down</strong><span>{{ event["cooldown"] }}</span></li>
+                                    </ol>
+                                {% elif event["details"] %}
+                                    <p>{{ event["details"] }}</p>
+                                {% endif %}
+                                {% if event["notes"] %}<p class="notes">{{ event["notes"] }}</p>{% endif %}
+                                <form method="post" action="{{ url_for('toggle_planner_event', event_id=event['id']) }}">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="planner-complete">
+                                        {% if event["is_completed"] %}Completed ✓{% else %}Mark complete{% endif %}
+                                    </button>
+                                </form>
+                            </article>
+                        {% else %}
+                            <p class="planner-empty">Open day</p>
+                        {% endfor %}
+                    </div>
+                </article>
+            {% endfor %}
+        </section>
+
+        <section class="planner-email">
+            <div>
+                <p class="eyebrow">Email and calendar</p>
+                <h2>Take the plan with you</h2>
+                <p>Email the visible week to {{ current_user["email"] }} with a calendar attachment, or download the `.ics` file directly.</p>
+            </div>
+            <form method="post" action="{{ url_for('email_weekly_plan') }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="week_start" value="{{ week_start }}">
+                <button type="submit">Email My Week</button>
+            </form>
+            <a class="button-secondary" href="{{ url_for('planner_calendar', week_start=week_start) }}">Download .ics</a>
+        </section>
+
+        <p class="planner-safety">Wellness guidance is general and not medical advice. Adjust or skip a workout when movement does not feel safe.</p>
+    </main>
+</body>
+</html>

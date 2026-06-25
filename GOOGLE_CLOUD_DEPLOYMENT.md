@@ -8,6 +8,9 @@ This app is prepared for Google Cloud Run. Cloud Run is a good first deployment 
 - `/ask`: lets the web page ask the agent.
 - `/agent`: JSON API endpoint for agent questions.
 - `/health`: simple health check endpoint.
+- `/planner`: authenticated personal calendar, agent-generated weekly workouts, event completion, and `.ics` export.
+- `planner_agent.py`: Gemini-first structured weekly planning with a deterministic fallback.
+- `notification_service.py`: optional SMTP weekly-plan delivery and calendar generation.
 - `Procfile`: tells Cloud Run how to start the app with Gunicorn.
 - `.gcloudignore`: keeps local-only files, including `runs.db`, out of deployment.
 
@@ -16,6 +19,41 @@ This app is prepared for Google Cloud Run. Cloud Run is a good first deployment 
 The current app uses local SQLite. That is fine for local demos, but Cloud Run instances are temporary. For a real public app, move saved runs to a managed database such as Cloud SQL or Firestore.
 
 For a course/demo submission, this version is still useful because the app starts, seeds one demo run, logs runs during the running container session, and demonstrates the agent.
+
+The same limitation applies to personal calendar events: SQLite planner rows are
+instance-local in Cloud Run. Move `runs`, `planner_events`, conversations, and
+memories to Cloud SQL or Firestore for durable production use.
+
+## Production Gemini Configuration
+
+The deployed service uses Vertex AI with the Cloud Run service account:
+
+```bash
+gcloud run services update runcoach-ai \
+  --region us-central1 \
+  --update-env-vars \
+GEMINI_USE_VERTEX=true,GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID,GOOGLE_CLOUD_LOCATION=global,GEMINI_MODEL=gemini-2.5-flash
+```
+
+Grant the runtime service account `roles/aiplatform.user`. Local development may
+use `GEMINI_API_KEY` instead.
+
+## Optional Planner Email
+
+The calendar and `.ics` downloads require no email provider. To enable
+user-triggered email delivery, store SMTP credentials in Secret Manager and map
+these environment variables to Cloud Run:
+
+```text
+SMTP_HOST
+SMTP_PORT
+SMTP_USERNAME
+SMTP_PASSWORD
+SMTP_FROM_EMAIL
+SMTP_USE_TLS
+```
+
+Do not place SMTP passwords in source code or plain deployment commands.
 
 ## Deploy from Google Cloud Shell
 
@@ -52,3 +90,7 @@ curl -X POST YOUR_SERVICE_URL/agent \
 - The homepage shows RunCoach AI.
 - The RunCoach Agent panel answers a training question.
 - `/agent` accepts a JSON question and returns an answer.
+- `/planner` renders after Try Demo.
+- Generate Weekly Workouts creates three or four dated workout cards.
+- Every generated workout includes hydration, warm-up, main workout, and cool-down.
+- Calendar download returns a `.ics` file.

@@ -6,7 +6,7 @@ RunCoach AI is a polished Kaggle Capstone project for the **Concierge Agents** t
 
 - Cloud Run: <https://runcoach-ai-212640849356.us-central1.run.app>
 - One-click evaluator access: select **Try Demo** on the login page.
-- Current automated validation: **52 pytest tests passing**, plus Python syntax, JavaScript syntax, Flask transaction, and browser-runtime checks.
+- Current automated validation includes Python syntax, JavaScript syntax, Flask transactions, user-isolation tests, and browser-runtime checks.
 - Detailed release history and the reasons behind each major change: [CHANGELOG.md](CHANGELOG.md).
 
 The June 25, 2026 release adds real Gemini-backed coaching, user-scoped chart data, chart-first progress views, backend-only Sentinel QA, hardened demo authentication, clickable coach advice bubbles, a richer motivation feed, the visual coach introduction, and stricter manual-run input validation.
@@ -49,6 +49,8 @@ RunCoach AI behaves like a lightweight personal running assistant. It helps begi
 - Add optional weather, route, and wearable-style data.
 - Browse a visual coaching library for hydration, rest, recovery, stretching, warmups, cooldowns, meditation, gratitude, breathing, walking, easy runs, motivation, bad day resets, sleep, consistency, and pace awareness.
 - Open a collapsible weekly schedule with three basic Rico run workouts and three Iggy walking workouts.
+- Open a private **My Plan** calendar with seven-day navigation, dated workouts, personal events, completion tracking, email delivery, and `.ics` calendar export.
+- Generate organized weekly workouts with Gemini through `WeeklyPlannerAgent`, including date, time, duration, hydration, warm-up, main workout, and cool-down. A complete scripted week is used automatically when Gemini is unavailable or returns invalid structure.
 
 ## User Identity
 
@@ -139,7 +141,7 @@ Real Apple HealthKit sync is a future upgrade. This version does not use HealthK
 
 ## RunCoach Agents
 
-The app has three beginner-friendly coach agents and two internal agents. All five
+The app has three beginner-friendly coach agents and three internal/planning agents. All six
 are Gemini-capable and have deterministic scripted fallbacks:
 
 - Rico Runner is a warm, playful Puerto Rican coquí coach who occasionally says “Wepa!” and focuses on discipline, pace, and consistency.
@@ -147,6 +149,7 @@ are Gemini-capable and have deterministic scripted fallbacks:
 - Luna Recovery is a gentle Caribbean bird focused on hydration, gratitude, stretching, mindfulness, rest, and recovery reminders.
 - Data Analyst creates structured training summaries for the coaches and can ask Gemini to interpret those already-calculated metrics; its local analytical brief remains available if Gemini fails.
 - Sentinel QA periodically checks key Flask routes, authentication boundaries, controlled SQL-injection rejection, CSRF enforcement, Try Demo markup, all four agent surfaces, Previous Runs, imports, and chat endpoint availability. Its checks and verdicts are always deterministic. Gemini can explain a completed report on demand, with a scripted explanation if Gemini fails.
+- Weekly Planner converts the logged-in user's structured training summary into a dated workout calendar. It requires complete hydration, warm-up, workout, and cool-down fields and falls back to a safe three-session Rico/Iggy plan if Gemini fails.
 
 Sentinel is completely backend-only. During app activity, the server schedules a lightweight check at most once every 15 minutes in one guarded daemon thread and writes a summary to server logs; there is no dashboard card, browser endpoint, polling loop, or automatic pytest process. Full prompt-injection, XSS, user-separation, and defensive penetration tests run in an isolated temporary database through pytest during development and CI.
 
@@ -161,6 +164,10 @@ never changes the deterministic report.
 The dashboard uses dependency-free responsive canvas charts generated from Data Analyst's user-scoped JSON summary. Progress includes distance and pace lines, weekly mileage bars, mood scores, and weekly walking/recovery activity. Previous Runs opens with growth insights and a visual overview; complete individual run cards remain available under **View run history**. Pace charts explicitly explain that lower minutes per mile indicates improvement. Empty accounts receive friendly chart states rather than fabricated trends.
 
 Rico, Iggy, Luna, Data Analyst, and Sentinel QA each have a separate Gemini system prompt and scripted fallback. Every Gemini request is assembled from an intentionally bounded context. User-facing coaches receive only the logged-in user's recent runs, agent-specific chat history, walking checklist, mood/recovery context, memories, and imported-workout summaries. Data Analyst receives its precomputed structured summary, and Sentinel receives only its completed deterministic report.
+
+Weekly Planner receives only the selected week, preferred time, user goal, and
+precomputed user-scoped training summary. It never receives SMTP credentials or a
+user selector.
 
 Gemini never receives a Text-to-SQL capability. Approved Python tool functions capture the authenticated `user_id` on the server and expose no account selector to the model. Those tools call the existing parameterized data-access functions for profile, agent-specific chat, recent workouts, walks, recovery context, and import summaries.
 
@@ -188,6 +195,25 @@ The Cloud Run runtime service account has `roles/aiplatform.user`. Local
 development can continue using `GEMINI_API_KEY`; both provider paths share the
 same safety prompts and scripted fallback.
 
+### Optional email delivery
+
+Calendar storage and `.ics` downloads work without any email service. To enable
+the **Email My Week** button, configure SMTP through environment variables:
+
+```text
+SMTP_HOST
+SMTP_PORT=587
+SMTP_USERNAME
+SMTP_PASSWORD
+SMTP_FROM_EMAIL
+SMTP_USE_TLS=true
+```
+
+Credentials are read from the environment only. If SMTP is missing or
+unavailable, the plan remains saved and the app recommends downloading the
+calendar file instead. The app never sends email automatically without the
+user pressing **Email My Week**.
+
 Wellness guidance is general and not medical advice. The app does not diagnose, treat, or provide therapy. If a user expresses crisis, self-harm, or immediate danger, the coaching response should be supportive and direct them to emergency help or a crisis hotline.
 
 Stress, sadness, burnout, and frustration signals lower the pressure: Rico reduces intensity while preserving consistency, Iggy offers walk-and-talk or breathing/nature tasks, and Luna suggests one small hydration, gratitude, stretching, or mindfulness step. Data Analyst reports these signals concisely without adopting an emotional persona.
@@ -209,11 +235,14 @@ RunCoach AI/
 |-- runcoach_services.py
 |-- data_analyst.py
 |-- gemini_service.py
+|-- planner_agent.py
+|-- notification_service.py
 |-- sentinel_qa.py
 |-- runcoach_agent.py
 |-- templates/
 |   |-- auth.html
 |   |-- import.html
+|   |-- planner.html
 |   `-- index.html
 |-- static/
 |   |-- app.js

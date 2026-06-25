@@ -2,6 +2,32 @@
 
 This file records user-visible features, architecture decisions, reliability fixes, and validation evidence so reviewers can understand how the project evolved.
 
+## 2026-06-25 - Personal calendar and weekly workout planner
+
+### Added
+
+- A private **My Plan** tab with seven-day calendar navigation.
+- Gemini-generated weekly workouts using the logged-in user's structured training summary.
+- A deterministic three-workout fallback when Gemini is unavailable, malformed, or incomplete.
+- Required date, time, duration, hydration, warm-up, main workout, cool-down, coach, and notes fields.
+- Personal calendar events and user-scoped completion tracking.
+- `.ics` calendar downloads.
+- Optional, user-triggered weekly email delivery through environment-configured SMTP.
+- Sentinel coverage for the authenticated planner route.
+
+### Safety and privacy
+
+- Every planner row is scoped by `user_id`.
+- Gemini receives no email credentials and no selectable `user_id`.
+- Model output is parsed and validated before database storage.
+- Email is never sent automatically; the user must press **Email My Week**.
+
+### Validation
+
+- Python syntax check: passed.
+- JavaScript syntax check: passed.
+- Pytest: **60 passed**.
+
 ## 2026-06-25 - Intro copy cleanup
 
 - Removed the visible note announcing the completion chime and coquí sound.

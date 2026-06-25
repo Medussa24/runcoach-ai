@@ -2,7 +2,7 @@
 
 ## Overview
 
-RunCoach AI is a small Flask application with a local SQLite database, five Gemini-capable agents, and deterministic local fallbacks. The design keeps the capstone easy to demo even when no API key or network is available.
+RunCoach AI is a small Flask application with a local SQLite database, six Gemini-capable agents, and deterministic local fallbacks. The design keeps the capstone easy to demo even when no API key or network is available.
 
 ## Layers
 
@@ -47,6 +47,7 @@ The AI Data Analyst summarizes user-scoped manual, CSV, and XML workouts into we
 - `LunaRecoveryAgent`: Luna Recovery, the passive hydration, recovery, and wellness support rooster.
 - `DataAnalystAgent`: internal analysis for structured training metrics, with optional Gemini interpretation and a scripted analytical fallback.
 - `SentinelQA`: backend-only security and quality agent for bounded route, authentication, injection-defense, CSRF, rendering, and Try Demo checks, plus optional Gemini explanation of completed reports and a scripted fallback.
+- `WeeklyPlannerAgent`: internal Gemini-first planner that accepts a user-scoped summary and returns validated calendar workout objects; malformed or unavailable model output activates a complete local plan.
 - `MemoryAwareAgent`: gives Rico and Iggy recent conversation, private memory, and Data Analyst context.
 
 The coach prompts define separate personas: Rico is a warm Puerto Rican coquí focused on pace and consistency; Iggy is a curious green iguana focused on beginner walks, breathing, and nature; Luna is a gentle Caribbean wellness bird. Data Analyst remains neutral and emits structured `emotional_support_signals` so the coaches can lower pressure when saved moods or notes indicate stress, sadness, burnout, or frustration.
@@ -86,6 +87,25 @@ to explain the cached deterministic report when explicitly invoked, but Gemini c
 alter test execution, status, warning counts, or pass/fail results. Data Analyst follows
 the same boundary: Python calculates the metrics first, then Gemini may interpret them;
 provider failure returns the scripted brief.
+
+### Personal Planner Data Flow
+
+`planner_events` stores calendar records with `user_id`, event date, start time,
+duration, completion state, source, and structured workout sections. `/planner`
+queries only the authenticated user's selected seven-day window. Generating a
+week replaces only generated workouts in that same user's same week; personal
+events are preserved.
+
+`WeeklyPlannerAgent` receives the selected week, preferred time, goal, and
+`build_private_agent_summary()` output. Gemini must return JSON containing three
+or four workouts. Python validates the date window, time, duration, coach, and
+all required hydration/warm-up/workout/cool-down fields before anything is
+stored. Invalid output is discarded and replaced by the deterministic plan.
+
+`notification_service.py` creates `.ics` files locally and optionally sends the
+visible week through SMTP. SMTP credentials stay in environment variables and
+are never included in model context. Email is user-triggered rather than
+automatically scheduled, avoiding surprise messages and background polling.
 
 ### 4. Context Layer
 

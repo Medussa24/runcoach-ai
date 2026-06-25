@@ -18,6 +18,24 @@ Verify that the capstone foundation works and that optional context data does no
 | Agent API | POST JSON to `/agent` | JSON response includes `answer` |
 | Health check | Open `/health` | Returns `{"status":"ok"}` |
 
+## Personal Planner Tests
+
+| Test | Expected Result |
+| --- | --- |
+| Planner authentication | Open `/planner` while logged out | Redirects to login |
+| Calendar render | Open `/planner` while logged in | Seven dated calendar columns and week navigation render |
+| Gemini plan | Return valid planner JSON from mocked Gemini | Three or four normalized workouts are stored |
+| Gemini failure | Remove Gemini or return malformed output | Three complete scripted workouts are stored |
+| Required outline | Inspect every generated workout | Date, time, duration, hydration, warm-up, workout, and cool-down are present |
+| Personal event | Add an event with date/time/duration | It appears only in that user's calendar |
+| Completion | Mark an event complete | Only the authenticated user's event changes |
+| User separation | Create plans for two users | Neither user sees or changes the other's events |
+| Week replacement | Generate the same week twice | Generated workouts are replaced without deleting personal events |
+| Calendar export | Download `/planner/calendar.ics` | Valid VCALENDAR/VEVENT data is returned |
+| Email unavailable | Use Email My Week without SMTP | No crash; saved plan remains and download guidance appears |
+| Email configured | Mock configured SMTP and send | A weekly summary with `.ics` attachment is sent |
+| Sentinel planner check | Run lightweight Sentinel | `/planner` is included in backend route health checks |
+
 ## Iggy Walking Agent Tests
 
 | Test | Steps | Expected Result |
@@ -51,7 +69,7 @@ Verify that the capstone foundation works and that optional context data does no
 | Ten-message context | Build an agent after several exchanges | Agent receives only the latest 10 messages |
 | Cross-coach memory | Tell Rico a name and goal, then ask Iggy | Iggy remembers the same user's facts |
 | Cross-user isolation | Save memory for user A and ask as user B | User B never receives user A's facts |
-| Internal Data Analyst | Build `DataAnalystAgent` | Six structured metrics are returned and no chat method exists |
+| Internal Data Analyst | Build `DataAnalystAgent` | Structured metrics and an internal Gemini/fallback brief are available, with no public user chat endpoint |
 | Signup | Create an account at `/signup` | User is logged in and sent to dashboard |
 | Password storage | Inspect `users.password_hash` | Plain text password is not stored |
 | Demo login | Log in with `demo@runcoach.test` / `demo123` | Demo dashboard loads |
@@ -204,7 +222,7 @@ node --check static/app.js
 python -m pytest -q
 ```
 
-Latest verified result on June 25, 2026: **52 passed**.
+Latest verified result on June 25, 2026: **60 passed**.
 
 ## Known Limitations
 
@@ -216,4 +234,6 @@ Latest verified result on June 25, 2026: **52 passed**.
 - Sentinel's cached report and cadence are process-local; multiple Gunicorn workers can briefly show different last-check timestamps.
 - Cloud Run scale-to-zero pauses request-driven checks while the app is idle; the next request resumes the cadence.
 - Gemini response quality and latency depend on Google's service; provider errors deliberately fall back to local responses.
+- Email delivery requires administrator-provided SMTP environment variables; calendar storage and `.ics` export do not.
+- Email reminders are sent only when a user presses **Email My Week**. There is no background scheduler in the lightweight Cloud Run version.
 - Automated pytest verifies request contracts and privacy boundaries, not nondeterministic LLM wording.

@@ -3660,3 +3660,355 @@ dd {
         width: auto;
     }
 }
+
+/* Personal weekly planner */
+.planner-page {
+    min-height: 100vh;
+    background:
+        radial-gradient(circle at top left, rgba(183, 245, 216, 0.62), transparent 32rem),
+        linear-gradient(145deg, #f7fbfa, #fffaf4);
+    color: #102a2a;
+}
+
+.planner-shell {
+    width: min(1500px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 32px 0 60px;
+}
+
+.planner-header,
+.planner-email {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    padding: 24px;
+    border: 1px solid #d9e5e1;
+    border-radius: 22px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 18px 50px rgba(24, 72, 66, 0.09);
+}
+
+.planner-header h1,
+.planner-form h2,
+.planner-email h2 {
+    margin: 4px 0 8px;
+}
+
+.planner-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.planner-actions a,
+.button-secondary {
+    padding: 11px 16px;
+    border: 1px solid #0c765f;
+    border-radius: 12px;
+    color: #075b4a;
+    font-weight: 800;
+    text-decoration: none;
+    background: #effff8;
+}
+
+.planner-notice {
+    margin: 18px 0 0;
+    padding: 13px 16px;
+    border-radius: 12px;
+    font-weight: 700;
+}
+
+.planner-week-nav {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    gap: 16px;
+    margin: 16px 0 0;
+    padding: 12px 16px;
+    border: 1px solid #d9e5e1;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.82);
+}
+
+.planner-week-nav a {
+    color: #086451;
+    font-weight: 800;
+    text-decoration: none;
+}
+
+.planner-week-nav a:last-child {
+    text-align: right;
+}
+
+.planner-notice-success {
+    color: #075b4a;
+    background: #dff9eb;
+}
+
+.planner-notice-warning {
+    color: #76510b;
+    background: #fff2c8;
+}
+
+.planner-notice-error {
+    color: #8a2922;
+    background: #ffe5e2;
+}
+
+.planner-controls {
+    display: grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap: 18px;
+    margin: 20px 0;
+}
+
+.planner-form {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+    padding: 22px;
+    border: 1px solid #d9e5e1;
+    border-radius: 20px;
+    background: #fff;
+}
+
+.planner-form > div,
+.planner-wide,
+.planner-form button {
+    grid-column: 1 / -1;
+}
+
+.planner-form label {
+    display: grid;
+    gap: 7px;
+    font-size: 0.88rem;
+    font-weight: 800;
+}
+
+.planner-form input,
+.planner-form textarea {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid #ccdcd7;
+    border-radius: 10px;
+    font: inherit;
+    box-sizing: border-box;
+}
+
+.planner-form button,
+.planner-email button {
+    border: 0;
+    border-radius: 12px;
+    padding: 13px 18px;
+    color: #fff;
+    background: linear-gradient(135deg, #0b8067, #18b98e);
+    font-weight: 900;
+    cursor: pointer;
+}
+
+.planner-week {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(190px, 1fr));
+    gap: 12px;
+    margin: 20px 0;
+    overflow-x: auto;
+    padding-bottom: 8px;
+}
+
+.planner-day {
+    min-height: 430px;
+    border: 1px solid #dae5e2;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.94);
+    overflow: hidden;
+}
+
+.planner-day > header {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 2px 8px;
+    padding: 14px;
+    border-bottom: 1px solid #e4ece9;
+    background: #f4faf8;
+}
+
+.planner-day > header strong {
+    grid-row: 1 / 3;
+    grid-column: 2;
+    font-size: 1.8rem;
+    color: #0b705b;
+}
+
+.planner-day > header small {
+    color: #687b77;
+}
+
+.planner-day.is-today {
+    border-color: #16a981;
+    box-shadow: 0 0 0 3px rgba(22, 169, 129, 0.12);
+}
+
+.planner-day-events {
+    display: grid;
+    gap: 10px;
+    padding: 10px;
+}
+
+.planner-event {
+    padding: 12px;
+    border-left: 5px solid #158d72;
+    border-radius: 12px;
+    background: #f0fbf7;
+}
+
+.planner-event.coach-iggy {
+    border-left-color: #6ba83d;
+    background: #f5fbe9;
+}
+
+.planner-event.coach-luna {
+    border-left-color: #7c6bd1;
+    background: #f6f2ff;
+}
+
+.planner-event.coach-personal {
+    border-left-color: #dc9c2c;
+    background: #fff8e8;
+}
+
+.planner-event.is-complete {
+    opacity: 0.68;
+}
+
+.planner-event.is-complete h3 {
+    text-decoration: line-through;
+}
+
+.planner-event-heading {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 0.76rem;
+}
+
+.planner-event-heading time {
+    font-weight: 900;
+}
+
+.planner-source {
+    padding: 3px 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.75);
+    font-weight: 800;
+}
+
+.planner-event h3 {
+    margin: 9px 0;
+    font-size: 1rem;
+}
+
+.workout-outline {
+    display: grid;
+    gap: 8px;
+    margin: 10px 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: workout-step;
+}
+
+.workout-outline li {
+    display: grid;
+    gap: 3px;
+    padding-left: 25px;
+    position: relative;
+    font-size: 0.79rem;
+}
+
+.workout-outline li::before {
+    counter-increment: workout-step;
+    content: counter(workout-step);
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    color: #fff;
+    background: #0d8067;
+    text-align: center;
+    line-height: 18px;
+    font-size: 0.68rem;
+    font-weight: 900;
+}
+
+.workout-outline span {
+    color: #526864;
+    line-height: 1.35;
+}
+
+.planner-complete {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #9acfc0;
+    border-radius: 9px;
+    color: #075b4a;
+    background: rgba(255, 255, 255, 0.75);
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.planner-empty {
+    margin: 30px 8px;
+    color: #85938f;
+    text-align: center;
+}
+
+.planner-email {
+    margin-top: 20px;
+}
+
+.planner-safety {
+    margin: 18px 0 0;
+    color: #667874;
+    text-align: center;
+    font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+    .planner-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .planner-header,
+    .planner-email {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 600px) {
+    .planner-shell {
+        width: min(100% - 20px, 1500px);
+        padding-top: 14px;
+    }
+
+    .planner-form {
+        grid-template-columns: 1fr;
+    }
+
+    .planner-form label {
+        grid-column: 1;
+    }
+
+    .planner-week-nav {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .planner-week-nav strong {
+        grid-column: 1 / -1;
+        grid-row: 1;
+        text-align: center;
+    }
+}
