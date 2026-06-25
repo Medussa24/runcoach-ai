@@ -5,27 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>RunCoach AI</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <script>
+        if (window.location.protocol === "file:") {
+            window.location.replace("https://runcoach-ai-212640849356.us-central1.run.app/login");
+        }
+    </script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='intro-chime-coqui-1') }}">
 </head>
 <body data-celebrate="{{ 'run-saved' if request.args.get('saved') else '' }}" data-welcome="{{ 'race-start' if request.args.get('welcome') else '' }}">
     <div class="race-start-overlay" id="raceStartOverlay" aria-live="assertive">
         <div class="race-card">
-            <div class="race-avatars">
-                <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner waving before a workout">
-                <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy ready for a beginner walk">
-                <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery ready with hydration reminders">
+            <div class="race-avatars" id="introAvatars">
+                <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner waving before a workout" data-intro-agent="rico">
+                <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy ready for a beginner walk" data-intro-agent="iggy">
+                <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery ready with hydration reminders" data-intro-agent="luna">
             </div>
-            <p class="eyebrow">Rico, Iggy, and Luna say</p>
-            <h2 id="racePhrase">On your mark</h2>
-            <p class="countdown-timer" id="countdownTimer" aria-label="Countdown timer">00:03</p>
-            <p class="countdown-number" id="countdownNumber">3</p>
-            <p class="notes">Horn at three. Rico's coach whistle means go!</p>
+            <p class="eyebrow" id="introSpeaker">Meet your RunCoach team</p>
+            <h2 id="racePhrase">Ready to move?</h2>
+            <p class="intro-message" id="introMessage">Rico, Iggy, and Luna have a quick welcome before you begin.</p>
+            <div class="intro-progress" id="introProgress" aria-label="Introduction progress"><span></span><span></span><span></span><span></span></div>
+            <button type="button" id="introStartButton">Start introduction</button>
+            <p class="notes">A gentle chime and a brief coquí-style chirp mark the end.</p>
         </div>
         <div class="rainbow-arc"></div>
     </div>
-    <img class="rico-dancer" src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner dancing around the page">
-    <img class="iggy-dancer" src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy the iguana walking coach moving around the page">
-    <img class="luna-dancer" src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery Puerto Rican rooster moving around the page">
+    <img class="rico-dancer" src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner dancing around the page" role="button" tabindex="0" data-coach-avatar data-agent="rico" data-avatar="{{ url_for('static', filename='coqui-coach.svg') }}" aria-label="Ask Rico Runner for advice">
+    <img class="iggy-dancer" src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy the iguana walking coach moving around the page" role="button" tabindex="0" data-coach-avatar data-agent="iggy" data-avatar="{{ url_for('static', filename='iggy-coach.svg') }}" aria-label="Ask Iggy for advice">
+    <img class="luna-dancer" src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery Puerto Rican rooster moving around the page" role="button" tabindex="0" data-coach-avatar data-agent="luna" data-avatar="{{ url_for('static', filename='luna-recovery.svg') }}" aria-label="Ask Luna Recovery for advice">
     <main class="dashboard-shell">
         <aside class="dashboard-nav" aria-label="Dashboard navigation">
             <img class="nav-logo" src="{{ url_for('static', filename='runcoach-logo.png') }}" alt="RunCoach AI">
@@ -73,7 +79,7 @@
             </div>
 
             <div class="hero-gallery" aria-label="RunCoach AI visual coach cards">
-                <div class="hero-card hero-card-rico">
+                <div class="hero-card hero-card-rico" role="button" tabindex="0" data-coach-avatar data-agent="rico" data-avatar="{{ url_for('static', filename='coqui-coach.svg') }}" aria-label="Ask Rico Runner for advice">
                     <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner">
                     <span>Rico</span>
                 </div>
@@ -86,11 +92,11 @@
                     </div>
                     <span>Progress</span>
                 </div>
-                <div class="hero-card hero-card-iggy">
+                <div class="hero-card hero-card-iggy" role="button" tabindex="0" data-coach-avatar data-agent="iggy" data-avatar="{{ url_for('static', filename='iggy-coach.svg') }}" aria-label="Ask Iggy for advice">
                     <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy">
                     <span>Iggy</span>
                 </div>
-                <div class="hero-card hero-card-luna">
+                <div class="hero-card hero-card-luna" role="button" tabindex="0" data-coach-avatar data-agent="luna" data-avatar="{{ url_for('static', filename='luna-recovery.svg') }}" aria-label="Ask Luna Recovery for advice">
                     <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery">
                     <span>Luna</span>
                 </div>
@@ -178,28 +184,31 @@
                 </section>
 
         <section class="coach-topline" aria-label="RunCoach AI coach agents">
-            <article class="top-coach-card">
+            <article class="top-coach-card" role="button" tabindex="0" data-coach-avatar data-agent="rico" data-avatar="{{ url_for('static', filename='coqui-coach.svg') }}" aria-label="Ask Rico Runner for advice">
                 <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner">
                 <div>
                     <p class="eyebrow">Run Coach</p>
                     <h2>Rico Runner</h2>
                     <p class="notes">Pace trends, progress, recovery, and next workouts.</p>
+                    <span class="coach-click-hint">Click for advice</span>
                 </div>
             </article>
-            <article class="top-coach-card">
+            <article class="top-coach-card" role="button" tabindex="0" data-coach-avatar data-agent="iggy" data-avatar="{{ url_for('static', filename='iggy-coach.svg') }}" aria-label="Ask Iggy for advice">
                 <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy">
                 <div>
                     <p class="eyebrow">Beginner Guide</p>
                     <h2>Iggy</h2>
                     <p class="notes">Walking routines, stretches, breathing, and outdoor tasks.</p>
+                    <span class="coach-click-hint">Click for advice</span>
                 </div>
             </article>
-            <article class="top-coach-card luna-card">
+            <article class="top-coach-card luna-card" role="button" tabindex="0" data-coach-avatar data-agent="luna" data-avatar="{{ url_for('static', filename='luna-recovery.svg') }}" aria-label="Ask Luna Recovery for advice">
                 <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery">
                 <div>
                     <p class="eyebrow">Recovery Support</p>
                     <h2>Luna Recovery</h2>
                     <p class="notes">Hydration, stretching, rest, gratitude, and gentle wellness reminders.</p>
+                    <span class="coach-click-hint">Click for advice</span>
                 </div>
             </article>
         </section>
@@ -344,6 +353,11 @@
 
                     <form method="post">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {% with messages = get_flashed_messages(category_filter=["error"]) %}
+                        {% if messages %}
+                            <div class="error-message" role="alert">{{ messages[0] }}</div>
+                        {% endif %}
+                    {% endwith %}
 
                     <label for="run_date">Date</label>
                     <input id="run_date" name="run_date" type="date" required data-coach-tip="Start with the date so I can compare this run with your history.">
@@ -360,6 +374,7 @@
                         <option value="Good">Good</option>
                         <option value="Okay">Okay</option>
                         <option value="Tired">Tired</option>
+                        <option value="Bad">Bad</option>
                         <option value="Sore">Sore</option>
                         <option value="Stressed">Stressed</option>
                         <option value="Low">Low</option>
@@ -420,7 +435,7 @@
                 <form class="panel agent-panel" id="agentChatForm" method="post" action="{{ url_for('ask_agent') }}" data-agent="rico" data-avatar="{{ url_for('static', filename='coqui-coach.svg') }}" data-waiting="Let me check your training notes...">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="agent" value="rico">
-                    <div class="agent-mascot">
+                    <div class="agent-mascot" role="button" tabindex="0" data-coach-avatar data-agent="rico" data-avatar="{{ url_for('static', filename='coqui-coach.svg') }}" aria-label="Ask Rico Runner for advice">
                         <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner coqui coach mascot">
                         <div>
                             <h2>Rico Runner</h2>
@@ -466,7 +481,7 @@
                 <form class="panel agent-panel iggy-panel" id="iggyChatForm" method="post" action="{{ url_for('ask_agent') }}" data-agent="iggy" data-avatar="{{ url_for('static', filename='iggy-coach.svg') }}" data-waiting="Iggy is checking your walk checklist...">
                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <input type="hidden" name="agent" value="iggy">
-                    <div class="agent-mascot">
+                    <div class="agent-mascot" role="button" tabindex="0" data-coach-avatar data-agent="iggy" data-avatar="{{ url_for('static', filename='iggy-coach.svg') }}" aria-label="Ask Iggy for advice">
                         <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy iguana walking coach mascot">
                         <div>
                             <h2>Iggy</h2>
@@ -557,7 +572,7 @@
                             <strong>Luna Recovery</strong>
                         </span>
                     </summary>
-                    <div class="visual-header">
+                    <div class="visual-header" role="button" tabindex="0" data-coach-avatar data-agent="luna" data-avatar="{{ url_for('static', filename='luna-recovery.svg') }}" aria-label="Ask Luna Recovery for advice">
                         <div>
                             <p class="eyebrow">Recovery Support</p>
                             <h2>Luna Recovery</h2>
@@ -607,39 +622,92 @@
                         </div>
                     </dl>
 
-                    <div class="visual-grid">
-                        <section class="chart-panel">
-                            <h3>Recent distance</h3>
+                    <div class="canvas-chart-grid" aria-label="Training progress charts">
+                        <section class="chart-panel canvas-chart-card">
+                            <h3>Distance over time</h3>
+                            <canvas data-run-chart="distance" role="img" aria-label="Line chart of run distance in miles by date"></canvas>
+                            <p class="chart-empty" hidden>Log two runs to reveal your distance trend.</p>
+                        </section>
+                        <section class="chart-panel canvas-chart-card">
+                            <h3>Pace over time</h3>
+                            <canvas data-run-chart="pace" role="img" aria-label="Line chart of pace per mile by date"></canvas>
+                            <p class="chart-note">Lower minutes per mile indicates improvement.</p>
+                            <p class="chart-empty" hidden>Log two runs to reveal your pace trend.</p>
+                        </section>
+                        <section class="chart-panel canvas-chart-card">
+                            <h3>Weekly total miles</h3>
+                            <canvas data-run-chart="weekly" role="img" aria-label="Bar chart of total miles by week"></canvas>
+                            <p class="chart-empty" hidden>Weekly mileage will appear after your first run.</p>
+                        </section>
+                        <section class="chart-panel canvas-chart-card">
+                            <h3>Mood trend</h3>
+                            <canvas data-run-chart="mood" role="img" aria-label="Mood score chart where Great is five and Bad is one"></canvas>
+                            <p class="chart-note">Great 5 · Good 4 · Okay 3 · Tired 2 · Bad 1</p>
+                            <p class="chart-empty" hidden>Add mood entries to reveal this trend.</p>
+                        </section>
+                        <section class="chart-panel canvas-chart-card activity-chart-card">
+                            <h3>Walking and recovery activity</h3>
+                            <canvas data-run-chart="activity" role="img" aria-label="Weekly walking and recovery activity counts"></canvas>
+                            <p class="chart-note">Completed walk tasks: {{ chart_data["completed_walk_tasks"] }}</p>
+                            <p class="chart-empty" hidden>Walking and recovery activity will appear here.</p>
+                        </section>
+                    </div>
+
+                    <div class="visual-grid growth-grid">
+                        <section class="chart-panel growth-chart-panel">
+                            <div class="chart-title-row">
+                                <h3>Distance growth</h3>
+                                <strong class="growth-value {% if visuals['distance_growth'] >= 0 %}is-positive{% endif %}">{{ "%+.0f"|format(visuals["distance_growth"]) }}%</strong>
+                            </div>
                             {% if visuals["recent_runs"] %}
-                                <div class="bar-chart">
+                                <svg class="growth-chart" viewBox="0 0 100 100" role="img" aria-label="Distance growth across recent runs">
+                                    <line x1="8" y1="18" x2="92" y2="18"></line>
+                                    <line x1="8" y1="53" x2="92" y2="53"></line>
+                                    <line x1="8" y1="88" x2="92" y2="88"></line>
+                                    <polyline points="{{ visuals['distance_points'] }}"></polyline>
                                     {% for run in visuals["recent_runs"] %}
-                                        <div class="bar-row">
-                                            <span>{{ run["date"] }}</span>
-                                            <div class="bar-track"><span style="width: {{ run['distance_width'] }}%"></span></div>
-                                            <strong>{{ "%.2f"|format(run["distance"]) }} mi</strong>
-                                        </div>
+                                        <circle cx="{{ run['x'] }}" cy="{{ run['distance_y'] }}" r="2.4"><title>{{ run["date"] }}: {{ "%.2f"|format(run["distance"]) }} miles</title></circle>
                                     {% endfor %}
-                                </div>
+                                </svg>
+                                <div class="chart-axis-labels"><span>{{ visuals["recent_runs"][0]["short_date"] }}</span><span>{{ visuals["recent_runs"][-1]["short_date"] }}</span></div>
                             {% else %}
                                 <p class="notes">Log a run to build your first chart.</p>
                             {% endif %}
                         </section>
 
-                        <section class="chart-panel">
-                            <h3>Pace pattern</h3>
+                        <section class="chart-panel growth-chart-panel pace-growth-chart">
+                            <div class="chart-title-row">
+                                <h3>Pace improvement</h3>
+                                <strong class="growth-value {% if visuals['pace_change_seconds'] <= 0 %}is-positive{% endif %}">{% if visuals["pace_change_seconds"] <= 0 %}{{ "%.0f"|format(visuals["pace_change_seconds"]|abs) }}s faster{% else %}+{{ "%.0f"|format(visuals["pace_change_seconds"]) }}s{% endif %}</strong>
+                            </div>
                             {% if visuals["recent_runs"] %}
-                                <div class="bar-chart pace-chart">
+                                <svg class="growth-chart" viewBox="0 0 100 100" role="img" aria-label="Pace improvement across recent runs; higher points mean faster pace">
+                                    <line x1="8" y1="18" x2="92" y2="18"></line>
+                                    <line x1="8" y1="53" x2="92" y2="53"></line>
+                                    <line x1="8" y1="88" x2="92" y2="88"></line>
+                                    <polyline points="{{ visuals['pace_points'] }}"></polyline>
                                     {% for run in visuals["recent_runs"] %}
-                                        <div class="bar-row">
-                                            <span>{{ run["date"] }}</span>
-                                            <div class="bar-track"><span style="width: {{ run['pace_width'] }}%"></span></div>
-                                            <strong>{{ run["pace_label"] }}</strong>
-                                        </div>
+                                        <circle cx="{{ run['x'] }}" cy="{{ run['pace_y'] }}" r="2.4"><title>{{ run["date"] }}: {{ run["pace_label"] }} per mile</title></circle>
                                     {% endfor %}
-                                </div>
+                                </svg>
+                                <div class="chart-axis-labels"><span>{{ visuals["recent_runs"][0]["short_date"] }}</span><span>{{ visuals["recent_runs"][-1]["short_date"] }}</span></div>
                             {% else %}
                                 <p class="notes">Pace visuals appear after your first run.</p>
                             {% endif %}
+                        </section>
+
+                        <section class="chart-panel growth-chart-panel cumulative-chart">
+                            <div class="chart-title-row"><h3>Cumulative mileage</h3><strong class="growth-value is-positive">{{ "%.1f"|format(visuals["total_distance"]) }} mi</strong></div>
+                            {% if visuals["recent_runs"] %}
+                                <svg class="growth-chart area-chart" viewBox="0 0 100 100" role="img" aria-label="Cumulative mileage growth">
+                                    <line x1="8" y1="18" x2="92" y2="18"></line>
+                                    <line x1="8" y1="53" x2="92" y2="53"></line>
+                                    <line x1="8" y1="88" x2="92" y2="88"></line>
+                                    <polyline points="{{ visuals['cumulative_points'] }}"></polyline>
+                                    {% for run in visuals["recent_runs"] %}<circle cx="{{ run['x'] }}" cy="{{ run['cumulative_y'] }}" r="2.4"></circle>{% endfor %}
+                                </svg>
+                                <div class="chart-axis-labels"><span>First run</span><span>Latest run</span></div>
+                            {% else %}<p class="notes">Your mileage curve will grow here.</p>{% endif %}
                         </section>
 
                         <section class="chart-panel map-panel">
@@ -679,12 +747,12 @@
                     <div class="visual-header">
                         <div>
                             <p class="eyebrow">Motivation</p>
-                            <h2>Shorts for the next mile</h2>
+                            <h2>Your movement inspiration feed</h2>
                         </div>
                         <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="" class="mini-rico">
                     </div>
 
-                    <div class="motivation-slider" aria-label="Motivational YouTube shorts">
+                    <div class="motivation-slider" aria-label="Motivational videos and quote posts">
                         {% for video in motivation_videos %}
                             <article class="motivation-card">
                                 <div class="video-frame youtube-player-frame">
@@ -716,13 +784,57 @@
                                 </div>
                             </article>
                         {% endfor %}
+                        {% for post in motivation_posts %}
+                            <article class="motivation-card motivation-post">
+                                <div
+                                    class="motivation-quote-image quote-theme-{{ post['theme'] }}"
+                                    role="img"
+                                    aria-label="{{ post['quote'] }}"
+                                >
+                                    <span class="quote-symbol" aria-hidden="true">{{ post["symbol"] }}</span>
+                                    <blockquote>{{ post["quote"] }}</blockquote>
+                                    <span class="quote-watermark">MOVE · IMPROVE · THRIVE</span>
+                                </div>
+                                <div class="motivation-copy">
+                                    <p class="library-category">{{ post["coach"] }}</p>
+                                    <p class="motivation-caption">{{ post["caption"] }}</p>
+                                    <span class="social-post-label">Daily motivation</span>
+                                </div>
+                            </article>
+                        {% endfor %}
                     </div>
                 </section>
 
                 <h2 id="previous-runs">Previous Runs</h2>
 
                 {% if runs %}
-                    <div class="run-list">
+                    <section class="history-growth-dashboard" aria-label="Previous run growth charts">
+                        <div class="history-growth-header">
+                            <div><p class="eyebrow">Growth over time</p><h3>Your training story</h3></div>
+                            <span>{{ runs|length }} workouts visualized</span>
+                        </div>
+                        <div class="history-metrics">
+                            <div><span>Total miles</span><strong>{{ "%.2f"|format(chart_data["insights"]["total_miles"]) }}</strong></div>
+                            <div><span>Average pace</span><strong>{{ chart_data["insights"]["average_pace_label"] or "--" }}</strong></div>
+                            <div><span>Longest run</span><strong>{{ "%.2f"|format(chart_data["insights"]["longest_run"]) }} mi</strong></div>
+                            <div><span>Most recent</span><strong>{% if chart_data["insights"]["most_recent_run"] %}{{ chart_data["insights"]["most_recent_run"]["date"] }}{% else %}--{% endif %}</strong></div>
+                            <div><span>Week-over-week</span><strong>{% if chart_data["insights"]["week_over_week_mileage_change"] is not none %}{{ "%+.1f"|format(chart_data["insights"]["week_over_week_mileage_change"]) }}%{% else %}More data needed{% endif %}</strong></div>
+                        </div>
+                        <div class="previous-runs-chart"><canvas data-run-chart="history" role="img" aria-label="Previous runs distance and pace overview"></canvas></div>
+                        <div class="run-history-chart" role="img" aria-label="Distance bars and pace trend for previous runs">
+                            {% for run in visuals["recent_runs"] %}
+                                <div class="history-column">
+                                    <span class="history-distance-bar" style="height: {{ run['distance_width'] }}%"><i>{{ "%.1f"|format(run["distance"]) }}</i></span>
+                                    <span class="history-pace-dot" style="bottom: {{ 100 - run['pace_y'] }}%" title="{{ run['pace_label'] }} pace"></span>
+                                    <small>{{ run["short_date"] }}</small>
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <div class="history-legend"><span><i class="legend-bar"></i>Distance</span><span><i class="legend-dot"></i>Pace trend</span></div>
+                    </section>
+                    <details class="run-history-details">
+                        <summary>View run history</summary>
+                        <div class="run-list">
                         {% for run in runs %}
                             <article class="run-card" data-search-item data-search-text="{{ run['run_date'] }} {{ run['workout_type'] or 'run' }} {{ run['mood'] }} {{ run['notes'] }} {{ run['feedback'] }} {{ run['route_type'] or '' }} {{ run['weather_summary'] or '' }}">
                                 <div class="run-card-header">
@@ -827,7 +939,8 @@
                                 <p class="feedback">{{ run["feedback"] }}</p>
                             </article>
                         {% endfor %}
-                    </div>
+                        </div>
+                    </details>
                 {% else %}
                     <p class="empty-state">No runs yet. Add your first run to see pace and coaching feedback.</p>
                 {% endif %}
@@ -1014,6 +1127,7 @@
         <span>Top</span>
     </button>
     <div class="fireworks" id="fireworks" aria-hidden="true"></div>
-    <script src="{{ url_for('static', filename='app.js') }}"></script>
+    <script id="runChartData" type="application/json">{{ chart_data|tojson }}</script>
+    <script src="{{ url_for('static', filename='app.js', v='intro-chime-coqui-1') }}"></script>
 </body>
 </html>

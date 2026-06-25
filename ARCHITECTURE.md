@@ -18,6 +18,8 @@ Core fields:
 - mood
 - notes
 
+Manual run submissions are validated again on the server rather than trusting browser `required`, `min`, or input-type checks. Invalid dates, unknown moods, malformed numbers, non-finite values, and non-positive distance/duration are rejected before pace calculation or database access. A user-facing error is flashed back to the run form instead of returning HTTP 500 or storing an invalid row.
+
 Historical workout input is collected in `templates/import.html` and submitted to `/import`.
 
 ### 2. Training Metrics
@@ -77,11 +79,15 @@ Iggy reads the logged-in user's walking checklist and saved workout history when
 
 Luna reads the logged-in user's recent run context and walking checklist. Luna does not have a full chat panel, but `/agent` accepts `agent: luna` for a Gemini recovery response. The unchanged dashboard continues to render deterministic reminder cards for hydration, stretching, rest, breathing, gratitude, and bad-day walk-and-talk resets. Luna stays general and non-medical.
 
-Sentinel QA is implemented in `sentinel_qa.py` and is deterministic and completely backend-only. During normal request activity, Flask opportunistically runs bounded route, authentication-boundary, SQL-injection rejection, CSRF, and render probes when the 15-minute interval is due, then writes a status summary to server logs. It has no dashboard component, agent-registry entry, or web report endpoint. A lock prevents overlapping or recursive checks. There is no browser polling, background thread, LLM call, paid service, or automatic runtime pytest process. Deeper prompt-injection, XSS, user-separation, and destructive-resistance tests use temporary databases in pytest/CI so production data is never used as a penetration-test target. Because Cloud Run can scale to zero, checks resume with the next request rather than waking an idle container.
+Sentinel QA is implemented in `sentinel_qa.py` and is deterministic and completely backend-only. During normal request activity, Flask schedules bounded route, authentication-boundary, SQL-injection rejection, CSRF, and render probes in a guarded daemon thread after safe responses when the 15-minute interval is due, then writes a status summary to server logs. Login and demo-login requests never start Sentinel, preventing nested test-client work from touching browser session or CSRF context. It has no dashboard component, agent-registry entry, or web report endpoint. Locks prevent overlapping or recursive checks. There is no browser polling, LLM call, paid service, or automatic runtime pytest process. Deeper tests use temporary databases in pytest/CI. Because Cloud Run can scale to zero, checks resume with the next request rather than waking an idle container.
 
 ### 4. Context Layer
 
 Context is optional and beginner-friendly.
+
+### Chart Data Flow
+
+`DataAnalystAgent.chart_summary()` converts only the authenticated user's runs and walking checklist into bounded JSON-ready series: run dates, distance, pace, safe mood scores, weekly mileage, weekly walks, and recovery-signal counts. Flask embeds this object through Jinja's `tojson` filter. `static/app.js` parses the inert `application/json` block and draws responsive canvas charts without an external chart dependency. The same nested summary is included in Rico, Iggy, and Luna's approved user-scoped analyst context. Raw run cards remain server-rendered inside the collapsed **View run history** section.
 
 Weather fields:
 

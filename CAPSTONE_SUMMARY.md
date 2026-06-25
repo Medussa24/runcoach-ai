@@ -16,6 +16,8 @@ Many beginner runners track workouts but do not know how to interpret pace, dist
 
 RunCoach AI is a web-based movement coach agent app. It lets users create an account, log runs, import historical Apple Health `export.xml` or workout CSV data, calculate pace, store history, review progress, and get safe next-workout guidance. Gemini 2.5 Flash gives Rico Runner, Iggy, and Luna distinct natural-language personalities when an environment API key is configured, while established local fallbacks keep the demo reliable offline.
 
+Live capstone demo: <https://runcoach-ai-212640849356.us-central1.run.app>
+
 ## Project Layers
 
 1. User identity: signup, login, logout, hashed passwords, Flask sessions.
@@ -39,8 +41,11 @@ RunCoach AI is a web-based movement coach agent app. It lets users create an acc
 10. Iggy creates an easy walking routine, checklist guidance, breathing task, stretch, or nature-count prompt.
 11. Luna reads the same logged-in user's workout context and displays passive hydration, recovery, stretching, breathing, gratitude, and bad-day reset reminders.
 12. Backend-only Sentinel QA runs a lightweight, request-driven check at most once every 15 minutes during app activity. It verifies authentication boundaries, controlled SQL-injection rejection, CSRF enforcement, routes, Try Demo, agents, history, imports, and chat contracts, then reports only to server logs. Deeper penetration tests remain isolated in pytest/CI.
-13. Gemini receives only bounded data selected after the logged-in `user_id` filter through approved Python tools; missing credentials or provider errors activate the local fallback.
-14. Mood signals for stress, sadness, burnout, or frustration trigger gentle, persona-specific support without medical advice.
+13. Try Demo creates a real CSRF-protected, authenticated session for the privacy-safe demo user; Sentinel is scheduled only after safe responses so it cannot disturb authentication.
+14. Gemini receives only bounded data selected after the logged-in `user_id` filter through approved Python tools; missing credentials or provider errors activate the local fallback.
+15. Mood signals for stress, sadness, burnout, or frustration trigger gentle, persona-specific support without medical advice.
+16. Data Analyst produces user-scoped chart JSON for responsive distance, pace, weekly mileage, mood, walking, and recovery visuals; full run details remain available in a disclosure.
+17. Server-side validation rejects malformed or unsafe manual run values before pace calculation and persistence, returning a clear form message instead of an application error.
 
 ## Architecture
 
@@ -85,6 +90,8 @@ Open `http://127.0.0.1:5000`.
 gcloud config set project YOUR_PROJECT_ID
 gcloud run deploy runcoach-ai --source . --region us-central1 --allow-unauthenticated
 ```
+
+The June 25, 2026 audited release passed Python and JavaScript syntax checks, 49 pytest tests, authenticated demo transactions, live coach requests, browser asset checks, and a Cloud Run error-log review.
 
 ## Screenshots To Capture
 

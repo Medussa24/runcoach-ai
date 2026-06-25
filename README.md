@@ -2,6 +2,15 @@
 
 RunCoach AI is a polished Kaggle Capstone project for the **Concierge Agents** track. It is a beginner-friendly movement coach web app that logs runs, calculates pace, stores history, and uses Gemini-backed coach agents to explain progress, suggest safe next workouts, help new runners start with walking, and support hydration and recovery basics.
 
+## Live Demo And Current Release
+
+- Cloud Run: <https://runcoach-ai-212640849356.us-central1.run.app>
+- One-click evaluator access: select **Try Demo** on the login page.
+- Current automated validation: **49 pytest tests passing**, plus Python syntax, JavaScript syntax, Flask transaction, and browser-runtime checks.
+- Detailed release history and the reasons behind each major change: [CHANGELOG.md](CHANGELOG.md).
+
+The June 25, 2026 release adds real Gemini-backed coaching, user-scoped chart data, chart-first progress views, backend-only Sentinel QA, hardened demo authentication, clickable coach advice bubbles, a richer motivation feed, the visual coach introduction, and stricter manual-run input validation.
+
 ## Project Organization
 
 1. Core run logging
@@ -17,6 +26,7 @@ RunCoach AI behaves like a lightweight personal running assistant. It helps begi
 ## Core Features
 
 - Log a run with date, distance, duration, mood, and notes.
+- Validate manual run values on the server so malformed, missing, zero, negative, or non-finite values cannot crash the route or enter the database.
 - Create an account, log in, and log out.
 - Protect every POST form and agent request with Flask-WTF CSRF tokens.
 - Store Rico and Iggy conversations plus durable user memories in SQLite.
@@ -137,7 +147,13 @@ The app has three beginner-friendly coach agents and two internal agents:
 - Data Analyst creates structured training summaries for the coaches and has no chat endpoint.
 - Sentinel QA periodically checks key Flask routes, authentication boundaries, controlled SQL-injection rejection, CSRF enforcement, Try Demo markup, all four agent surfaces, Previous Runs, imports, and chat endpoint availability. It has no chat panel, web report, or paid service.
 
-Sentinel is completely backend-only. During app activity, the server refreshes its lightweight report at most once every 15 minutes and writes a summary to server logs; there is no dashboard card, browser endpoint, polling loop, background thread, or automatic pytest process. Full prompt-injection, XSS, user-separation, and defensive penetration tests run in an isolated temporary database through pytest during development and CI.
+Sentinel is completely backend-only. During app activity, the server schedules a lightweight check at most once every 15 minutes in one guarded daemon thread and writes a summary to server logs; there is no dashboard card, browser endpoint, polling loop, or automatic pytest process. Full prompt-injection, XSS, user-separation, and defensive penetration tests run in an isolated temporary database through pytest during development and CI.
+
+> **Demo access:** **Try Demo** posts a rendered CSRF token, resets only the privacy-safe `demo@runcoach.test` account, and creates an eight-hour authenticated demo session. Evaluators can then save runs, use mood fields and walking/recovery tools, import fake data, and chat with Rico or Iggy without typing credentials. Sentinel runs asynchronously only after safe authenticated/health responses so it cannot interfere with login cookies or CSRF state.
+
+### Progress charts
+
+The dashboard uses dependency-free responsive canvas charts generated from Data Analyst's user-scoped JSON summary. Progress includes distance and pace lines, weekly mileage bars, mood scores, and weekly walking/recovery activity. Previous Runs opens with growth insights and a visual overview; complete individual run cards remain available under **View run history**. Pace charts explicitly explain that lower minutes per mile indicates improvement. Empty accounts receive friendly chart states rather than fabricated trends.
 
 Rico, Iggy, and Luna each have a separate Gemini system prompt and personality. Every Gemini request is assembled only from the logged-in user's recent runs, agent-specific chat history, walking checklist, mood/recovery context, memories, and imported-workout summaries. Data Analyst and Sentinel QA remain deterministic internal agents.
 
@@ -253,7 +269,9 @@ POST /walk-task/reset
 
 ## Deployment
 
-This project is prepared for Google Cloud Run.
+This project is deployed on Google Cloud Run:
+
+<https://runcoach-ai-212640849356.us-central1.run.app>
 
 ```bash
 gcloud config set project YOUR_PROJECT_ID

@@ -1,4 +1,5 @@
 import io
+import json
 import re
 import sqlite3
 
@@ -78,6 +79,30 @@ def add_run(client, **overrides):
     return client.post("/", data=data, follow_redirects=True)
 
 
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"distance": "abc"}, "Use valid numbers for the run details."),
+        ({"distance": "0"}, "Distance and duration must be greater than zero."),
+        ({"duration": "-5"}, "Distance and duration must be greater than zero."),
+        ({"distance": "nan"}, "Run details must use finite numbers."),
+        ({"run_date": "not-a-date"}, "Choose a valid run date."),
+        ({"mood": "Injected"}, "Choose a valid mood."),
+    ],
+)
+def test_invalid_manual_run_values_are_rejected_without_server_error(
+    client, overrides, message
+):
+    user_id = create_user(f"invalid-run-{abs(hash(str(overrides)))}@example.test")
+    login_as(client, user_id)
+
+    response = add_run(client, **overrides)
+
+    assert response.status_code == 200
+    assert message in response.get_data(as_text=True)
+    assert runcoach.get_all_runs(user_id) == []
+
+
 def post_xml(client, xml_text):
     return client.post(
         "/import",
@@ -103,6 +128,12 @@ def assert_no_sensitive_leak(text, other_user_secret="OTHER_USER_SECRET"):
     assert "secret_key" not in lowered
     assert "password_hash" not in lowered
     assert other_user_secret not in text
+
+
+def csrf_token_from(response):
+    match = re.search(rb'name="csrf_token" value="([^"]+)"', response.data)
+    assert match is not None
+    return match.group(1).decode("utf-8")
 
 
 def test_sql_injection_login_does_not_bypass_or_damage_tables(client):
@@ -365,7 +396,33 @@ def test_demo_tutorial_and_back_to_top_controls_render(client):
     assert "Return to the top of the page" in html
 
 
-def test_race_start_renders_countdown_timer_and_audio_cues(client):
+def test_coach_cards_offer_clickable_advice_bubbles(client):
+    user_id = create_user("coach-bubbles@example.test")
+    login_as(client, user_id)
+
+    html = client.get("/").get_data(as_text=True)
+
+    assert html.count("data-coach-avatar") >= 12
+    assert 'data-agent="rico"' in html
+    assert 'data-agent="iggy"' in html
+    assert 'data-agent="luna"' in html
+    assert html.count("Click for advice") == 3
+    assert "app.js?v=intro-chime-coqui-1" in html
+
+
+def test_motivation_feed_has_videos_and_social_quote_posts(client):
+    user_id = create_user("motivation-feed@example.test")
+    login_as(client, user_id)
+
+    html = client.get("/").get_data(as_text=True)
+
+    assert html.count("youtube-player-frame") >= 7
+    assert html.count("motivation-quote-image") >= 6
+    assert "Your movement inspiration feed" in html
+    assert "Daily motivation" in html
+
+
+def test_demo_intro_renders_silent_dialogue_and_completion_sounds(client):
     user_id = create_user("countdown@example.test")
     login_as(client, user_id)
 
@@ -373,9 +430,81 @@ def test_race_start_renders_countdown_timer_and_audio_cues(client):
     html = dashboard.get_data(as_text=True)
 
     assert dashboard.status_code == 200
-    assert 'id="countdownTimer"' in html
-    assert "00:03" in html
-    assert "Horn at three" in html
+    assert 'id="introStartButton"' in html
+    assert 'data-intro-agent="rico"' in html
+    assert 'data-intro-agent="iggy"' in html
+    assert 'data-intro-agent="luna"' in html
+    assert "gentle chime" in html
+    assert "coquí-style chirp" in html
+
+
+def test_progress_and_previous_runs_render_growth_charts(client):
+    user_id = create_user("growth-charts@example.test")
+    login_as(client, user_id)
+    add_run(client, run_date="2026-06-18", distance="1.5", duration="18")
+    add_run(client, run_date="2026-06-20", distance="2.0", duration="20")
+
+    html = client.get("/").get_data(as_text=True)
+
+    assert html.count("data-run-chart=") >= 6
+    assert "Distance over time" in html
+    assert "Pace over time" in html
+    assert "Weekly total miles" in html
+    assert "Mood trend" in html
+    assert "Walking and recovery activity" in html
+    assert "Your training story" in html
+    assert "View run history" in html
+    assert 'class="run-history-details"' in html
+    assert 'id="runChartData"' in html
+
+
+def test_data_analyst_generates_user_scoped_chart_json(client):
+    user_id = create_user("chart-json@example.test")
+    login_as(client, user_id)
+    add_run(
+        client,
+        run_date="2026-06-08",
+        distance="2",
+        duration="20",
+        mood="Great",
+    )
+    add_run(
+        client,
+        run_date="2026-06-16",
+        distance="3",
+        duration="27",
+        mood="Bad",
+        notes="Recovery walk after a tired day",
+    )
+    connection = runcoach.get_database_connection()
+    try:
+        connection.execute(
+            "UPDATE runs SET workout_type = 'Walking' WHERE user_id = ? AND run_date = ?",
+            (user_id, "2026-06-16"),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    chart_data = runcoach.build_data_analyst(user_id).chart_summary()
+
+    assert chart_data["run_labels"] == ["2026-06-08", "2026-06-16"]
+    assert chart_data["distance_miles"] == [2.0, 3.0]
+    assert chart_data["mood_scores"] == [5, 1]
+    assert chart_data["weekly_miles"] == [2.0, 3.0]
+    assert chart_data["weekly_walks"] == [0, 1]
+    assert chart_data["weekly_recovery"] == [0, 1]
+    assert chart_data["insights"]["week_over_week_mileage_change"] == 50.0
+
+    html = client.get("/").get_data(as_text=True)
+    embedded = re.search(
+        r'<script id="runChartData" type="application/json">(.*?)</script>',
+        html,
+        re.DOTALL,
+    )
+    assert embedded is not None
+    rendered_chart_data = json.loads(embedded.group(1))
+    assert rendered_chart_data["run_labels"] == chart_data["run_labels"]
 
 
 def test_csrf_rejects_missing_token_and_accepts_rendered_token(client):
@@ -404,6 +533,120 @@ def test_csrf_rejects_missing_token_and_accepts_rendered_token(client):
             assert b"RunCoach AI" in accepted.data
     finally:
         runcoach.app.config["WTF_CSRF_ENABLED"] = False
+
+
+def test_try_demo_creates_authenticated_demo_session(client):
+    runcoach.app.config["WTF_CSRF_ENABLED"] = True
+    try:
+        token = csrf_token_from(client.get("/login"))
+        response = client.post("/demo-login", data={"csrf_token": token})
+
+        assert response.status_code == 302
+        assert response.headers["Location"].endswith("/?welcome=1")
+        with client.session_transaction() as browser_session:
+            demo_user_id = browser_session.get("user_id")
+            assert browser_session.get("is_demo") is True
+            assert browser_session.permanent is True
+
+        demo_user = runcoach.get_user_by_id(demo_user_id)
+        assert demo_user["email"] == runcoach.DEMO_EMAIL
+        dashboard = client.get("/?welcome=1")
+        assert dashboard.status_code == 200
+        assert runcoach.DEMO_EMAIL in dashboard.get_data(as_text=True)
+    finally:
+        runcoach.app.config["WTF_CSRF_ENABLED"] = False
+
+
+def test_demo_login_is_not_interrupted_by_sentinel_scheduler(client, monkeypatch):
+    scheduled_user_ids = []
+    monkeypatch.setattr(
+        runcoach.sentinel_qa,
+        "start_periodic_if_due",
+        lambda user_id, on_complete=None: scheduled_user_ids.append(user_id) or True,
+    )
+    runcoach.app.config.update(TESTING=False, WTF_CSRF_ENABLED=True)
+    try:
+        login_token = csrf_token_from(client.get("/login"))
+        response = client.post(
+            "/demo-login",
+            data={"csrf_token": login_token},
+            follow_redirects=False,
+        )
+
+        assert response.status_code == 302
+        with client.session_transaction() as browser_session:
+            demo_user_id = browser_session["user_id"]
+
+        dashboard = client.get("/?welcome=1")
+        assert dashboard.status_code == 200
+        assert runcoach.DEMO_EMAIL in dashboard.get_data(as_text=True)
+        assert scheduled_user_ids == [demo_user_id]
+        with client.session_transaction() as browser_session:
+            assert browser_session["user_id"] == demo_user_id
+    finally:
+        runcoach.app.config.update(TESTING=True, WTF_CSRF_ENABLED=False)
+
+
+def test_demo_user_can_log_run_with_csrf(client):
+    runcoach.app.config["WTF_CSRF_ENABLED"] = True
+    try:
+        login_token = csrf_token_from(client.get("/login"))
+        client.post("/demo-login", data={"csrf_token": login_token})
+        dashboard_token = csrf_token_from(client.get("/"))
+
+        response = client.post(
+            "/",
+            data={
+                "csrf_token": dashboard_token,
+                "run_date": "2026-06-21",
+                "distance": "2.5",
+                "duration": "25",
+                "mood": "Good",
+                "notes": "Evaluator demo run",
+            },
+        )
+
+        assert response.status_code == 302
+        demo_user = runcoach.get_user_by_email(runcoach.DEMO_EMAIL)
+        runs = runcoach.get_all_runs(demo_user["id"])
+        assert any(run["notes"] == "Evaluator demo run" for run in runs)
+    finally:
+        runcoach.app.config["WTF_CSRF_ENABLED"] = False
+
+
+@pytest.mark.parametrize("agent_name", ["rico", "iggy"])
+def test_demo_user_can_chat_with_coaches_using_csrf(client, agent_name):
+    runcoach.app.config["WTF_CSRF_ENABLED"] = True
+    try:
+        login_token = csrf_token_from(client.get("/login"))
+        client.post("/demo-login", data={"csrf_token": login_token})
+        dashboard = client.get("/")
+        csrf_token = re.search(
+            rb'<meta name="csrf-token" content="([^"]+)"',
+            dashboard.data,
+        ).group(1).decode("utf-8")
+
+        response = client.post(
+            "/agent",
+            json={"agent": agent_name, "question": "Help me get started today."},
+            headers={"X-CSRFToken": csrf_token},
+        )
+
+        assert response.status_code == 200
+        assert response.get_json()["agent"] == agent_name
+        demo_user = runcoach.get_user_by_email(runcoach.DEMO_EMAIL)
+        messages = runcoach.get_agent_messages(demo_user["id"], agent_name)
+        assert any(message["sender"] == "user" for message in messages)
+    finally:
+        runcoach.app.config["WTF_CSRF_ENABLED"] = False
+
+
+@pytest.mark.parametrize("route", ["/", "/ask", "/agent", "/import"])
+def test_unauthenticated_users_cannot_post_to_protected_routes(client, route):
+    response = client.post(route, json={"agent": "rico", "question": "test"})
+
+    assert response.status_code == 401
+    assert response.get_json() == {"error": "Login required"}
 
 
 def test_database_initialization_runs_once_per_process(client, monkeypatch):

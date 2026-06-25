@@ -32,6 +32,8 @@ class SentinelQA:
         self.temp_root = Path(temp_root or tempfile.gettempdir())
         self.interval_seconds = interval_seconds
         self._lock = threading.Lock()
+        self._schedule_lock = threading.Lock()
+        self._scheduled = False
         self._is_running = False
         self._last_check_monotonic = None
         self._last_report = self._not_checked_report()
@@ -85,6 +87,29 @@ class SentinelQA:
             self._last_check_monotonic is None
             or current_time - self._last_check_monotonic >= self.interval_seconds
         )
+
+    def start_periodic_if_due(self, demo_user_id: int, on_complete=None):
+        """Schedule a due check outside the active browser request context."""
+        with self._schedule_lock:
+            if self._scheduled or self.is_running or not self.is_due():
+                return False
+            self._scheduled = True
+
+        def run_scheduled_check():
+            try:
+                report = self.run_periodic_if_due(demo_user_id)
+                if on_complete:
+                    on_complete(report)
+            finally:
+                with self._schedule_lock:
+                    self._scheduled = False
+
+        threading.Thread(
+            target=run_scheduled_check,
+            name="runcoach-sentinel-qa",
+            daemon=True,
+        ).start()
+        return True
 
     def run_health_check(self, demo_user_id: int, include_test_suite: bool = False):
         """Run one bounded check and cache its result.

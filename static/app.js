@@ -14,6 +14,171 @@
         motivationSection.before(coachLibrary);
     }
 
+    const chartDataElement = document.querySelector("#runChartData");
+    let runChartData = null;
+    try {
+        runChartData = chartDataElement ? JSON.parse(chartDataElement.textContent) : null;
+    } catch (_error) {
+        runChartData = null;
+    }
+
+    function prepareCanvas(canvas) {
+        const width = Math.max(260, canvas.parentElement.clientWidth - 24);
+        const height = 220;
+        const pixelRatio = window.devicePixelRatio || 1;
+        canvas.width = width * pixelRatio;
+        canvas.height = height * pixelRatio;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        const context = canvas.getContext("2d");
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        return { context, width, height, padding: { top: 18, right: 16, bottom: 34, left: 42 } };
+    }
+
+    function showChartEmpty(canvas, isEmpty) {
+        canvas.hidden = isEmpty;
+        const emptyMessage = canvas.parentElement.querySelector(".chart-empty");
+        if (emptyMessage) {
+            emptyMessage.hidden = !isEmpty;
+        }
+    }
+
+    function drawChartFrame(chart, labels, minValue, maxValue, formatter) {
+        const { context, width, height, padding } = chart;
+        const plotWidth = width - padding.left - padding.right;
+        const plotHeight = height - padding.top - padding.bottom;
+        context.clearRect(0, 0, width, height);
+        context.font = "11px Segoe UI, sans-serif";
+        context.fillStyle = "#687083";
+        context.strokeStyle = "rgba(9, 38, 58, 0.10)";
+        context.lineWidth = 1;
+
+        [0, 0.5, 1].forEach((ratio) => {
+            const y = padding.top + plotHeight * ratio;
+            context.beginPath();
+            context.moveTo(padding.left, y);
+            context.lineTo(width - padding.right, y);
+            context.stroke();
+            const value = maxValue - (maxValue - minValue) * ratio;
+            context.fillText(formatter(value), 2, y + 4);
+        });
+
+        if (labels.length) {
+            context.fillText(labels[0].slice(5), padding.left, height - 8);
+            const lastLabel = labels[labels.length - 1].slice(5);
+            const textWidth = context.measureText(lastLabel).width;
+            context.fillText(lastLabel, width - padding.right - textWidth, height - 8);
+        }
+        return { plotWidth, plotHeight };
+    }
+
+    function drawLineChart(canvas, labels, values, color, formatter = (value) => value.toFixed(1)) {
+        const points = values
+            .map((value, index) => ({ value, index }))
+            .filter((point) => Number.isFinite(point.value));
+        showChartEmpty(canvas, points.length === 0);
+        if (!points.length) {
+            return;
+        }
+
+        const chart = prepareCanvas(canvas);
+        const numericValues = points.map((point) => point.value);
+        let minValue = Math.min(...numericValues);
+        let maxValue = Math.max(...numericValues);
+        if (minValue === maxValue) {
+            minValue = Math.max(0, minValue - 1);
+            maxValue += 1;
+        }
+        const { plotWidth, plotHeight } = drawChartFrame(chart, labels, minValue, maxValue, formatter);
+        const xFor = (index) => chart.padding.left + (labels.length === 1 ? plotWidth / 2 : (index / (labels.length - 1)) * plotWidth);
+        const yFor = (value) => chart.padding.top + ((maxValue - value) / (maxValue - minValue)) * plotHeight;
+
+        chart.context.strokeStyle = color;
+        chart.context.lineWidth = 3;
+        chart.context.lineJoin = "round";
+        chart.context.beginPath();
+        points.forEach((point, pointIndex) => {
+            const x = xFor(point.index);
+            const y = yFor(point.value);
+            if (pointIndex === 0) chart.context.moveTo(x, y);
+            else chart.context.lineTo(x, y);
+        });
+        chart.context.stroke();
+        points.forEach((point) => {
+            chart.context.beginPath();
+            chart.context.fillStyle = "#ffffff";
+            chart.context.strokeStyle = color;
+            chart.context.lineWidth = 3;
+            chart.context.arc(xFor(point.index), yFor(point.value), 5, 0, Math.PI * 2);
+            chart.context.fill();
+            chart.context.stroke();
+        });
+    }
+
+    function drawBarChart(canvas, labels, values, colors = ["#0f8f6b"]) {
+        showChartEmpty(canvas, !values.length || values.every((value) => !value));
+        if (!values.length || values.every((value) => !value)) {
+            return;
+        }
+        const chart = prepareCanvas(canvas);
+        const maxValue = Math.max(1, ...values);
+        const { plotWidth, plotHeight } = drawChartFrame(chart, labels, 0, maxValue, (value) => value.toFixed(value < 10 ? 1 : 0));
+        const slotWidth = plotWidth / values.length;
+        values.forEach((value, index) => {
+            const barHeight = (value / maxValue) * plotHeight;
+            chart.context.fillStyle = colors[index % colors.length];
+            chart.context.fillRect(
+                chart.padding.left + index * slotWidth + slotWidth * 0.18,
+                chart.padding.top + plotHeight - barHeight,
+                slotWidth * 0.64,
+                barHeight,
+            );
+        });
+    }
+
+    function drawActivityChart(canvas, labels, walks, recovery) {
+        const combined = walks.map((value, index) => value + (recovery[index] || 0));
+        showChartEmpty(canvas, !combined.length || combined.every((value) => !value));
+        if (!combined.length || combined.every((value) => !value)) return;
+        const chart = prepareCanvas(canvas);
+        const maxValue = Math.max(1, ...walks, ...recovery);
+        const { plotWidth, plotHeight } = drawChartFrame(chart, labels, 0, maxValue, (value) => value.toFixed(0));
+        const slotWidth = plotWidth / labels.length;
+        labels.forEach((_label, index) => {
+            const barWidth = slotWidth * 0.28;
+            [walks[index] || 0, recovery[index] || 0].forEach((value, seriesIndex) => {
+                const barHeight = (value / maxValue) * plotHeight;
+                chart.context.fillStyle = seriesIndex === 0 ? "#0f8f6b" : "#7b61ff";
+                chart.context.fillRect(
+                    chart.padding.left + index * slotWidth + slotWidth * 0.18 + seriesIndex * barWidth,
+                    chart.padding.top + plotHeight - barHeight,
+                    barWidth - 2,
+                    barHeight,
+                );
+            });
+        });
+    }
+
+    function renderRunCharts() {
+        if (!runChartData) return;
+        document.querySelectorAll("[data-run-chart]").forEach((canvas) => {
+            const chartType = canvas.dataset.runChart;
+            if (chartType === "distance") drawLineChart(canvas, runChartData.run_labels, runChartData.distance_miles, "#0f8f6b");
+            if (chartType === "pace") drawLineChart(canvas, runChartData.run_labels, runChartData.pace_minutes, "#7b61ff", (value) => `${value.toFixed(1)}`);
+            if (chartType === "weekly") drawBarChart(canvas, runChartData.week_labels, runChartData.weekly_miles, ["#4ca9ff", "#0f8f6b"]);
+            if (chartType === "mood") drawLineChart(canvas, runChartData.run_labels, runChartData.mood_scores, "#ff8a2f", (value) => value.toFixed(0));
+            if (chartType === "activity") drawActivityChart(canvas, runChartData.week_labels, runChartData.weekly_walks, runChartData.weekly_recovery);
+            if (chartType === "history") drawLineChart(canvas, runChartData.run_labels, runChartData.distance_miles, "#0f8f6b");
+        });
+    }
+
+    let chartResizeTimer;
+    window.addEventListener("resize", () => {
+        window.clearTimeout(chartResizeTimer);
+        chartResizeTimer = window.setTimeout(renderRunCharts, 120);
+    });
+    renderRunCharts();
+
     function setCoachTip(message) {
         if (coachBubble) {
             coachBubble.textContent = message || defaultTip;
@@ -300,20 +465,32 @@
             return;
         }
 
+        document.querySelector(".avatar-popup")?.remove();
+
         const popup = document.createElement("div");
         const avatar = document.createElement("img");
         const message = document.createElement("p");
+        const closeButton = document.createElement("button");
         const shortText = text.length > 120 ? `${text.slice(0, 117)}...` : text;
 
         const popupClass = agentName === "iggy" ? "iggy-popup" : agentName === "luna" ? "luna-popup" : "rico-popup";
         popup.className = `avatar-popup ${popupClass}`;
+        popup.setAttribute("role", "status");
+        popup.setAttribute("aria-live", "polite");
         avatar.src = avatarPath;
         avatar.alt = "";
         message.textContent = shortText;
+        closeButton.type = "button";
+        closeButton.className = "avatar-popup-close";
+        closeButton.setAttribute("aria-label", "Close coach advice");
+        closeButton.textContent = "×";
 
         popup.appendChild(avatar);
         popup.appendChild(message);
+        popup.appendChild(closeButton);
         document.body.appendChild(popup);
+
+        closeButton.addEventListener("click", () => popup.remove());
 
         window.setTimeout(() => {
             popup.classList.add("is-leaving");
@@ -324,29 +501,42 @@
         }, 5000);
     }
 
-    const startupPopups = [
-        {
-            agent: "rico",
-            avatar: "/static/coqui-coach.svg",
-            text: "Rico: Log your run and I will watch your pace, distance, mood, and next workout."
-        },
-        {
-            agent: "iggy",
-            avatar: "/static/iggy-coach.svg",
-            text: "Iggy: New to running? Start with my walking checklist and breathe steady."
-        },
-        {
-            agent: "luna",
-            avatar: "/static/luna-recovery.svg",
-            text: "Luna: I will quietly remind you to hydrate, stretch, breathe, and recover."
-        }
-    ];
+    const coachAdvice = {
+        rico: [
+            "Wepa! Keep today's effort controlled enough that you can train consistently tomorrow.",
+            "Start easy, settle into your pace, and finish with good form instead of forcing speed.",
+            "Your next strong run begins with recovery: hydrate, eat well, and respect your rest day."
+        ],
+        iggy: [
+            "Take a gentle ten-minute walk and notice three things in nature while you breathe steadily.",
+            "Small win: walk for five minutes, relax your shoulders, then decide whether to continue.",
+            "Try a walk-and-talk reset today. Comfortable movement counts, even when it is brief."
+        ],
+        luna: [
+            "Pause for water, one gentle stretch, and three slow breaths. Recovery is productive too.",
+            "Name one thing your body did well today, then give it the rest it needs.",
+            "Keep wellness simple: hydrate, loosen tight muscles gently, and protect your sleep tonight."
+        ]
+    };
+    const coachAdviceIndexes = { rico: 0, iggy: 0, luna: 0 };
 
-    window.setTimeout(() => {
-        startupPopups.forEach((popup, index) => {
-            window.setTimeout(() => showAvatarPopup(popup.agent, popup.avatar, popup.text), index * 1200);
+    function openCoachAdvice(card) {
+        const agentName = card.dataset.agent;
+        const advice = coachAdvice[agentName] || coachAdvice.rico;
+        const adviceIndex = coachAdviceIndexes[agentName] || 0;
+        showAvatarPopup(agentName, card.dataset.avatar, advice[adviceIndex]);
+        coachAdviceIndexes[agentName] = (adviceIndex + 1) % advice.length;
+    }
+
+    document.querySelectorAll("[data-coach-avatar]").forEach((card) => {
+        card.addEventListener("click", () => openCoachAdvice(card));
+        card.addEventListener("keydown", (event) => {
+            if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                openCoachAdvice(card);
+            }
         });
-    }, 1600);
+    });
 
     function createBurst(container, xPercent, yPercent) {
         const colors = ["#cf3f36", "#2f5fb8", "#f7d36b", "#1f7a5b", "#ffffff"];
@@ -436,87 +626,120 @@
         window.setTimeout(() => audioContext.close().catch(() => {}), 900);
     }
 
-    function playCoachWhistle() {
+    function playCompletionSounds() {
         const audioContext = createCelebrationAudioContext();
         if (!audioContext) {
             return;
         }
 
         const now = audioContext.currentTime;
-        [0, 0.2, 0.4].forEach((offset, burstIndex) => {
+        const notes = [
+            { frequency: 523.25, offset: 0, duration: 0.3, volume: 0.08 },
+            { frequency: 659.25, offset: 0.2, duration: 0.34, volume: 0.08 },
+            { frequency: 783.99, offset: 0.42, duration: 0.48, volume: 0.09 },
+            { frequency: 1200, offset: 0.95, duration: 0.12, volume: 0.06 },
+            { frequency: 2100, offset: 1.12, duration: 0.2, volume: 0.07 },
+            { frequency: 1200, offset: 1.48, duration: 0.12, volume: 0.055 },
+            { frequency: 2100, offset: 1.65, duration: 0.2, volume: 0.065 },
+        ];
+
+        notes.forEach((note, noteIndex) => {
             const gain = audioContext.createGain();
-            const start = now + offset;
+            const start = now + note.offset;
+            const stop = start + note.duration;
+            const oscillator = audioContext.createOscillator();
             gain.gain.setValueAtTime(0.0001, start);
-            gain.gain.exponentialRampToValueAtTime(0.18, start + 0.015);
-            gain.gain.setValueAtTime(0.18, start + 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.17);
+            gain.gain.exponentialRampToValueAtTime(note.volume, start + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, stop);
             gain.connect(audioContext.destination);
 
-            [2750, 3300].forEach((frequency, toneIndex) => {
-                const oscillator = audioContext.createOscillator();
-                oscillator.type = toneIndex === 0 ? "square" : "sine";
-                oscillator.frequency.setValueAtTime(frequency, start);
-                oscillator.frequency.linearRampToValueAtTime(
-                    frequency + (burstIndex % 2 === 0 ? 180 : -120),
-                    start + 0.15,
+            oscillator.type = noteIndex < 3 ? "sine" : "triangle";
+            oscillator.frequency.setValueAtTime(note.frequency, start);
+            if (noteIndex >= 3) {
+                oscillator.frequency.exponentialRampToValueAtTime(
+                    note.frequency * 1.08,
+                    stop,
                 );
-                oscillator.connect(gain);
-                oscillator.start(start);
-                oscillator.stop(start + 0.18);
-            });
+            }
+            oscillator.connect(gain);
+            oscillator.start(start);
+            oscillator.stop(stop);
         });
 
-        window.setTimeout(() => audioContext.close().catch(() => {}), 1000);
+        window.setTimeout(() => audioContext.close().catch(() => {}), 2200);
     }
 
     function launchRaceStart() {
         const overlay = document.querySelector("#raceStartOverlay");
         const phrase = document.querySelector("#racePhrase");
-        const number = document.querySelector("#countdownNumber");
-        const timer = document.querySelector("#countdownTimer");
+        const speaker = document.querySelector("#introSpeaker");
+        const message = document.querySelector("#introMessage");
+        const startButton = document.querySelector("#introStartButton");
+        const progressDots = Array.from(document.querySelectorAll("#introProgress span"));
+        const avatars = Array.from(document.querySelectorAll("[data-intro-agent]"));
 
-        if (!overlay || !phrase || !number || !timer) {
+        if (!overlay || !phrase || !speaker || !message || !startButton) {
             return;
         }
 
         overlay.classList.add("is-active");
-        overlay.querySelectorAll(".confetti-piece, .balloon-piece, .glitter-piece").forEach((piece) => {
-            piece.remove();
-        });
-        addCelebrationPieces(overlay, "confetti-piece", 80);
-        addCelebrationPieces(overlay, "balloon-piece", 16);
-        addCelebrationPieces(overlay, "glitter-piece", 70);
 
-        const sequence = [
-            { count: "3", timer: "00:03", text: "On your mark" },
-            { count: "2", timer: "00:02", text: "Get set" },
-            { count: "1", timer: "00:01", text: "Ready" },
+        const introductions = [
+            {
+                agent: "rico",
+                speaker: "Rico Runner",
+                title: "Wepa! I am your running coach.",
+                message: "I will help you understand pace, build consistent workouts, and celebrate every mile. Start by logging a run or asking me what to do next."
+            },
+            {
+                agent: "iggy",
+                speaker: "Iggy Walk Agent",
+                title: "Hola! Small steps are welcome here.",
+                message: "If running feels like too much today, I will help you begin with a gentle walk, steady breathing, and a little nature challenge outside."
+            },
+            {
+                agent: "luna",
+                speaker: "Luna Recovery",
+                title: "I will help you recharge.",
+                message: "Come to me for hydration, stretching, gratitude, mindfulness, and rest reminders. Recovery helps your next movement feel better."
+            },
+            {
+                agent: "all",
+                speaker: "Your RunCoach Team",
+                title: "Let us get you moving.",
+                message: "Choose one small action, step outside, and begin. We are here whenever you need encouragement, a plan, or a gentler reset."
+            }
         ];
 
-        playStartHorn();
-
-        sequence.forEach((step, index) => {
-            window.setTimeout(() => {
-                number.textContent = step.count;
-                timer.textContent = step.timer;
-                phrase.textContent = step.text;
-            }, index * 1000);
-        });
-
-        window.setTimeout(() => {
-            playCoachWhistle();
-            phrase.textContent = "On your mark, Get Set, Go!";
-            number.textContent = "Go!";
-            timer.textContent = "00:00";
-            setCoachTip("Rico blew the whistle. Time to build the next healthy mile.");
-        }, 3000);
-
-        window.setTimeout(() => {
-            overlay.classList.remove("is-active");
-            overlay.querySelectorAll(".confetti-piece, .balloon-piece, .glitter-piece").forEach((piece) => {
-                piece.remove();
+        startButton.addEventListener("click", () => {
+            startButton.hidden = true;
+            introductions.forEach((step, index) => {
+                window.setTimeout(() => {
+                    speaker.textContent = step.speaker;
+                    phrase.textContent = step.title;
+                    message.textContent = step.message;
+                    progressDots.forEach((dot, dotIndex) => dot.classList.toggle("is-active", dotIndex === index));
+                    avatars.forEach((avatar) => avatar.classList.toggle("is-speaking", step.agent === "all" || avatar.dataset.introAgent === step.agent));
+                }, index * 2600);
             });
-        }, 5200);
+
+            window.setTimeout(() => {
+                speaker.textContent = "Rico Runner";
+                phrase.textContent = "You are ready!";
+                message.textContent = "Pick one small action and get moving whenever you are ready.";
+                avatars.forEach((avatar) => avatar.classList.add("is-speaking"));
+                addCelebrationPieces(overlay, "confetti-piece", 80);
+                addCelebrationPieces(overlay, "balloon-piece", 16);
+                addCelebrationPieces(overlay, "glitter-piece", 70);
+                playCompletionSounds();
+                setCoachTip("Introduction complete. Choose one small movement and begin when you are ready.");
+            }, introductions.length * 2600);
+
+            window.setTimeout(() => {
+                overlay.classList.remove("is-active");
+                overlay.querySelectorAll(".confetti-piece, .balloon-piece, .glitter-piece").forEach((piece) => piece.remove());
+            }, introductions.length * 2600 + 2400);
+        }, { once: true });
     }
 
     const celebration = document.body.dataset.celebrate;

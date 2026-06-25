@@ -123,9 +123,104 @@ class DataAnalystAgent:
     name = "Data Analyst Agent"
     personality = "Professional, concise, neutral, and insight-focused."
 
-    def __init__(self, runs=None, pace_formatter=None):
+    mood_scores = {"Great": 5, "Good": 4, "Okay": 3, "Tired": 2, "Bad": 1}
+
+    def __init__(self, runs=None, pace_formatter=None, walk_tasks=None):
         self.runs = runs or []
         self.format_pace = pace_formatter
+        self.walk_tasks = walk_tasks or []
+
+    def chart_summary(self):
+        """Build bounded, JSON-ready chart series from user-scoped activity."""
+        dated_runs = []
+        for run in self.runs:
+            try:
+                run_day = date.fromisoformat(run["run_date"][:10])
+            except (TypeError, ValueError):
+                continue
+            dated_runs.append((run_day, run))
+        dated_runs.sort(key=lambda item: item[0])
+
+        weekly = {}
+        recovery_moods = {"tired", "bad", "sore", "stressed", "low"}
+        for run_day, run in dated_runs:
+            week_start = run_day - timedelta(days=run_day.weekday())
+            week_key = week_start.isoformat()
+            bucket = weekly.setdefault(
+                week_key,
+                {"miles": 0.0, "walks": 0, "recovery": 0},
+            )
+            bucket["miles"] += float(run.get("distance") or 0)
+            if "walk" in (run.get("workout_type") or "").lower():
+                bucket["walks"] += 1
+            combined_context = " ".join(
+                [run.get("mood") or "", run.get("notes") or ""]
+            ).lower()
+            if (
+                (run.get("mood") or "").lower() in recovery_moods
+                or any(word in combined_context for word in ("recovery", "sore", "tired", "rest"))
+            ):
+                bucket["recovery"] += 1
+
+        bounded_runs = dated_runs[-24:]
+        weekly_items = sorted(weekly.items())[-12:]
+        weekly_miles = [round(values["miles"], 2) for _, values in weekly_items]
+        week_over_week_change = None
+        if len(weekly_miles) >= 2 and weekly_miles[-2]:
+            week_over_week_change = round(
+                ((weekly_miles[-1] - weekly_miles[-2]) / weekly_miles[-2]) * 100,
+                1,
+            )
+
+        total_miles = round(sum(run["distance"] for _, run in dated_runs), 2)
+        average_pace = (
+            sum(run["pace"] for _, run in dated_runs) / len(dated_runs)
+            if dated_runs
+            else None
+        )
+        latest = dated_runs[-1][1] if dated_runs else None
+        return {
+            "run_labels": [run_day.isoformat() for run_day, _ in bounded_runs],
+            "distance_miles": [round(run["distance"], 2) for _, run in bounded_runs],
+            "pace_minutes": [round(run["pace"], 2) for _, run in bounded_runs],
+            "mood_scores": [
+                self.mood_scores.get(run.get("mood")) for _, run in bounded_runs
+            ],
+            "week_labels": [week_key for week_key, _ in weekly_items],
+            "weekly_miles": weekly_miles,
+            "weekly_walks": [values["walks"] for _, values in weekly_items],
+            "weekly_recovery": [values["recovery"] for _, values in weekly_items],
+            "completed_walk_tasks": sum(
+                1 for task in self.walk_tasks if task.get("is_done")
+            ),
+            "insights": {
+                "total_miles": total_miles,
+                "average_pace": round(average_pace, 2) if average_pace else None,
+                "average_pace_label": (
+                    self.format_pace(average_pace)
+                    if average_pace and self.format_pace
+                    else None
+                ),
+                "longest_run": round(
+                    max((run["distance"] for _, run in dated_runs), default=0), 2
+                ),
+                "most_recent_run": (
+                    {
+                        "date": latest["run_date"],
+                        "distance": round(latest["distance"], 2),
+                        "pace_label": (
+                            self.format_pace(latest["pace"])
+                            if self.format_pace
+                            else None
+                        ),
+                    }
+                    if latest
+                    else None
+                ),
+                "week_over_week_mileage_change": week_over_week_change,
+                "pace_guidance": "Lower minutes per mile indicates improvement.",
+            },
+        }
 
     def summary(self):
         if not self.runs:
@@ -138,6 +233,7 @@ class DataAnalystAgent:
                 "walk_frequency": 0,
                 "recovery_frequency": 0,
                 "emotional_support_signals": {},
+                "chart_summary": self.chart_summary(),
             }
 
         dated_runs = []
@@ -209,6 +305,7 @@ class DataAnalystAgent:
             "walk_frequency": walk_frequency,
             "recovery_frequency": recovery_frequency,
             "emotional_support_signals": emotional_support_signals,
+            "chart_summary": self.chart_summary(),
         }
 
 

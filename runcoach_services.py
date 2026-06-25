@@ -160,15 +160,26 @@ def build_dashboard_visuals(runs):
             "average_pace": None,
             "longest_run": 0,
             "recent_runs": [],
+            "distance_points": "",
+            "pace_points": "",
+            "cumulative_points": "",
+            "distance_growth": 0,
+            "pace_change_seconds": 0,
+            "total_duration": 0,
             "latest_route": None,
             "video_tips": video_tip_links(),
         }
 
     total_distance = sum(run["distance"] for run in runs)
     average_pace = sum(run["pace"] for run in runs) / len(runs)
-    recent_runs = list(reversed(runs[:6]))
+    recent_runs = list(reversed(runs[:10]))
     max_distance = max(run["distance"] for run in recent_runs) or 1
     max_pace = max(run["pace"] for run in recent_runs) or 1
+    min_distance = min(run["distance"] for run in recent_runs)
+    min_pace = min(run["pace"] for run in recent_runs)
+    distance_range = max_distance - min_distance
+    pace_range = max_pace - min_pace
+    cumulative_distance = 0
     latest_route = next(
         (
             run
@@ -177,22 +188,46 @@ def build_dashboard_visuals(runs):
         ),
         None,
     )
-    chart_runs = [
-        {
+    chart_runs = []
+    for index, run in enumerate(recent_runs):
+        cumulative_distance += run["distance"]
+        x_position = 8 if len(recent_runs) == 1 else 8 + (84 * index / (len(recent_runs) - 1))
+        distance_score = 0.5 if not distance_range else (run["distance"] - min_distance) / distance_range
+        pace_score = 0.5 if not pace_range else (max_pace - run["pace"]) / pace_range
+        cumulative_score = cumulative_distance / total_distance if total_distance else 0
+        chart_runs.append({
             "date": run["run_date"],
+            "short_date": run["run_date"][-5:],
             "distance": run["distance"],
             "pace": run["pace"],
             "pace_label": format_pace(run["pace"]),
             "distance_width": max(8, round((run["distance"] / max_distance) * 100)),
             "pace_width": max(8, round((run["pace"] / max_pace) * 100)),
-        }
-        for run in recent_runs
-    ]
+            "x": round(x_position, 2),
+            "distance_y": round(88 - distance_score * 70, 2),
+            "pace_y": round(88 - pace_score * 70, 2),
+            "cumulative_y": round(88 - cumulative_score * 70, 2),
+        })
+
+    oldest_run = recent_runs[0]
+    latest_run = recent_runs[-1]
+    distance_growth = (
+        ((latest_run["distance"] - oldest_run["distance"]) / oldest_run["distance"]) * 100
+        if oldest_run["distance"]
+        else 0
+    )
+    pace_change_seconds = (latest_run["pace"] - oldest_run["pace"]) * 60
     return {
         "total_distance": total_distance,
         "average_pace": average_pace,
         "longest_run": max(run["distance"] for run in runs),
         "recent_runs": chart_runs,
+        "distance_points": " ".join(f'{run["x"]},{run["distance_y"]}' for run in chart_runs),
+        "pace_points": " ".join(f'{run["x"]},{run["pace_y"]}' for run in chart_runs),
+        "cumulative_points": " ".join(f'{run["x"]},{run["cumulative_y"]}' for run in chart_runs),
+        "distance_growth": distance_growth,
+        "pace_change_seconds": pace_change_seconds,
+        "total_duration": sum(run["duration"] for run in runs),
         "latest_route": latest_route,
         "video_tips": video_tip_links(),
     }
@@ -205,6 +240,9 @@ def motivation_videos():
         ("Maya Angelou", "Courage First", "Resilience and courage for hard training days.", "wbbtRnLIb4s"),
         ("Athlete Mindset", "Super Athletes", "A quick energy boost before a walk, run, or reset.", "h9TddIAkfoY"),
         ("Athlete Mindset", "Comeback Energy", "A short reminder that progress can restart today.", "sj4ri474vD0"),
+        ("MotivaShian", "Just Do It", "A playful push to stop waiting and begin.", "ZXsQAXx_ao0"),
+        ("Mateusz M", "Why Do We Fall", "Turn setbacks into the energy to stand up again.", "mgmVOuLgFB0"),
+        ("Ben Lionel Scott", "No Excuses", "Focused motivation for the days discipline feels difficult.", "wnHW6o8WMas"),
     ]
     return [
         {
@@ -220,6 +258,52 @@ def motivation_videos():
     ]
 
 
+def motivation_posts():
+    """Return original social-style quote cards for the motivation feed."""
+    return [
+        {
+            "coach": "Rico Runner",
+            "quote": "One mile at a time. One promise kept at a time.",
+            "caption": "Consistency builds the runner you are becoming.",
+            "theme": "rico",
+            "symbol": "🏃",
+        },
+        {
+            "coach": "Iggy",
+            "quote": "Small steps still move you forward.",
+            "caption": "A gentle walk is a real win. Let today be simple.",
+            "theme": "iggy",
+            "symbol": "🌿",
+        },
+        {
+            "coach": "Luna Recovery",
+            "quote": "Rest is part of the plan, not a break from it.",
+            "caption": "Hydrate, stretch gently, and protect tonight's sleep.",
+            "theme": "luna",
+            "symbol": "💧",
+        },
+        {
+            "coach": "RunCoach AI",
+            "quote": "Consistency beats intensity you cannot repeat.",
+            "caption": "Choose the effort that lets you return tomorrow.",
+            "theme": "sunrise",
+            "symbol": "☀️",
+        },
+        {
+            "coach": "Iggy",
+            "quote": "Breathe. Move. Notice. Begin again.",
+            "caption": "Turn your next walk into a quiet outdoor reset.",
+            "theme": "ocean",
+            "symbol": "🌊",
+        },
+        {
+            "coach": "Rico Runner",
+            "quote": "You do not have to be fast to be fearless.",
+            "caption": "Wepa! Start where you are and finish proud.",
+            "theme": "night",
+            "symbol": "⭐",
+        },
+    ]
 def weekly_workout_schedule():
     """Return a simple three-workout week for Rico and Iggy."""
     return {

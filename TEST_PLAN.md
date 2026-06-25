@@ -13,6 +13,7 @@ Verify that the capstone foundation works and that optional context data does no
 | Log basic run | Submit date, distance, duration, mood, notes | Run saves and appears in previous runs |
 | Pace calculation | Log 2 miles in 20 minutes | Pace displays as `10:00 / mile` |
 | Persistence | Refresh page after saving | Saved run is still visible |
+| Invalid run input | Bypass browser validation and submit malformed, zero, negative, non-finite, invalid-date, or invalid-mood values | A friendly error appears, no HTTP 500 occurs, and no row is stored |
 | Agent chat | Ask `What should my next workout be?` | Agent returns safe next-workout guidance |
 | Agent API | POST JSON to `/agent` | JSON response includes `answer` |
 | Health check | Open `/health` | Returns `{"status":"ok"}` |
@@ -124,6 +125,7 @@ Verify that the capstone foundation works and that optional context data does no
 | Backend-only access | No Sentinel report route or public agent-registry entry exists |
 | Periodic cadence | Active server requests refresh the bounded report at most once every 15 minutes |
 | Safe security probes | Authentication boundaries, SQL-injection rejection, and CSRF enforcement are checked without modifying user data |
+| Session isolation | Sentinel never runs synchronously inside login or demo-login requests |
 | Core routes | `/`, `/login`, `/import`, `/health`, and `/agent` respond as expected |
 | Chat contracts | `/ask` and `/agent` retain POST support |
 | Try Demo | Login page still renders the Try Demo form |
@@ -131,6 +133,29 @@ Verify that the capstone foundation works and that optional context data does no
 | Previous Runs | Demo workout content renders in Previous Runs |
 | Defensive suite | Full pytest suite includes user_id separation and security defenses |
 | No polling | No browser timer, background loop, or automatic pytest process exists |
+
+## Demo Session Tests
+
+| Test | Expected Result |
+| --- | --- |
+| Try Demo + CSRF | Rendered token is accepted and redirects to `/?welcome=1` |
+| Session identity | Session contains the real demo `user_id`, demo flag, and permanent lifetime |
+| Demo run | Authenticated demo user can save a run |
+| Coach chats | Authenticated demo user can message Rico and Iggy through `/agent` |
+| Protected POSTs | Anonymous users receive `401` on protected writes |
+
+## Progress Chart Tests
+
+| Test | Expected Result |
+| --- | --- |
+| Distance and pace | Date labels and numeric values are generated in chronological order |
+| Weekly mileage | Runs are grouped by Monday-starting week and distances are totaled |
+| Mood trend | Great/Good/Okay/Tired/Bad map only to 5/4/3/2/1 |
+| Activity | Walking workouts and recovery signals are counted by week |
+| Growth insights | Total, average pace, longest, latest, and week-over-week change are present |
+| JSON safety | Chart payload is rendered with `tojson` and parses as JSON |
+| Run details | Full cards remain available under **View run history** |
+| Empty state | Missing series show friendly guidance instead of fabricated points |
 
 ## Manual Commands
 
@@ -167,6 +192,16 @@ Sentinel unit and integration checks:
 ```bash
 python -m pytest -q tests/test_sentinel_qa.py
 ```
+
+Full release validation:
+
+```bash
+python -m py_compile app.py runcoach_agent.py runcoach_services.py sentinel_qa.py gemini_service.py data_analyst.py
+node --check static/app.js
+python -m pytest -q
+```
+
+Latest verified result on June 25, 2026: **49 passed**.
 
 ## Known Limitations
 

@@ -1,12 +1,14 @@
 import csv
 import io
+import math
 import os
 import sqlite3
 import xml.etree.ElementTree as ET
+from datetime import date, timedelta
 from functools import wraps
 from pathlib import Path
 
-from flask import Flask, jsonify, redirect, render_template, request, session, url_for
+from flask import Flask, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -27,6 +29,7 @@ from runcoach_services import (
     coach_resource_links,
     create_feedback,
     format_pace,
+    motivation_posts,
     motivation_videos,
     weekly_workout_schedule,
 )
@@ -37,6 +40,10 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "runcoach-ai-local-dev-secret")
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 app.config["SENTINEL_INTERVAL_SECONDS"] = 15 * 60
+app.config["SESSION_COOKIE_HTTPONLY"] = True
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = bool(os.environ.get("K_SERVICE"))
+app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
 csrf = CSRFProtect(app)
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -53,6 +60,7 @@ AGENT_RICO = "rico"
 AGENT_IGGY = "iggy"
 AGENT_LUNA = "luna"
 VALID_AGENTS = {AGENT_RICO, AGENT_IGGY, AGENT_LUNA}
+VALID_MOODS = {"Great", "Good", "Okay", "Tired", "Bad", "Sore", "Stressed", "Low"}
 
 
 @app.errorhandler(413)
@@ -371,6 +379,15 @@ def current_user():
     return dict(user) if user else None
 
 
+def establish_user_session(user_id, is_demo=False):
+    """Create one explicit authenticated browser session."""
+    session.clear()
+    session["user_id"] = int(user_id)
+    session["is_demo"] = bool(is_demo)
+    session.permanent = True
+    session.modified = True
+
+
 def login_required(route_function):
     @wraps(route_function)
     def wrapper(*args, **kwargs):
@@ -379,7 +396,7 @@ def login_required(route_function):
 
         if not user_exists:
             session.clear()
-            if request.path == "/agent":
+            if request.method != "GET" or request.path == "/agent":
                 return jsonify({"error": "Login required"}), 401
             return redirect(url_for("login"))
 
@@ -447,29 +464,45 @@ def seed_coach_library():
 
 @app.before_request
 def initialize_app_once():
-    """Initialize data and opportunistically run the private health agent."""
+    """Initialize shared data without touching the browser session."""
     if not hasattr(app, "_db_setup_done"):
         setup_database()
         seed_coach_library()
         app._db_setup_done = True
 
+
+
+@app.after_request
+def schedule_sentinel_after_safe_request(response):
+    """Run Sentinel in a separate thread, never inside auth/session handling."""
+    safe_endpoints = {"health", "index", "agent_api", "import_workouts"}
     if (
         not app.config.get("TESTING")
+        and request.endpoint in safe_endpoints
+        and response.status_code < 400
         and not sentinel_qa.is_running
         and sentinel_qa.is_due()
     ):
         seed_demo_data()
         demo_user = get_user_by_email(DEMO_EMAIL)
         if demo_user:
-            report = sentinel_qa.run_periodic_if_due(demo_user["id"])
-            log_method = app.logger.info if report["status"] == "Healthy" else app.logger.warning
-            log_method(
-                "Sentinel QA backend check: status=%s checks=%s/%s warnings=%s",
-                report["status"],
-                report["checks_passed"],
-                report["checks_total"],
-                report["warnings_count"],
+            sentinel_qa.start_periodic_if_due(
+                demo_user["id"],
+                on_complete=log_sentinel_report,
             )
+    return response
+
+
+def log_sentinel_report(report):
+    """Write one backend-only Sentinel summary after an asynchronous check."""
+    log_method = app.logger.info if report["status"] == "Healthy" else app.logger.warning
+    log_method(
+        "Sentinel QA backend check: status=%s checks=%s/%s warnings=%s",
+        report["status"],
+        report["checks_passed"],
+        report["checks_total"],
+        report["warnings_count"],
+    )
 
 
 def get_previous_run(user_id):
@@ -803,6 +836,57 @@ def optional_int(value):
     return int(value)
 
 
+def parse_run_form(form):
+    """Validate and normalize a manually entered run."""
+    run_date = (form.get("run_date") or "").strip()
+    mood = (form.get("mood") or "").strip()
+
+    try:
+        date.fromisoformat(run_date)
+    except ValueError as error:
+        raise ValueError("Choose a valid run date.") from error
+
+    try:
+        distance = float(form.get("distance", ""))
+        duration = float(form.get("duration", ""))
+        temperature_f = optional_float(form.get("temperature_f"))
+        wind_mph = optional_float(form.get("wind_mph"))
+        avg_heart_rate = optional_int(form.get("avg_heart_rate"))
+        steps = optional_int(form.get("steps"))
+        cadence = optional_int(form.get("cadence"))
+    except (TypeError, ValueError) as error:
+        raise ValueError("Use valid numbers for the run details.") from error
+
+    numeric_values = [distance, duration, temperature_f, wind_mph]
+    if any(value is not None and not math.isfinite(value) for value in numeric_values):
+        raise ValueError("Run details must use finite numbers.")
+
+    if distance <= 0 or duration <= 0:
+        raise ValueError("Distance and duration must be greater than zero.")
+
+    if any(value is not None and value <= 0 for value in (avg_heart_rate, steps, cadence)):
+        raise ValueError("Heart rate, steps, and cadence must be greater than zero.")
+
+    if mood not in VALID_MOODS:
+        raise ValueError("Choose a valid mood.")
+
+    return {
+        "run_date": run_date,
+        "distance": distance,
+        "duration": duration,
+        "mood": mood,
+        "notes": form.get("notes", ""),
+        "weather_summary": empty_to_none(form.get("weather_summary")),
+        "temperature_f": temperature_f,
+        "wind_mph": wind_mph,
+        "route_type": empty_to_none(form.get("route_type")),
+        "route_notes": empty_to_none(form.get("route_notes")),
+        "avg_heart_rate": avg_heart_rate,
+        "steps": steps,
+        "cadence": cadence,
+    }
+
+
 def normalize_apple_workout_type(workout_type):
     """Return a friendly workout type for supported Apple Health workouts."""
     cleaned = (workout_type or "").replace("HKWorkoutActivityType", "").strip()
@@ -1134,7 +1218,11 @@ def import_workouts_from_apple_health_xml(file_storage, user_id):
 
 def build_data_analyst(user_id, runs=None):
     """Create the internal, non-chatting Data Analyst."""
-    return DataAnalystAgent(runs or get_all_runs(user_id), format_pace)
+    return DataAnalystAgent(
+        runs or get_all_runs(user_id),
+        format_pace,
+        get_walk_tasks(user_id),
+    )
 
 
 def build_private_agent_summary(user_id, runs):
@@ -1302,6 +1390,7 @@ def dashboard_context(user, agent_question=""):
     runs = get_all_runs(user_id)
     analyst_uploads = get_analyst_uploads(user_id)
     data_summary = build_data_analyst(user_id, runs).summary()
+    chart_data = data_summary["chart_summary"]
     luna_agent = build_luna_agent(user_id, runs)
     analyst_summary = build_analyst_summary(runs, analyst_uploads)
     analyst_summary.update(data_summary)
@@ -1316,10 +1405,12 @@ def dashboard_context(user, agent_question=""):
         "iggy_chat_messages": get_agent_messages(user_id, AGENT_IGGY),
         "walk_tasks": get_walk_tasks(user_id),
         "visuals": build_dashboard_visuals(runs),
+        "chart_data": chart_data,
         "analyst_summary": analyst_summary,
         "analyst_uploads": analyst_uploads,
         "analyst_notice": request.args.get("analyst"),
         "motivation_videos": motivation_videos(),
+        "motivation_posts": motivation_posts(),
         "weekly_schedule": weekly_workout_schedule(),
         "luna_summary": luna_agent.summary(),
         "luna_cards": luna_agent.cards(),
@@ -1334,19 +1425,25 @@ def index():
     user_id = user["id"]
 
     if request.method == "POST":
-        run_date = request.form["run_date"]
-        distance = float(request.form["distance"])
-        duration = float(request.form["duration"])
-        mood = request.form["mood"]
-        notes = request.form.get("notes", "")
-        weather_summary = empty_to_none(request.form.get("weather_summary"))
-        temperature_f = optional_float(request.form.get("temperature_f"))
-        wind_mph = optional_float(request.form.get("wind_mph"))
-        route_type = empty_to_none(request.form.get("route_type"))
-        route_notes = empty_to_none(request.form.get("route_notes"))
-        avg_heart_rate = optional_int(request.form.get("avg_heart_rate"))
-        steps = optional_int(request.form.get("steps"))
-        cadence = optional_int(request.form.get("cadence"))
+        try:
+            run = parse_run_form(request.form)
+        except ValueError as error:
+            flash(str(error), "error")
+            return redirect(f"{url_for('index')}#log-run")
+
+        run_date = run["run_date"]
+        distance = run["distance"]
+        duration = run["duration"]
+        mood = run["mood"]
+        notes = run["notes"]
+        weather_summary = run["weather_summary"]
+        temperature_f = run["temperature_f"]
+        wind_mph = run["wind_mph"]
+        route_type = run["route_type"]
+        route_notes = run["route_notes"]
+        avg_heart_rate = run["avg_heart_rate"]
+        steps = run["steps"]
+        cadence = run["cadence"]
 
         pace = calculate_pace(distance, duration)
         previous_run = get_previous_run(user_id)
@@ -1525,7 +1622,7 @@ def signup():
             except sqlite3.IntegrityError:
                 error = "An account with that email already exists."
             else:
-                session["user_id"] = user_id
+                establish_user_session(user_id)
                 return redirect(url_for("index", welcome=1))
 
     return render_template(
@@ -1549,7 +1646,7 @@ def login():
         user = get_user_by_email(email)
 
         if user and check_password_hash(user["password_hash"], password):
-            session["user_id"] = user["id"]
+            establish_user_session(user["id"], is_demo=user["email"] == DEMO_EMAIL)
             return redirect(url_for("index", welcome=1))
 
         error = "Email or password was not correct."
@@ -1567,7 +1664,7 @@ def login():
 def demo_login():
     """Log evaluators into the privacy-safe demo account in one click."""
     demo_user_id = reset_demo_account()
-    session["user_id"] = demo_user_id
+    establish_user_session(demo_user_id, is_demo=True)
     return redirect(url_for("index", welcome=1))
 
 
