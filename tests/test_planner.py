@@ -212,6 +212,40 @@ def test_personal_event_and_calendar_export(planner_client):
     assert exported.mimetype == "text/calendar"
     assert b"Community 5K" in exported.data
     assert b"BEGIN:VEVENT" in exported.data
+    assert b"X-WR-TIMEZONE:America/New_York" in exported.data
+    assert b"DTSTART;TZID=America/New_York:20260704T083000" in exported.data
+
+
+def test_user_can_update_planner_timezone(planner_client):
+    client = planner_client
+    user_id = create_and_login(client, "timezone@example.test")
+
+    updated = client.post(
+        "/planner/timezone",
+        data={
+            "timezone": "America/Los_Angeles",
+            "week_start": "2026-06-29",
+        },
+        follow_redirects=True,
+    )
+
+    assert updated.status_code == 200
+    assert "Planner timezone updated" in updated.get_data(as_text=True)
+    assert runcoach.get_user_by_id(user_id)["timezone"] == "America/Los_Angeles"
+
+    client.post(
+        "/planner/event",
+        data={
+            "title": "West coast walk",
+            "event_date": "2026-07-01",
+            "start_time": "07:15",
+            "duration_minutes": "20",
+            "details": "Easy movement.",
+        },
+    )
+    exported = client.get("/planner/calendar.ics?week_start=2026-06-29")
+    assert b"X-WR-TIMEZONE:America/Los_Angeles" in exported.data
+    assert b"DTSTART;TZID=America/Los_Angeles:20260701T071500" in exported.data
 
 
 def test_regenerating_week_preserves_personal_events(planner_client):
@@ -302,4 +336,5 @@ def test_planner_routes_require_authentication(planner_client):
     assert client.get("/planner").status_code == 302
     assert client.post("/planner/generate").status_code == 401
     assert client.post("/planner/event").status_code == 401
+    assert client.post("/planner/timezone").status_code == 401
     assert client.post("/planner/email").status_code == 401

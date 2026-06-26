@@ -3662,6 +3662,34 @@ dd {
 }
 
 /* Personal weekly planner */
+.next-plan-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-top: 16px;
+    padding: 20px 22px;
+    border: 1px solid #cde8de;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #f2fff9, #fffdf3);
+    box-shadow: 0 12px 30px rgba(24, 72, 66, 0.08);
+}
+
+.next-plan-card h2,
+.next-plan-card p {
+    margin: 4px 0;
+}
+
+.next-plan-card > a {
+    flex: 0 0 auto;
+    padding: 11px 16px;
+    border-radius: 999px;
+    color: #fff;
+    background: #0c765f;
+    font-weight: 800;
+    text-decoration: none;
+}
+
 .planner-page {
     min-height: 100vh;
     background:
@@ -3739,6 +3767,31 @@ dd {
 
 .planner-week-nav a:last-child {
     text-align: right;
+}
+
+.planner-timezone {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    margin: 10px 0 0;
+    color: #516d67;
+    font-size: 0.84rem;
+    font-weight: 800;
+}
+
+.planner-timezone select,
+.planner-timezone button {
+    padding: 8px 10px;
+    border: 1px solid #bfd5cf;
+    border-radius: 9px;
+    background: #fff;
+}
+
+.planner-timezone button {
+    color: #fff;
+    background: #0c765f;
+    cursor: pointer;
 }
 
 .planner-notice-success {
@@ -3989,6 +4042,12 @@ dd {
 }
 
 @media (max-width: 600px) {
+    .next-plan-card,
+    .planner-timezone {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
     .planner-shell {
         width: min(100% - 20px, 1500px);
         padding-top: 14px;

@@ -364,3 +364,19 @@ Then restart:
 ```bash
 python app.py
 ```
+
+## Final Submission Polish
+
+- The dashboard now emphasizes six core actions and a single **Up next** card instead of competing schedule/data tiles.
+- **My Plan** stores a timezone per user and exports timezone-aware calendar events.
+- Planner SQL and calendar shaping live in `planner_store.py`, reducing route-level responsibilities in `app.py`.
+- `RUNCOACH_DATABASE` can override the SQLite file path for an explicitly mounted persistent volume.
+- Agent contracts can be checked without Gemini credentials:
+
+```bash
+python agent_eval.py
+```
+
+The deterministic evaluation dataset covers Rico, Iggy, Luna, Data Analyst, planner structure, safety concepts, and a secret-leak marker. Gemini remains the preferred response provider; these evaluations deliberately exercise the outage fallback.
+
+See `PRODUCTION_READINESS.md` before treating the Cloud Run demo as a permanent multi-user production service.

@@ -250,3 +250,12 @@ web: gunicorn --bind :$PORT app:app
 ```
 
 SQLite is acceptable for local demos. For a production app, persistent data should move to Cloud SQL or Firestore.
+
+## Submission Polish Architecture
+
+- `planner_store.py` owns planner persistence, completion updates, calendar-week shaping, supported timezones, and safe date parsing.
+- `app.py` retains HTTP/session orchestration while delegating planner data operations to `PlannerStore`.
+- Each `users` row has a validated timezone; older databases receive the column through the existing lightweight migration helper.
+- Calendar exports include `X-WR-TIMEZONE` and timezone-qualified `DTSTART`/`DTEND` fields.
+- `agent_eval.py` runs deterministic contract checks from `tests/eval/runcoach_agent_cases.json`; it does not replace live Gemini quality review.
+- `RUNCOACH_DATABASE` makes the database location configurable, but production durability still requires an intentionally provisioned persistent database or mounted storage.

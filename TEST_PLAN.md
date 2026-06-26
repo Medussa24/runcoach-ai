@@ -222,7 +222,21 @@ node --check static/app.js
 python -m pytest -q
 ```
 
-Latest verified result on June 25, 2026: **60 passed**.
+Agent contract evaluation:
+
+```bash
+python agent_eval.py
+```
+
+Planner/timezone checks:
+
+```bash
+python -m pytest -q tests/test_planner.py tests/test_agent_eval.py
+```
+
+The contract dataset checks expected coaching concepts, forbidden secret markers, nonempty fallbacks, and complete planner event fields. It is deterministic and safe to run without Gemini credentials.
+
+Latest verified result on June 25, 2026: **62 passed**.
 
 ## Known Limitations
 
@@ -237,3 +251,4 @@ Latest verified result on June 25, 2026: **60 passed**.
 - Email delivery requires administrator-provided SMTP environment variables; calendar storage and `.ics` export do not.
 - Email reminders are sent only when a user presses **Email My Week**. There is no background scheduler in the lightweight Cloud Run version.
 - Automated pytest verifies request contracts and privacy boundaries, not nondeterministic LLM wording.
+- The formal agent contract evaluation exercises scripted fallbacks. Live Gemini responses still require qualitative review because wording is nondeterministic.

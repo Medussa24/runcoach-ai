@@ -7,6 +7,8 @@ import smtplib
 from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 
+from planner_store import DEFAULT_TIMEZONE, normalize_timezone
+
 
 class PlanEmailService:
     """Send a weekly plan only when SMTP is explicitly configured."""
@@ -27,7 +29,13 @@ class PlanEmailService:
     def is_configured(self):
         return bool(self.host and self.sender)
 
-    def send_week(self, recipient, events, calendar_bytes):
+    def send_week(
+        self,
+        recipient,
+        events,
+        calendar_bytes,
+        timezone_name=DEFAULT_TIMEZONE,
+    ):
         if not self.is_configured:
             return False, (
                 "Email reminders are not configured on this server. "
@@ -37,7 +45,7 @@ class PlanEmailService:
         message["Subject"] = "Your RunCoach AI weekly plan"
         message["From"] = self.sender
         message["To"] = recipient
-        message.set_content(self._plain_text(events))
+        message.set_content(self._plain_text(events, timezone_name))
         message.add_attachment(
             calendar_bytes,
             maintype="text",
@@ -57,8 +65,12 @@ class PlanEmailService:
         return True, f"Weekly plan sent to {recipient}."
 
     @staticmethod
-    def _plain_text(events):
-        lines = ["Your RunCoach AI weekly plan", ""]
+    def _plain_text(events, timezone_name=DEFAULT_TIMEZONE):
+        lines = [
+            "Your RunCoach AI weekly plan",
+            f"Times shown in {normalize_timezone(timezone_name)}.",
+            "",
+        ]
         for event in events:
             lines.extend(
                 [
@@ -74,14 +86,16 @@ class PlanEmailService:
         return "\n".join(lines)
 
 
-def build_calendar_ics(events):
+def build_calendar_ics(events, timezone_name=DEFAULT_TIMEZONE):
     """Create a standards-friendly calendar file without external packages."""
+    timezone_name = normalize_timezone(timezone_name)
     lines = [
         "BEGIN:VCALENDAR",
         "VERSION:2.0",
         "PRODID:-//RunCoach AI//Personal Planner//EN",
         "CALSCALE:GREGORIAN",
         "METHOD:PUBLISH",
+        f"X-WR-TIMEZONE:{timezone_name}",
     ]
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     for event in events:
@@ -106,8 +120,8 @@ def build_calendar_ics(events):
                 "BEGIN:VEVENT",
                 f"UID:runcoach-{event['id']}@runcoach.ai",
                 f"DTSTAMP:{stamp}",
-                f"DTSTART:{start.strftime('%Y%m%dT%H%M%S')}",
-                f"DTEND:{end.strftime('%Y%m%dT%H%M%S')}",
+                f"DTSTART;TZID={timezone_name}:{start.strftime('%Y%m%dT%H%M%S')}",
+                f"DTEND;TZID={timezone_name}:{end.strftime('%Y%m%dT%H%M%S')}",
                 f"SUMMARY:{_escape_ics(event['title'])}",
                 f"DESCRIPTION:{_escape_ics(description)}",
                 "END:VEVENT",

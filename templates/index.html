@@ -35,7 +35,6 @@
         <aside class="dashboard-nav" aria-label="Dashboard navigation">
             <img class="nav-logo" src="{{ url_for('static', filename='runcoach-logo.png') }}" alt="RunCoach AI">
             <nav>
-                <a href="#weekly-schedule"><span>3</span>Weekly Schedule</a>
                 <a class="is-active" href="#dashboard-top"><span>⌂</span>Dashboard</a>
                 <a href="#agentChatForm"><img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="">Rico Runner</a>
                 <a href="#iggyChatForm"><img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="">Iggy Walk Agent</a>
@@ -162,17 +161,32 @@
                             <strong>Import Workouts</strong>
                             <small>CSV, XML, or screenshots</small>
                         </a>
-                        <a class="action-tile action-sky" href="#progress-visuals">
-                            <span>▥</span>
-                            <strong>Analyze Data</strong>
-                            <small>AI insights and tables</small>
-                        </a>
-                        <a class="action-tile action-gold" href="#weekly-schedule">
-                            <span>3</span>
-                            <strong>Weekly Schedule</strong>
-                            <small>Rico and Iggy workouts</small>
+                        <a class="action-tile action-sky" href="{{ url_for('planner') }}">
+                            <span>▦</span>
+                            <strong>My Plan</strong>
+                            <small>Workouts by date and time</small>
                         </a>
                     </div>
+                </section>
+
+                <section class="next-plan-card" aria-label="Next planned activity">
+                    <div>
+                        <p class="eyebrow">Up next · {{ planner_timezone }}</p>
+                        {% if next_plan_event %}
+                            <h2>{{ next_plan_event["title"] }}</h2>
+                            <p>
+                                {{ next_plan_event["event_date"] }} at {{ next_plan_event["start_time"] }}
+                                · {{ next_plan_event["duration_minutes"] }} minutes
+                                · {{ next_plan_event["coach"] or "Personal" }}
+                            </p>
+                        {% else %}
+                            <h2>Build your first personal week</h2>
+                            <p>Let Rico, Iggy, and Luna organize workouts, hydration, warm-ups, and cool-downs.</p>
+                        {% endif %}
+                    </div>
+                    <a href="{{ url_for('planner') }}">
+                        {% if next_plan_event %}Open My Plan{% else %}Generate My Week{% endif %}
+                    </a>
                 </section>
 
                 <section class="dashboard-search" aria-label="Search dashboard">

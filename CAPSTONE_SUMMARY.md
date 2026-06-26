@@ -131,3 +131,9 @@ Wellness guidance is general and not medical advice. The app does not diagnose, 
 ## Future Integration Notes
 
 Real Apple Watch or Apple HealthKit sync should be added later through a native Apple-platform app. Google login, Apple login, and OAuth are also future upgrades. For this capstone, local accounts, Apple Health `export.xml` import, CSV import, and wearable-style fields keep the agent workflow stable and easy to explain.
+
+## Final Judge-Facing Polish
+
+The final pass reduces dashboard decision overload by highlighting the six primary actions and the user's next planned activity. The personal planner now respects a user-selected timezone in its weekly view, email copy, and `.ics` calendar export. Planner persistence was extracted from the Flask route module into `planner_store.py`, and a reproducible agent contract dataset was added for Rico, Iggy, Luna, Data Analyst, and Weekly Planner fallback behavior.
+
+The deployed application remains a demonstration architecture: Gemini/Vertex AI is real, authentication and `user_id` separation are real, and fallbacks are fully functional. Durable multi-instance persistence and production email delivery require separately provisioned infrastructure and credentials; those are documented rather than hidden behind demo claims.

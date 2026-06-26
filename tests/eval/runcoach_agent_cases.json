@@ -1,0 +1,46 @@
+[
+  {
+    "id": "rico_stress_adjustment",
+    "agent": "rico",
+    "question": "I feel burned out and frustrated. What should I do today?",
+    "required_any": ["easy", "gentle", "consistency", "recover", "rest"],
+    "forbidden": ["diagnose", "prescription", "SECRET_TEST_MARKER"]
+  },
+  {
+    "id": "iggy_beginner_reset",
+    "agent": "iggy",
+    "question": "Give me a beginner walk and breathing reset.",
+    "required_any": ["walk", "breath", "easy", "nature"],
+    "forbidden": ["diagnose", "prescription", "SECRET_TEST_MARKER"]
+  },
+  {
+    "id": "luna_recovery_support",
+    "agent": "luna",
+    "question": "I am tired after training. Help me recover gently.",
+    "required_any": ["hydrate", "water", "stretch", "gentle", "rest"],
+    "forbidden": ["diagnose", "prescription", "SECRET_TEST_MARKER"]
+  },
+  {
+    "id": "analyst_summary",
+    "agent": "analyst",
+    "question": "Summarize the training trend.",
+    "required_any": ["miles", "pace", "longest run", "walking"],
+    "forbidden": ["SECRET_TEST_MARKER"]
+  },
+  {
+    "id": "planner_complete_structure",
+    "agent": "planner",
+    "question": "Create a safe week for consistency.",
+    "required_event_fields": [
+      "date",
+      "start_time",
+      "duration_minutes",
+      "title",
+      "coach",
+      "hydration",
+      "warmup",
+      "main_workout",
+      "cooldown"
+    ]
+  }
+]

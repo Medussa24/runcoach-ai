@@ -17,6 +17,14 @@ from coach_data import STARTER_COACH_ITEMS
 from data_analyst import build_analyst_summary, save_demo_screenshot
 from notification_service import PlanEmailService, build_calendar_ics
 from planner_agent import WeeklyPlannerAgent
+from planner_store import (
+    DEFAULT_TIMEZONE,
+    SUPPORTED_TIMEZONES,
+    PlannerStore,
+    normalize_timezone,
+    parse_week_start,
+    safe_zoneinfo,
+)
 from runcoach_agent import (
     DataAnalystAgent,
     IggyWalkAgent,
@@ -49,7 +57,7 @@ app.config["PERMANENT_SESSION_LIFETIME"] = timedelta(hours=8)
 csrf = CSRFProtect(app)
 
 BASE_DIR = Path(__file__).resolve().parent
-DATABASE = BASE_DIR / "runs.db"
+DATABASE = Path(os.environ.get("RUNCOACH_DATABASE", BASE_DIR / "runs.db"))
 SCREENSHOT_UPLOAD_DIR = BASE_DIR / "uploads" / "screenshots"
 sentinel_qa = SentinelQA(
     app,
@@ -79,6 +87,13 @@ def get_database_connection():
     return connection
 
 
+planner_store = PlannerStore(get_database_connection)
+get_planner_events = planner_store.get_events
+save_generated_plan = planner_store.save_generated_plan
+add_personal_planner_event = planner_store.add_personal_event
+planner_calendar_days = planner_store.calendar_days
+
+
 def setup_database():
     """Create the app tables if they do not already exist."""
     connection = get_database_connection()
@@ -89,10 +104,12 @@ def setup_database():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 email TEXT NOT NULL UNIQUE,
                 password_hash TEXT NOT NULL,
+                timezone TEXT NOT NULL DEFAULT 'America/New_York',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """
         )
+        ensure_user_columns(connection)
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS runs (
@@ -233,6 +250,19 @@ def ensure_run_context_columns(connection):
             )
 
 
+def ensure_user_columns(connection):
+    """Add profile preferences to older users tables."""
+    existing_columns = {
+        row["name"]
+        for row in connection.execute("PRAGMA table_info(users)").fetchall()
+    }
+    if "timezone" not in existing_columns:
+        connection.execute(
+            "ALTER TABLE users ADD COLUMN timezone TEXT "
+            "NOT NULL DEFAULT 'America/New_York'"
+        )
+
+
 def ensure_agent_message_columns(connection):
     """Add agent tracking to older chat tables."""
     existing_columns = {
@@ -268,6 +298,27 @@ def get_user_by_id(user_id):
         ).fetchone()
     finally:
         connection.close()
+
+
+def get_user_timezone(user_id):
+    """Return a supported display timezone for one user."""
+    user = get_user_by_id(user_id)
+    return normalize_timezone(user["timezone"] if user else DEFAULT_TIMEZONE)
+
+
+def update_user_timezone(user_id, timezone_name):
+    """Persist one user's planner timezone."""
+    timezone_name = normalize_timezone(timezone_name)
+    connection = get_database_connection()
+    try:
+        connection.execute(
+            "UPDATE users SET timezone = ? WHERE id = ?",
+            (timezone_name, user_id),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+    return timezone_name
 
 
 def create_user(email, password):
@@ -1261,149 +1312,6 @@ def build_private_agent_summary(user_id, runs):
     return summary
 
 
-def get_planner_events(user_id, start_date=None, end_date=None):
-    """Return calendar events for one authenticated user."""
-    query = "SELECT * FROM planner_events WHERE user_id = ?"
-    parameters = [user_id]
-    if start_date:
-        query += " AND event_date >= ?"
-        parameters.append(str(start_date))
-    if end_date:
-        query += " AND event_date <= ?"
-        parameters.append(str(end_date))
-    query += " ORDER BY event_date, start_time, id"
-
-    connection = get_database_connection()
-    try:
-        return [
-            dict(row)
-            for row in connection.execute(query, parameters).fetchall()
-        ]
-    finally:
-        connection.close()
-
-
-def save_generated_plan(user_id, events, week_start, source):
-    """Replace generated workouts for one user's selected week."""
-    week_end = week_start + timedelta(days=6)
-    connection = get_database_connection()
-    try:
-        connection.execute(
-            """
-            DELETE FROM planner_events
-            WHERE user_id = ? AND event_type = 'workout'
-              AND source IN ('Gemini', 'Scripted fallback')
-              AND event_date BETWEEN ? AND ?
-            """,
-            (user_id, week_start.isoformat(), week_end.isoformat()),
-        )
-        for event in events:
-            connection.execute(
-                """
-                INSERT INTO planner_events (
-                    user_id, event_type, event_date, start_time,
-                    duration_minutes, title, coach, hydration, warmup,
-                    main_workout, cooldown, notes, source
-                )
-                VALUES (?, 'workout', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    user_id,
-                    event["date"],
-                    event["start_time"],
-                    event["duration_minutes"],
-                    event["title"],
-                    event["coach"],
-                    event["hydration"],
-                    event["warmup"],
-                    event["main_workout"],
-                    event["cooldown"],
-                    event.get("notes", ""),
-                    source,
-                ),
-            )
-        connection.commit()
-    finally:
-        connection.close()
-
-
-def add_personal_planner_event(user_id, form):
-    """Validate and store one personal calendar event."""
-    title = (form.get("title") or "").strip()
-    details = (form.get("details") or "").strip()
-    try:
-        event_date = date.fromisoformat(form.get("event_date", ""))
-        start_time = datetime.strptime(
-            form.get("start_time", ""),
-            "%H:%M",
-        ).strftime("%H:%M")
-        duration = int(form.get("duration_minutes", ""))
-    except (TypeError, ValueError) as error:
-        raise ValueError("Choose a valid date, time, and duration.") from error
-    if not title:
-        raise ValueError("Add a title for the event.")
-    if not 5 <= duration <= 720:
-        raise ValueError("Event duration must be between 5 minutes and 12 hours.")
-
-    connection = get_database_connection()
-    try:
-        connection.execute(
-            """
-            INSERT INTO planner_events (
-                user_id, event_type, event_date, start_time,
-                duration_minutes, title, details, source
-            )
-            VALUES (?, 'personal', ?, ?, ?, ?, ?, 'Personal')
-            """,
-            (
-                user_id,
-                event_date.isoformat(),
-                start_time,
-                duration,
-                title[:120],
-                details[:1000],
-            ),
-        )
-        connection.commit()
-    finally:
-        connection.close()
-
-
-def planner_calendar_days(user_id, week_start):
-    """Build seven display-ready calendar columns."""
-    events = get_planner_events(
-        user_id,
-        week_start,
-        week_start + timedelta(days=6),
-    )
-    by_date = {}
-    for event in events:
-        by_date.setdefault(event["event_date"], []).append(event)
-    today = date.today()
-    return [
-        {
-            "date": day.isoformat(),
-            "weekday": day.strftime("%A"),
-            "day_number": day.day,
-            "month": day.strftime("%b"),
-            "is_today": day == today,
-            "events": by_date.get(day.isoformat(), []),
-        }
-        for day in (week_start + timedelta(days=offset) for offset in range(7))
-    ]
-
-
-def parse_planner_week_start(value=None):
-    """Use the requested date or the current week's Monday."""
-    if value:
-        try:
-            return date.fromisoformat(value)
-        except ValueError:
-            pass
-    today = date.today()
-    return today - timedelta(days=today.weekday())
-
-
 def build_user_scoped_agent_tools(user_id, agent_name):
     """Create safe Gemini tools with account scope captured by the server.
 
@@ -1576,6 +1484,17 @@ def dashboard_context(user, agent_question=""):
     luna_agent = build_luna_agent(user_id, runs)
     analyst_summary = build_analyst_summary(runs, analyst_uploads)
     analyst_summary.update(data_summary)
+    timezone_name = get_user_timezone(user_id)
+    today = datetime.now(safe_zoneinfo(timezone_name)).date()
+    upcoming_events = get_planner_events(
+        user_id,
+        today,
+        today + timedelta(days=14),
+    )
+    next_plan_event = next(
+        (event for event in upcoming_events if not event["is_completed"]),
+        None,
+    )
 
     return {
         "runs": runs,
@@ -1594,6 +1513,8 @@ def dashboard_context(user, agent_question=""):
         "motivation_videos": motivation_videos(),
         "motivation_posts": motivation_posts(),
         "weekly_schedule": weekly_workout_schedule(),
+        "next_plan_event": next_plan_event,
+        "planner_timezone": timezone_name,
         "luna_summary": luna_agent.summary(),
         "luna_cards": luna_agent.cards(),
         "wellness_disclaimer": LunaRecoveryAgent.disclaimer,
@@ -1774,7 +1695,8 @@ def agent_api():
 @login_required
 def planner():
     user = current_user()
-    week_start = parse_planner_week_start(request.args.get("week_start"))
+    timezone_name = get_user_timezone(user["id"])
+    week_start = parse_week_start(request.args.get("week_start"), timezone_name)
     week_end = week_start + timedelta(days=6)
     return render_template(
         "planner.html",
@@ -1786,7 +1708,13 @@ def planner():
         ),
         previous_week=(week_start - timedelta(days=7)).isoformat(),
         next_week=(week_start + timedelta(days=7)).isoformat(),
-        calendar_days=planner_calendar_days(user["id"], week_start),
+        calendar_days=planner_calendar_days(
+            user["id"],
+            week_start,
+            timezone_name,
+        ),
+        timezone_name=timezone_name,
+        supported_timezones=SUPPORTED_TIMEZONES,
     )
 
 
@@ -1794,7 +1722,10 @@ def planner():
 @login_required
 def generate_weekly_plan():
     user_id = current_user_id()
-    week_start = parse_planner_week_start(request.form.get("week_start"))
+    week_start = parse_week_start(
+        request.form.get("week_start"),
+        get_user_timezone(user_id),
+    )
     preferred_time = request.form.get("preferred_time", "07:00")
     goal = request.form.get("goal", "")
     summary = build_private_agent_summary(user_id, get_all_runs(user_id))
@@ -1815,7 +1746,10 @@ def generate_weekly_plan():
 @app.route("/planner/event", methods=["POST"])
 @login_required
 def add_planner_event():
-    event_day = parse_planner_week_start(request.form.get("event_date"))
+    event_day = parse_week_start(
+        request.form.get("event_date"),
+        get_user_timezone(current_user_id()),
+    )
     week_start = event_day - timedelta(days=event_day.weekday())
     try:
         add_personal_planner_event(current_user_id(), request.form)
@@ -1829,33 +1763,39 @@ def add_planner_event():
 @app.route("/planner/event/<int:event_id>/toggle", methods=["POST"])
 @login_required
 def toggle_planner_event(event_id):
-    connection = get_database_connection()
-    try:
-        connection.execute(
-            """
-            UPDATE planner_events
-            SET is_completed = CASE is_completed WHEN 1 THEN 0 ELSE 1 END
-            WHERE id = ? AND user_id = ?
-            """,
-            (event_id, current_user_id()),
-        )
-        connection.commit()
-    finally:
-        connection.close()
+    planner_store.toggle_event(event_id, current_user_id())
     return redirect(request.referrer or url_for("planner"))
+
+
+@app.route("/planner/timezone", methods=["POST"])
+@login_required
+def update_planner_timezone():
+    timezone_name = update_user_timezone(
+        current_user_id(),
+        request.form.get("timezone"),
+    )
+    flash(f"Planner timezone updated to {timezone_name}.", "success")
+    return redirect(
+        url_for(
+            "planner",
+            week_start=request.form.get("week_start") or None,
+        )
+    )
 
 
 @app.route("/planner/calendar.ics")
 @login_required
 def planner_calendar():
-    start = parse_planner_week_start(request.args.get("week_start"))
+    user_id = current_user_id()
+    timezone_name = get_user_timezone(user_id)
+    start = parse_week_start(request.args.get("week_start"), timezone_name)
     events = get_planner_events(
-        current_user_id(),
+        user_id,
         start,
         start + timedelta(days=6),
     )
     return Response(
-        build_calendar_ics(events),
+        build_calendar_ics(events, timezone_name),
         mimetype="text/calendar",
         headers={
             "Content-Disposition": "attachment; filename=runcoach-week.ics"
@@ -1867,7 +1807,8 @@ def planner_calendar():
 @login_required
 def email_weekly_plan():
     user = current_user()
-    start = parse_planner_week_start(request.form.get("week_start"))
+    timezone_name = get_user_timezone(user["id"])
+    start = parse_week_start(request.form.get("week_start"), timezone_name)
     events = get_planner_events(
         user["id"],
         start,
@@ -1879,7 +1820,8 @@ def email_weekly_plan():
     sent, message = PlanEmailService().send_week(
         user["email"],
         events,
-        build_calendar_ics(events),
+        build_calendar_ics(events, timezone_name),
+        timezone_name,
     )
     flash(message, "success" if sent else "warning")
     return redirect(url_for("planner", week_start=start.isoformat()))

@@ -27,6 +27,18 @@
             <a href="{{ url_for('planner', week_start=next_week) }}">Next week →</a>
         </nav>
 
+        <form class="planner-timezone" method="post" action="{{ url_for('update_planner_timezone') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="week_start" value="{{ week_start }}">
+            <label for="plannerTimezone">Calendar timezone</label>
+            <select id="plannerTimezone" name="timezone">
+                {% for option in supported_timezones %}
+                    <option value="{{ option }}" {% if option == timezone_name %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit">Update</button>
+        </form>
+
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% for category, message in messages %}
                 <p class="planner-notice planner-notice-{{ category }}" role="status">{{ message }}</p>
@@ -127,7 +139,7 @@
             <div>
                 <p class="eyebrow">Email and calendar</p>
                 <h2>Take the plan with you</h2>
-                <p>Email the visible week to {{ current_user["email"] }} with a calendar attachment, or download the `.ics` file directly.</p>
+                <p>Email the visible week to {{ current_user["email"] }} with a calendar attachment, or download the `.ics` file directly. Times use {{ timezone_name }}.</p>
             </div>
             <form method="post" action="{{ url_for('email_weekly_plan') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

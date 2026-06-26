@@ -2,6 +2,27 @@
 
 This file records user-visible features, architecture decisions, reliability fixes, and validation evidence so reviewers can understand how the project evolved.
 
+## 2026-06-25 - Final submission polish
+
+### Added
+
+- Per-user planner timezones with timezone-aware `.ics` exports and email copy.
+- A dashboard **Up next** card that directs users to their next incomplete planned activity.
+- A deterministic agent contract dataset and executable `agent_eval.py` report.
+- `PRODUCTION_READINESS.md` with explicit database and SMTP deployment gates.
+- `RUNCOACH_DATABASE` support for an administrator-selected database file location.
+
+### Improved
+
+- Reduced the dashboard's primary action grid from seven competing tiles to six focused actions.
+- Replaced the static schedule action with the personal **My Plan** workflow.
+- Extracted planner persistence and calendar shaping from `app.py` into `planner_store.py`.
+- Added portable timezone data support.
+
+### Why
+
+These changes address judge-facing clarity, reproducible agent evaluation, per-user scheduling accuracy, and honest production-readiness documentation without introducing paid services or changing the existing demo URL.
+
 ## 2026-06-25 - Personal calendar and weekly workout planner
 
 ### Added
