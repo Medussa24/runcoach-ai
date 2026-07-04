@@ -42,6 +42,8 @@ def test_integrations_page_loads_and_has_privacy_notices(client):
     assert "Google Health Connect requires Android companion app" in html or "Android App Required" in html
     assert "GPS routes and location maps are not synced" in html
     assert "No data is imported or stored until you explicitly connect" in html
+    assert "Health integrations are currently mock/demo connections" in html
+    assert "Real OAuth token encryption will be added" in html
 
 def test_mock_provider_connect_and_disconnect(client):
     client, demo_user = client
