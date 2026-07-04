@@ -4392,3 +4392,16 @@ dd {
     border: 1px solid rgba(255, 255, 255, 0.2);
 }
 
+/* Health Integrations Styling */
+.runcoach-table th {
+    color: var(--muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 0.85em;
+    letter-spacing: 0.05em;
+}
+.runcoach-table tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+

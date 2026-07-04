@@ -241,6 +241,48 @@ def setup_database():
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS health_connections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                provider TEXT NOT NULL,
+                provider_user_id TEXT,
+                access_token TEXT,
+                refresh_token TEXT,
+                token_expires_at TEXT,
+                sync_enabled INTEGER DEFAULT 1,
+                last_synced_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, provider)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS imported_activities (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                provider TEXT NOT NULL,
+                external_activity_id TEXT NOT NULL,
+                activity_type TEXT NOT NULL,
+                start_time TEXT NOT NULL,
+                end_time TEXT,
+                distance REAL NOT NULL,
+                duration REAL NOT NULL,
+                pace REAL NOT NULL,
+                avg_heart_rate INTEGER,
+                max_heart_rate INTEGER,
+                calories INTEGER,
+                steps INTEGER,
+                source_name TEXT,
+                raw_summary TEXT,
+                is_approved INTEGER DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(provider, external_activity_id)
+            )
+            """
+        )
         connection.commit()
     finally:
         connection.close()
@@ -2418,6 +2460,297 @@ def shop_page():
         }
     ]
     return render_template("shop.html", products=products, current_user=user)
+
+
+# ----------------------------------------------------
+# HEALTH INTEGRATIONS FOUNDATION
+# ----------------------------------------------------
+
+def create_health_connection(user_id, provider, provider_user_id=None, access_token=None, refresh_token=None, token_expires_at=None, sync_enabled=1):
+    connection = get_database_connection()
+    try:
+        connection.execute(
+            """
+            INSERT INTO health_connections (user_id, provider, provider_user_id, access_token, refresh_token, token_expires_at, sync_enabled)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(user_id, provider) DO UPDATE SET
+                provider_user_id=excluded.provider_user_id,
+                access_token=excluded.access_token,
+                refresh_token=excluded.refresh_token,
+                token_expires_at=excluded.token_expires_at,
+                sync_enabled=excluded.sync_enabled
+            """,
+            (user_id, provider, provider_user_id, access_token, refresh_token, token_expires_at, sync_enabled)
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+def get_health_connections(user_id):
+    connection = get_database_connection()
+    try:
+        rows = connection.execute(
+            "SELECT * FROM health_connections WHERE user_id = ?",
+            (user_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        connection.close()
+
+def toggle_health_sync(user_id, provider):
+    connection = get_database_connection()
+    try:
+        conn = connection.execute(
+            "SELECT sync_enabled FROM health_connections WHERE user_id = ? AND provider = ?",
+            (user_id, provider)
+        ).fetchone()
+        if conn:
+            new_val = 0 if conn["sync_enabled"] else 1
+            connection.execute(
+                "UPDATE health_connections SET sync_enabled = ? WHERE user_id = ? AND provider = ?",
+                (new_val, user_id, provider)
+            )
+            connection.commit()
+            return new_val
+        return None
+    finally:
+        connection.close()
+
+def save_imported_activity(user_id, provider, external_activity_id, activity_type, start_time, end_time, distance, duration, pace, avg_heart_rate=None, max_heart_rate=None, calories=None, steps=None, source_name=None, raw_summary=None):
+    connection = get_database_connection()
+    try:
+        connection.execute(
+            """
+            INSERT INTO imported_activities (
+                user_id, provider, external_activity_id, activity_type, start_time, end_time,
+                distance, duration, pace, avg_heart_rate, max_heart_rate, calories, steps,
+                source_name, raw_summary, is_approved
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+            """,
+            (
+                user_id, provider, external_activity_id, activity_type, start_time, end_time,
+                distance, duration, pace, avg_heart_rate, max_heart_rate, calories, steps,
+                source_name, raw_summary
+            )
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+def get_imported_activities(user_id):
+    connection = get_database_connection()
+    try:
+        rows = connection.execute(
+            "SELECT * FROM imported_activities WHERE user_id = ? ORDER BY start_time DESC",
+            (user_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        connection.close()
+
+def convert_imported_activity_to_run(user_id, activity_id):
+    connection = get_database_connection()
+    try:
+        activity = connection.execute(
+            "SELECT * FROM imported_activities WHERE id = ? AND user_id = ? AND is_approved = 0",
+            (activity_id, user_id)
+        ).fetchone()
+        if not activity:
+            return False
+            
+        act = dict(activity)
+        pace = act["pace"]
+        feedback = f"Imported activity from {act['provider'].capitalize()}. Excellent {act['activity_type']}!"
+        
+        connection.execute(
+            """
+            INSERT INTO runs (
+                run_date, distance, duration, pace, mood, notes, feedback,
+                weather_summary, temperature_f, wind_mph, route_type,
+                route_notes, avg_heart_rate, steps, cadence, source,
+                workout_type, imported_from, user_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                act["start_time"][:10],
+                act["distance"],
+                act["duration"],
+                pace,
+                "Okay",
+                act["raw_summary"] or f"Imported {act['activity_type']} via {act['provider'].capitalize()}.",
+                feedback,
+                "Not tracked",
+                None,
+                None,
+                "Road",
+                None,
+                act["avg_heart_rate"],
+                act["steps"],
+                None,
+                act["provider"].capitalize(),
+                act["activity_type"].capitalize(),
+                act["provider"].capitalize(),
+                user_id
+            )
+        )
+        
+        connection.execute(
+            "UPDATE imported_activities SET is_approved = 1 WHERE id = ?",
+            (activity_id,)
+        )
+        connection.commit()
+        return True
+    finally:
+        connection.close()
+
+
+@app.route("/integrations")
+@login_required
+def integrations_page():
+    user = current_user()
+    user_id = user["id"]
+    
+    connections = get_health_connections(user_id)
+    connections_map = {conn["provider"]: conn for conn in connections}
+    
+    imported_activities = get_imported_activities(user_id)
+    
+    for conn in connections_map.values():
+        conn["access_token"] = "•" * 12 if conn["access_token"] else None
+        conn["refresh_token"] = "•" * 12 if conn["refresh_token"] else None
+        
+    return render_template(
+        "integrations.html",
+        current_user=user,
+        connections=connections_map,
+        imported_activities=imported_activities
+    )
+
+
+@app.route("/integrations/connect/<provider>", methods=["POST"])
+@login_required
+def connect_mock_provider(provider):
+    if provider not in ("strava", "fitbit", "garmin"):
+        flash("Invalid provider.", "error")
+        return redirect(url_for("integrations_page"))
+        
+    user_id = current_user_id()
+    create_health_connection(
+        user_id=user_id,
+        provider=provider,
+        provider_user_id=f"mock-user-{user_id}",
+        access_token="mock-access-token",
+        refresh_token="mock-refresh-token",
+        token_expires_at="2027-01-01 00:00:00",
+        sync_enabled=1
+    )
+    flash(f"Successfully connected to mock {provider.capitalize()}!", "success")
+    return redirect(url_for("integrations_page"))
+
+
+@app.route("/integrations/disconnect/<provider>", methods=["POST"])
+@login_required
+def disconnect_provider(provider):
+    if provider not in ("strava", "fitbit", "garmin"):
+        flash("Invalid provider.", "error")
+        return redirect(url_for("integrations_page"))
+        
+    user_id = current_user_id()
+    connection = get_database_connection()
+    try:
+        connection.execute(
+            "DELETE FROM health_connections WHERE user_id = ? AND provider = ?",
+            (user_id, provider)
+        )
+        connection.commit()
+    finally:
+        connection.close()
+        
+    flash(f"Disconnected from {provider.capitalize()}.", "success")
+    return redirect(url_for("integrations_page"))
+
+
+@app.route("/integrations/toggle/<provider>", methods=["POST"])
+@login_required
+def toggle_provider_sync(provider):
+    user_id = current_user_id()
+    res = toggle_health_sync(user_id, provider)
+    if res is not None:
+        status = "enabled" if res else "disabled"
+        flash(f"Syncing {status} for {provider.capitalize()}.", "success")
+    else:
+        flash("Connection not found.", "error")
+    return redirect(url_for("integrations_page"))
+
+
+@app.route("/integrations/sync", methods=["POST"])
+@login_required
+def sync_activities():
+    user_id = current_user_id()
+    connections = get_health_connections(user_id)
+    active_providers = [c["provider"] for c in connections if c["sync_enabled"]]
+    
+    if not active_providers:
+        flash("No active connected services with sync enabled.", "error")
+        return redirect(url_for("integrations_page"))
+        
+    import random
+    from datetime import datetime, timedelta
+    
+    imported_count = 0
+    errors_count = 0
+    
+    for provider in active_providers:
+        external_id = f"act-{random.randint(100000, 999999)}"
+        dist = round(random.uniform(2.0, 6.0), 2)
+        dur = round(dist * random.uniform(8.0, 11.0), 2)
+        pace_val = dur / dist
+        start = (datetime.now() - timedelta(days=random.randint(0, 5))).strftime("%Y-%m-%d %H:%M:%S")
+        
+        try:
+            save_imported_activity(
+                user_id=user_id,
+                provider=provider,
+                external_activity_id=external_id,
+                activity_type="run",
+                start_time=start,
+                end_time=None,
+                distance=dist,
+                duration=dur,
+                pace=pace_val,
+                avg_heart_rate=random.randint(130, 165),
+                max_heart_rate=random.randint(170, 185),
+                calories=random.randint(200, 600),
+                steps=random.randint(4000, 12000),
+                source_name=f"{provider.capitalize()} Wearable",
+                raw_summary=f"Afternoon run synced via mock {provider.capitalize()} webhook."
+            )
+            imported_count += 1
+        except Exception:
+            errors_count += 1
+            
+    if imported_count > 0:
+        flash(f"Sync complete! Imported {imported_count} new activity/activities.", "success")
+    elif errors_count > 0:
+        flash("Sync complete. No new workouts found (duplicates skipped).", "success")
+    else:
+        flash("No workouts found on remote servers.", "success")
+        
+    return redirect(url_for("integrations_page"))
+
+
+@app.route("/integrations/activity/<int:activity_id>/approve", methods=["POST"])
+@login_required
+def approve_imported_activity(activity_id):
+    user_id = current_user_id()
+    res = convert_imported_activity_to_run(user_id, activity_id)
+    if res:
+        flash("Activity approved and saved to your run history!", "success")
+    else:
+        flash("Unable to approve activity (already approved or not found).", "error")
+    return redirect(url_for("integrations_page"))
 
 
 if __name__ == "__main__":
