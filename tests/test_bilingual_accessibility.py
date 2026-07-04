@@ -84,12 +84,26 @@ def test_create_and_rsvp_community_event(client):
     assert "Piedmont Park" in html
     assert "Share to Facebook" in html # Check Facebook share button exists
     assert "og:title" in html # Check Open Graph tag exists
+    
+    # Assert email and email prefix do not appear on public detail page
+    email = demo_user["email"]
+    email_prefix = email.split("@")[0]
+    assert email not in html
+    assert email_prefix not in html
+    assert f"Runner #{demo_user['id']}" in html # Creator display name should follow fallback
 
     # RSVP toggle
     rsvp_resp = client.post(f"/event/{event['id']}/rsvp", follow_redirects=True)
     assert rsvp_resp.status_code == 200
     assert runcoach.is_user_rsvped(demo_user["id"], event["id"]) is True
     assert runcoach.get_event_rsvps_count(event["id"]) == 1
+
+    # Re-fetch detail page after joining and confirm email/prefix is still not there, and attendee list shows "Runner #id"
+    detail_resp_joined = client.get(f"/event/{event['id']}")
+    html_joined = detail_resp_joined.get_data(as_text=True)
+    assert email not in html_joined
+    assert email_prefix not in html_joined
+    assert f"Runner #{demo_user['id']}" in html_joined
 
     # Cancel RSVP
     rsvp_resp2 = client.post(f"/event/{event['id']}/rsvp", follow_redirects=True)

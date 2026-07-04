@@ -2131,18 +2131,34 @@ def create_community_event(creator_id, title, description, event_type, event_dat
     finally:
         connection.close()
 
+def get_display_name(user_row):
+    user_dict = dict(user_row)
+    if user_dict.get("display_name"):
+        return user_dict["display_name"]
+    if user_dict.get("username"):
+        return user_dict["username"]
+    return f"Runner #{user_dict['id']}"
+
 def get_upcoming_events():
     connection = get_database_connection()
     try:
         events = connection.execute(
             """
-            SELECT e.*, u.email as creator_email
-            FROM community_events e
-            JOIN users u ON e.creator_id = u.id
-            ORDER BY e.event_date ASC, e.event_time ASC
+            SELECT *
+            FROM community_events
+            ORDER BY event_date ASC, event_time ASC
             """
         ).fetchall()
-        return [dict(e) for e in events]
+        result = []
+        for e in events:
+            evt = dict(e)
+            creator = get_user_by_id(evt["creator_id"])
+            if creator:
+                evt["creator_name"] = get_display_name(creator)
+            else:
+                evt["creator_name"] = "Runner"
+            result.append(evt)
+        return result
     finally:
         connection.close()
 
@@ -2150,15 +2166,18 @@ def get_event_by_id(event_id):
     connection = get_database_connection()
     try:
         event = connection.execute(
-            """
-            SELECT e.*, u.email as creator_email
-            FROM community_events e
-            JOIN users u ON e.creator_id = u.id
-            WHERE e.id = ?
-            """,
+            "SELECT * FROM community_events WHERE id = ?",
             (event_id,)
         ).fetchone()
-        return dict(event) if event else None
+        if event:
+            evt = dict(event)
+            creator = get_user_by_id(evt["creator_id"])
+            if creator:
+                evt["creator_name"] = get_display_name(creator)
+            else:
+                evt["creator_name"] = "Runner"
+            return evt
+        return None
     finally:
         connection.close()
 
@@ -2188,14 +2207,22 @@ def get_event_rsvp_users(event_id):
     try:
         rows = connection.execute(
             """
-            SELECT u.id, u.email
+            SELECT u.*
             FROM event_rsvps r
             JOIN users u ON r.user_id = u.id
             WHERE r.event_id = ?
             """,
             (event_id,)
         ).fetchall()
-        return [dict(r) for r in rows]
+        result = []
+        for r in rows:
+            user_data = dict(r)
+            clean_user = {
+                "id": user_data["id"],
+                "display_name": get_display_name(r)
+            }
+            result.append(clean_user)
+        return result
     finally:
         connection.close()
 
@@ -2317,8 +2344,6 @@ def events_list():
     for e in events:
         e["rsvped"] = is_user_rsvped(user_id, e["id"])
         e["rsvp_count"] = get_event_rsvps_count(e["id"])
-        creator_prefix = e["creator_email"].split("@")[0] if e["creator_email"] else "User"
-        e["creator_name"] = creator_prefix
         
     return render_template("events.html", events=events, current_user=user)
 
@@ -2335,13 +2360,8 @@ def event_detail(event_id):
         rsvped = is_user_rsvped(user_id, event_id)
         
     rsvp_count = get_event_rsvps_count(event_id)
-    creator_prefix = event["creator_email"].split("@")[0] if event["creator_email"] else "User"
-    event["creator_name"] = creator_prefix
-    
     rsvp_users = get_event_rsvp_users(event_id)
-    for u in rsvp_users:
-        u["display_name"] = u["email"].split("@")[0] if u["email"] else "User"
-        
+    
     user = current_user()
     return render_template("event_detail.html", event=event, rsvped=rsvped, rsvp_count=rsvp_count, rsvp_users=rsvp_users, current_user=user)
 
