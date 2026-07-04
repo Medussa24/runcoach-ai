@@ -213,6 +213,34 @@ def setup_database():
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS community_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                creator_id INTEGER NOT NULL,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                event_type TEXT NOT NULL,
+                event_date TEXT NOT NULL,
+                event_time TEXT NOT NULL,
+                location TEXT NOT NULL,
+                pace_group TEXT NOT NULL,
+                language TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS event_rsvps (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                event_id INTEGER NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, event_id)
+            )
+            """
+        )
         connection.commit()
     finally:
         connection.close()
@@ -260,6 +288,16 @@ def ensure_user_columns(connection):
         connection.execute(
             "ALTER TABLE users ADD COLUMN timezone TEXT "
             "NOT NULL DEFAULT 'America/New_York'"
+        )
+    if "language" not in existing_columns:
+        connection.execute(
+            "ALTER TABLE users ADD COLUMN language TEXT "
+            "NOT NULL DEFAULT 'en'"
+        )
+    if "accessibility_mode" not in existing_columns:
+        connection.execute(
+            "ALTER TABLE users ADD COLUMN accessibility_mode TEXT "
+            "NOT NULL DEFAULT 'standard'"
         )
 
 
@@ -1921,6 +1959,445 @@ def health():
 @app.route("/coach-library")
 def coach_library_api():
     return jsonify({"items": get_coach_library_items()})
+
+
+# ----------------------------------------------------
+# BILINGUAL & ACCESSIBILITY-FIRST COMMUNITY FEATURES
+# ----------------------------------------------------
+
+TRANSLATIONS = {
+    "en": {
+        "dashboard": "Dashboard",
+        "rico_runner": "Rico Runner",
+        "iggy_walk_agent": "Iggy Walk Agent",
+        "luna_recovery": "Luna Recovery",
+        "progress": "Progress",
+        "history": "History",
+        "my_plan": "My Plan",
+        "import_data": "Import Data",
+        "coach_library": "Coach Library",
+        "log_out": "Log Out",
+        "log_a_run": "Log a Run",
+        "beginner_path": "Beginner Path",
+        "import_workouts": "Import Workouts",
+        "ready_to_move": "Ready to move?",
+        "save_run": "Save Run",
+        "distance_miles": "Distance (miles)",
+        "duration_minutes": "Duration (minutes)",
+        "run_date": "Run Date",
+        "mood": "Mood",
+        "notes": "Notes",
+        "weather_summary": "Weather Summary",
+        "temperature_f": "Temperature (°F)",
+        "wind_mph": "Wind (mph)",
+        "route_type": "Route Type",
+        "route_notes": "Route Notes",
+        "avg_heart_rate": "Avg Heart Rate",
+        "steps": "Steps",
+        "cadence": "Cadence",
+        "wearable_style_data": "Wearable-style data",
+        "context": "Context",
+        "previous_runs": "Previous Runs",
+        "progress_visuals": "Progress visuals",
+        "inspiration_feed": "Your movement inspiration feed",
+        "video_tips": "Video tips",
+        "events_community": "Events & Community",
+        "shop": "Shop",
+        "accessibility_settings": "Accessibility Settings",
+        "standard_mode": "Standard Mode",
+        "deaf_hoh_mode": "Deaf / Hard-of-hearing Mode",
+        "visual_coaching_mode": "Visual Coaching Mode",
+        "language": "Language",
+        "save_settings": "Save Settings",
+        "english": "English",
+        "spanish": "Spanish",
+        "create_event": "Create an Event",
+        "upcoming_events": "Upcoming Events",
+        "event_title": "Event Title",
+        "description": "Description",
+        "event_type": "Event Type",
+        "date": "Date",
+        "time": "Time",
+        "location": "Location",
+        "pace_group": "Pace Group",
+        "buy_now": "Buy Now",
+        "share_facebook": "Share to Facebook"
+    },
+    "es": {
+        "dashboard": "Tablero",
+        "rico_runner": "Corredor Rico",
+        "iggy_walk_agent": "Agente de Caminata Iggy",
+        "luna_recovery": "Recuperación Luna",
+        "progress": "Progreso",
+        "history": "Historial",
+        "my_plan": "Mi Plan",
+        "import_data": "Importar Datos",
+        "coach_library": "Biblioteca de Entrenadores",
+        "log_out": "Cerrar Sesión",
+        "log_a_run": "Registrar Carrera",
+        "beginner_path": "Ruta de Principiantes",
+        "import_workouts": "Importar Entrenamientos",
+        "ready_to_move": "¿Listo para moverte?",
+        "save_run": "Guardar Carrera",
+        "distance_miles": "Distancia (millas)",
+        "duration_minutes": "Duración (minutos)",
+        "run_date": "Fecha de la Carrera",
+        "mood": "Estado de ánimo",
+        "notes": "Notas",
+        "weather_summary": "Resumen del Clima",
+        "temperature_f": "Temperatura (°F)",
+        "wind_mph": "Viento (mph)",
+        "route_type": "Tipo de Ruta",
+        "route_notes": "Notas de la Ruta",
+        "avg_heart_rate": "Frecuencia Cardíaca Promedio",
+        "steps": "Pasos",
+        "cadence": "Cadencia",
+        "wearable_style_data": "Datos estilo Wearable",
+        "context": "Contexto",
+        "previous_runs": "Carreras Anteriores",
+        "progress_visuals": "Visualizaciones de Progreso",
+        "inspiration_feed": "Tu feed de inspiración de movimiento",
+        "video_tips": "Consejos en video",
+        "events_community": "Eventos y Comunidad",
+        "shop": "Tienda",
+        "accessibility_settings": "Ajustes de Accesibilidad",
+        "standard_mode": "Modo Estándar",
+        "deaf_hoh_mode": "Modo Sordo / Dificultad Auditiva",
+        "visual_coaching_mode": "Modo de Entrenamiento Visual",
+        "language": "Idioma",
+        "save_settings": "Guardar Ajustes",
+        "english": "Inglés",
+        "spanish": "Español",
+        "create_event": "Crear un Evento",
+        "upcoming_events": "Próximos Eventos",
+        "event_title": "Título del Evento",
+        "description": "Descripción",
+        "event_type": "Tipo de Evento",
+        "date": "Fecha",
+        "time": "Hora",
+        "location": "Ubicación",
+        "pace_group": "Grupo de Ritmo",
+        "buy_now": "Comprar ahora",
+        "share_facebook": "Compartir en Facebook"
+    }
+}
+
+@app.context_processor
+def inject_translations():
+    user_id = session.get("user_id")
+    lang = "en"
+    if user_id:
+        user = get_user_by_id(user_id)
+        if user and "language" in dict(user):
+            lang = user["language"] or "en"
+        else:
+            lang = session.get("language", "en")
+    else:
+        lang = session.get("language", "en")
+    
+    if lang not in ("en", "es"):
+        lang = "en"
+        
+    def translate(key):
+        return TRANSLATIONS.get(lang, TRANSLATIONS['en']).get(key, key)
+    
+    accessibility_mode = "standard"
+    if user_id:
+        user = get_user_by_id(user_id)
+        if user and "accessibility_mode" in dict(user):
+            accessibility_mode = user["accessibility_mode"] or "standard"
+        else:
+            accessibility_mode = session.get("accessibility_mode", "standard")
+    else:
+        accessibility_mode = session.get("accessibility_mode", "standard")
+        
+    if accessibility_mode not in ("standard", "deaf_hoh", "visual_coaching"):
+        accessibility_mode = "standard"
+
+    return dict(_=translate, current_lang=lang, current_accessibility_mode=accessibility_mode)
+
+
+def create_community_event(creator_id, title, description, event_type, event_date, event_time, location, pace_group, language):
+    connection = get_database_connection()
+    try:
+        connection.execute(
+            """
+            INSERT INTO community_events (creator_id, title, description, event_type, event_date, event_time, location, pace_group, language)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (creator_id, title.strip(), description.strip(), event_type.strip(), event_date.strip(), event_time.strip(), location.strip(), pace_group.strip(), language.strip())
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+def get_upcoming_events():
+    connection = get_database_connection()
+    try:
+        events = connection.execute(
+            """
+            SELECT e.*, u.email as creator_email
+            FROM community_events e
+            JOIN users u ON e.creator_id = u.id
+            ORDER BY e.event_date ASC, e.event_time ASC
+            """
+        ).fetchall()
+        return [dict(e) for e in events]
+    finally:
+        connection.close()
+
+def get_event_by_id(event_id):
+    connection = get_database_connection()
+    try:
+        event = connection.execute(
+            """
+            SELECT e.*, u.email as creator_email
+            FROM community_events e
+            JOIN users u ON e.creator_id = u.id
+            WHERE e.id = ?
+            """,
+            (event_id,)
+        ).fetchone()
+        return dict(event) if event else None
+    finally:
+        connection.close()
+
+def is_user_rsvped(user_id, event_id):
+    connection = get_database_connection()
+    try:
+        r = connection.execute(
+            "SELECT 1 FROM event_rsvps WHERE user_id = ? AND event_id = ?",
+            (user_id, event_id)
+        ).fetchone()
+        return r is not None
+    finally:
+        connection.close()
+
+def get_event_rsvps_count(event_id):
+    connection = get_database_connection()
+    try:
+        return connection.execute(
+            "SELECT COUNT(*) FROM event_rsvps WHERE event_id = ?",
+            (event_id,)
+        ).fetchone()[0]
+    finally:
+        connection.close()
+
+def get_event_rsvp_users(event_id):
+    connection = get_database_connection()
+    try:
+        rows = connection.execute(
+            """
+            SELECT u.id, u.email
+            FROM event_rsvps r
+            JOIN users u ON r.user_id = u.id
+            WHERE r.event_id = ?
+            """,
+            (event_id,)
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        connection.close()
+
+def toggle_event_rsvp(user_id, event_id):
+    connection = get_database_connection()
+    try:
+        r = connection.execute(
+            "SELECT id FROM event_rsvps WHERE user_id = ? AND event_id = ?",
+            (user_id, event_id)
+        ).fetchone()
+        if r:
+            connection.execute(
+                "DELETE FROM event_rsvps WHERE id = ?",
+                (r["id"],)
+            )
+            action = "removed"
+        else:
+            connection.execute(
+                "INSERT INTO event_rsvps (user_id, event_id) VALUES (?, ?)",
+                (user_id, event_id)
+            )
+            action = "added"
+        connection.commit()
+        return action
+    finally:
+        connection.close()
+
+def update_user_settings(user_id, language, accessibility_mode):
+    connection = get_database_connection()
+    try:
+        connection.execute(
+            "UPDATE users SET language = ?, accessibility_mode = ? WHERE id = ?",
+            (language, accessibility_mode, user_id)
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
+@app.route("/set-language", methods=["POST"])
+def set_language():
+    lang = request.form.get("language", "en")
+    if lang not in ("en", "es"):
+        lang = "en"
+    session["language"] = lang
+    
+    user_id = current_user_id()
+    if user_id:
+        connection = get_database_connection()
+        try:
+            connection.execute("UPDATE users SET language = ? WHERE id = ?", (lang, user_id))
+            connection.commit()
+        finally:
+            connection.close()
+            
+    return redirect(request.referrer or url_for("index"))
+
+
+@app.route("/update-settings", methods=["POST"])
+@login_required
+def update_settings():
+    user_id = current_user_id()
+    language = request.form.get("language", "en")
+    accessibility_mode = request.form.get("accessibility_mode", "standard")
+    
+    if language not in ("en", "es"):
+        language = "en"
+    if accessibility_mode not in ("standard", "deaf_hoh", "visual_coaching"):
+        accessibility_mode = "standard"
+        
+    update_user_settings(user_id, language, accessibility_mode)
+    session["language"] = language
+    session["accessibility_mode"] = accessibility_mode
+    flash("Settings updated successfully!", "success")
+    return redirect(request.referrer or url_for("index"))
+
+
+@app.route("/events", methods=["GET", "POST"])
+@login_required
+def events_list():
+    user = current_user()
+    user_id = user["id"]
+    
+    if request.method == "POST":
+        title = request.form.get("title", "").strip()
+        description = request.form.get("description", "").strip()
+        event_type = request.form.get("event_type", "").strip()
+        event_date = request.form.get("event_date", "").strip()
+        event_time = request.form.get("event_time", "").strip()
+        location = request.form.get("location", "").strip()
+        pace_group = request.form.get("pace_group", "").strip()
+        language = request.form.get("language", "").strip()
+        
+        errors = []
+        if not title or len(title) > 120:
+            errors.append("Title is required and must be under 120 characters.")
+        if not description or len(description) > 1000:
+            errors.append("Description is required and must be under 1000 characters.")
+        if event_type not in ("run", "walk", "walkathon", "marathon", "practice"):
+            errors.append("Invalid event type.")
+        if not event_date or not event_time:
+            errors.append("Date and time are required.")
+        if not location or len(location) > 200:
+            errors.append("Location is required and must be under 200 characters.")
+        if not pace_group or len(pace_group) > 100:
+            errors.append("Pace group is required and must be under 100 characters.")
+        if not language or len(language) > 50:
+            errors.append("Language is required.")
+            
+        if errors:
+            for err in errors:
+                flash(err, "error")
+        else:
+            create_community_event(user_id, title, description, event_type, event_date, event_time, location, pace_group, language)
+            flash("Event created successfully!", "success")
+            return redirect(url_for("events_list"))
+            
+    events = get_upcoming_events()
+    for e in events:
+        e["rsvped"] = is_user_rsvped(user_id, e["id"])
+        e["rsvp_count"] = get_event_rsvps_count(e["id"])
+        creator_prefix = e["creator_email"].split("@")[0] if e["creator_email"] else "User"
+        e["creator_name"] = creator_prefix
+        
+    return render_template("events.html", events=events, current_user=user)
+
+
+@app.route("/event/<int:event_id>")
+def event_detail(event_id):
+    event = get_event_by_id(event_id)
+    if not event:
+        return "Event not found", 404
+        
+    user_id = current_user_id()
+    rsvped = False
+    if user_id:
+        rsvped = is_user_rsvped(user_id, event_id)
+        
+    rsvp_count = get_event_rsvps_count(event_id)
+    creator_prefix = event["creator_email"].split("@")[0] if event["creator_email"] else "User"
+    event["creator_name"] = creator_prefix
+    
+    rsvp_users = get_event_rsvp_users(event_id)
+    for u in rsvp_users:
+        u["display_name"] = u["email"].split("@")[0] if u["email"] else "User"
+        
+    user = current_user()
+    return render_template("event_detail.html", event=event, rsvped=rsvped, rsvp_count=rsvp_count, rsvp_users=rsvp_users, current_user=user)
+
+
+@app.route("/event/<int:event_id>/rsvp", methods=["POST"])
+@login_required
+def event_rsvp(event_id):
+    user_id = current_user_id()
+    event = get_event_by_id(event_id)
+    if not event:
+        flash("Event not found.", "error")
+        return redirect(url_for("events_list"))
+        
+    action = toggle_event_rsvp(user_id, event_id)
+    if action == "added":
+        flash("Successfully RSVPed to the event!", "success")
+    else:
+        flash("Cancelled your RSVP.", "success")
+    return redirect(request.referrer or url_for("event_detail", event_id=event_id))
+
+
+@app.route("/shop")
+@login_required
+def shop_page():
+    user = current_user()
+    products = [
+        {
+            "id": "tshirt",
+            "title": "RunCoach AI T-shirt",
+            "description": "High-quality, breathable running T-shirt with the RunCoach AI logo.",
+            "price": "$25.00",
+            "image": "tshirt.png"
+        },
+        {
+            "id": "hoodie",
+            "title": "Rico Runner hoodie",
+            "description": "Warm and stylish hoodie featuring Rico Runner, perfect for warmups.",
+            "price": "$45.00",
+            "image": "hoodie.png"
+        },
+        {
+            "id": "walker_shirt",
+            "title": "Walker-friendly shirt",
+            "description": "Relaxed fit, moisture-wicking shirt designed for comfort during long walks.",
+            "price": "$22.00",
+            "image": "walker_shirt.png"
+        },
+        {
+            "id": "stickers",
+            "title": "Sticker pack",
+            "description": "Show your love with custom stickers of Rico Runner, Iggy, and Luna.",
+            "price": "$5.00",
+            "image": "stickers.png"
+        }
+    ]
+    return render_template("shop.html", products=products, current_user=user)
 
 
 if __name__ == "__main__":

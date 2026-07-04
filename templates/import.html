@@ -11,10 +11,12 @@
     <main class="page">
         <section class="intro">
             <p class="eyebrow">RunCoach AI</p>
-            <h1>Import Apple Health workout history.</h1>
+            <h1>{{ _('import_workouts') }}</h1>
             <div class="nav-actions">
-                <a href="{{ url_for('index') }}">Back to RunCoach AI</a>
-                <a href="{{ url_for('logout') }}">Log Out</a>
+                <a href="{{ url_for('index') }}">{{ _('dashboard') }}</a>
+                <a href="{{ url_for('events_list') }}">{{ _('events_community') }}</a>
+                <a href="{{ url_for('shop_page') }}">{{ _('shop') }}</a>
+                <a href="{{ url_for('logout') }}">{{ _('log_out') }}</a>
             </div>
             {% if current_user %}
                 <p class="notes account-note">Logged in as {{ current_user["email"] }}</p>

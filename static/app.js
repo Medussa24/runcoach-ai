@@ -599,7 +599,44 @@
         return audioContext;
     }
 
+    function showVisualCaption(text) {
+        let captionDiv = document.querySelector("#accessibility-caption");
+        if (!captionDiv) {
+            captionDiv = document.createElement("div");
+            captionDiv.id = "accessibility-caption";
+            captionDiv.style.position = "fixed";
+            captionDiv.style.bottom = "20px";
+            captionDiv.style.left = "50%";
+            captionDiv.style.transform = "translateX(-50%)";
+            captionDiv.style.backgroundColor = "rgba(0, 0, 0, 0.85)";
+            captionDiv.style.color = "#fff";
+            captionDiv.style.padding = "12px 24px";
+            captionDiv.style.borderRadius = "24px";
+            captionDiv.style.zIndex = "100000";
+            captionDiv.style.fontFamily = "sans-serif";
+            captionDiv.style.fontSize = "15px";
+            captionDiv.style.fontWeight = "600";
+            captionDiv.style.letterSpacing = "0.02em";
+            captionDiv.style.textAlign = "center";
+            captionDiv.style.pointerEvents = "none";
+            document.body.appendChild(captionDiv);
+        }
+        captionDiv.textContent = text;
+        captionDiv.style.display = "block";
+        window.setTimeout(() => {
+            captionDiv.style.display = "none";
+        }, 3000);
+    }
+
     function playStartHorn() {
+        const accessibilityMode = document.body.dataset.accessibilityMode || "standard";
+        if (accessibilityMode === "deaf_hoh" || accessibilityMode === "visual_coaching") {
+            showVisualCaption("📯 [Sound Cue: Start horn blast triggers the race start] 📯");
+        }
+        if (accessibilityMode === "deaf_hoh") {
+            return;
+        }
+
         const audioContext = createCelebrationAudioContext();
         if (!audioContext) {
             return;
@@ -627,6 +664,14 @@
     }
 
     function playCompletionSounds() {
+        const accessibilityMode = document.body.dataset.accessibilityMode || "standard";
+        if (accessibilityMode === "deaf_hoh" || accessibilityMode === "visual_coaching") {
+            showVisualCaption("🎵 [Sound Cue: Ascending celebration chimes play] 🎵");
+        }
+        if (accessibilityMode === "deaf_hoh") {
+            return;
+        }
+
         const audioContext = createCelebrationAudioContext();
         if (!audioContext) {
             return;

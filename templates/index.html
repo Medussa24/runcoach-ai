@@ -21,7 +21,7 @@
                 <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery ready with hydration reminders" data-intro-agent="luna">
             </div>
             <p class="eyebrow" id="introSpeaker">Meet your RunCoach team</p>
-            <h2 id="racePhrase">Ready to move?</h2>
+            <h2 id="racePhrase">{{ _('ready_to_move') }}</h2>
             <p class="intro-message" id="introMessage">Rico, Iggy, and Luna have a quick welcome before you begin.</p>
             <div class="intro-progress" id="introProgress" aria-label="Introduction progress"><span></span><span></span><span></span><span></span></div>
             <button type="button" id="introStartButton">Start introduction</button>
@@ -35,16 +35,18 @@
         <aside class="dashboard-nav" aria-label="Dashboard navigation">
             <img class="nav-logo" src="{{ url_for('static', filename='runcoach-logo.png') }}" alt="RunCoach AI">
             <nav>
-                <a class="is-active" href="#dashboard-top"><span>⌂</span>Dashboard</a>
-                <a href="#agentChatForm"><img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="">Rico Runner</a>
-                <a href="#iggyChatForm"><img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="">Iggy Walk Agent</a>
-                <a href="#luna-recovery"><img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">Luna Recovery</a>
-                <a href="#progress-visuals"><span>▧</span>Progress</a>
-                <a href="#previous-runs"><span>◷</span>History</a>
-                <a href="{{ url_for('planner') }}"><span>▦</span>My Plan</a>
-                <a href="{{ url_for('import_workouts') }}"><span>⇧</span>Import Data</a>
-                <a href="#coach-library"><span>☷</span>Coach Library</a>
-                <a href="{{ url_for('logout') }}"><span>↩</span>Log Out</a>
+                <a class="is-active" href="#dashboard-top"><span>⌂</span>{{ _('dashboard') }}</a>
+                <a href="#agentChatForm"><img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="">{{ _('rico_runner') }}</a>
+                <a href="#iggyChatForm"><img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="">{{ _('iggy_walk_agent') }}</a>
+                <a href="#luna-recovery"><img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">{{ _('luna_recovery') }}</a>
+                <a href="#progress-visuals"><span>▧</span>{{ _('progress') }}</a>
+                <a href="#previous-runs"><span>◷</span>{{ _('history') }}</a>
+                <a href="{{ url_for('planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
+                <a href="{{ url_for('import_workouts') }}"><span>⇧</span>{{ _('import_data') }}</a>
+                <a href="#coach-library"><span>☷</span>{{ _('coach_library') }}</a>
+                <a href="{{ url_for('events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
+                <a href="{{ url_for('shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
+                <a href="{{ url_for('logout') }}"><span>↩</span>{{ _('log_out') }}</a>
             </nav>
             <section class="nav-card">
                 <p class="eyebrow">Daily Streak</p>
@@ -67,11 +69,11 @@
                 <h1 class="sr-only">RunCoach AI</h1>
                 <p class="hero-description">Personalized movement coaching with Rico Runner and Iggy.</p>
                 <div class="nav-actions">
-                    <a href="#log-run">Log a Run</a>
-                    <a href="#beginner-path">Beginner Path</a>
-                    <a href="{{ url_for('planner') }}">My Plan</a>
-                    <a href="{{ url_for('import_workouts') }}">Import Workouts</a>
-                    <a href="{{ url_for('logout') }}">Log Out</a>
+                    <a href="#log-run">{{ _('log_a_run') }}</a>
+                    <a href="#beginner-path">{{ _('beginner_path') }}</a>
+                    <a href="{{ url_for('planner') }}">{{ _('my_plan') }}</a>
+                    <a href="{{ url_for('import_workouts') }}">{{ _('import_workouts') }}</a>
+                    <a href="{{ url_for('logout') }}">{{ _('log_out') }}</a>
                 </div>
                 {% if current_user %}
                     <p class="notes account-note">Logged in as {{ current_user["email"] }}</p>
@@ -358,11 +360,38 @@
 
         <section class="layout">
             <div class="sidebar">
+                <details class="panel run-form compact-section" id="app-settings" open>
+                    <summary>
+                        <span>
+                            <span class="eyebrow">{{ _('accessibility_settings') }}</span>
+                            <strong>{{ _('language') }} &amp; {{ _('accessibility_settings') }}</strong>
+                        </span>
+                    </summary>
+                    <form method="post" action="{{ url_for('update_settings') }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        
+                        <label for="settingsLanguage">{{ _('language') }}</label>
+                        <select id="settingsLanguage" name="language" style="width: 100%; margin-bottom: 15px; padding: 8px; border-radius: 4px; background: var(--bg-card); color: var(--text-color); border: 1px solid var(--border-color);">
+                            <option value="en" {% if current_lang == 'en' %}selected{% endif %}>{{ _('english') }}</option>
+                            <option value="es" {% if current_lang == 'es' %}selected{% endif %}>{{ _('spanish') }}</option>
+                        </select>
+                        
+                        <label for="settingsAccessibility">{{ _('accessibility_settings') }}</label>
+                        <select id="settingsAccessibility" name="accessibility_mode" style="width: 100%; margin-bottom: 15px; padding: 8px; border-radius: 4px; background: var(--bg-card); color: var(--text-color); border: 1px solid var(--border-color);">
+                            <option value="standard" {% if current_accessibility_mode == 'standard' %}selected{% endif %}>{{ _('standard_mode') }}</option>
+                            <option value="deaf_hoh" {% if current_accessibility_mode == 'deaf_hoh' %}selected{% endif %}>{{ _('deaf_hoh_mode') }}</option>
+                            <option value="visual_coaching" {% if current_accessibility_mode == 'visual_coaching' %}selected{% endif %}>{{ _('visual_coaching_mode') }}</option>
+                        </select>
+                        
+                        <button type="submit" class="button" style="width: 100%;">{{ _('save_settings') }}</button>
+                    </form>
+                </details>
+
                 <details class="panel run-form compact-section" id="log-run">
                     <summary>
                         <span>
                             <span class="eyebrow">Quick Action</span>
-                            <strong>Log a Run</strong>
+                            <strong>{{ _('log_a_run') }}</strong>
                         </span>
                     </summary>
 
@@ -374,16 +403,16 @@
                         {% endif %}
                     {% endwith %}
 
-                    <label for="run_date">Date</label>
+                    <label for="run_date">{{ _('run_date') }}</label>
                     <input id="run_date" name="run_date" type="date" required data-coach-tip="Start with the date so I can compare this run with your history.">
 
-                    <label for="distance">Distance in miles</label>
+                    <label for="distance">{{ _('distance_miles') }}</label>
                     <input id="distance" name="distance" type="number" step="0.01" min="0.01" required data-coach-tip="Tell me the miles. I use this with duration to calculate pace.">
 
-                    <label for="duration">Duration in minutes</label>
+                    <label for="duration">{{ _('duration_minutes') }}</label>
                     <input id="duration" name="duration" type="number" step="0.01" min="0.01" required data-coach-tip="Add total minutes. Pace is duration divided by distance.">
 
-                    <label for="mood">Mood</label>
+                    <label for="mood">{{ _('mood') }}</label>
                     <select id="mood" name="mood" required data-coach-tip="Mood matters. If you felt low or sore, I may suggest recovery.">
                         <option value="Great">Great</option>
                         <option value="Good">Good</option>
@@ -395,26 +424,26 @@
                         <option value="Low">Low</option>
                     </select>
 
-                    <label for="notes">Notes</label>
+                    <label for="notes">{{ _('notes') }}</label>
                     <textarea id="notes" name="notes" rows="4" placeholder="How did the run feel?" data-coach-tip="Write how it felt. Words like hard, tired, or sore help me coach safely."></textarea>
 
-                    <h3 class="form-section-title">Context</h3>
+                    <h3 class="form-section-title">{{ _('context') }}</h3>
 
-                    <label for="weather_summary">Weather</label>
+                    <label for="weather_summary">{{ _('weather_summary') }}</label>
                     <input id="weather_summary" name="weather_summary" type="text" placeholder="Clear, humid, rainy" data-coach-tip="Weather adds context. Heat, humidity, rain, or wind can explain effort.">
 
                     <div class="form-row">
                         <div>
-                            <label for="temperature_f">Temp F</label>
+                            <label for="temperature_f">{{ _('temperature_f') }}</label>
                             <input id="temperature_f" name="temperature_f" type="number" step="1" placeholder="68" data-coach-tip="Temperature helps me avoid stacking hard workouts after hot runs.">
                         </div>
                         <div>
-                            <label for="wind_mph">Wind mph</label>
+                            <label for="wind_mph">{{ _('wind_mph') }}</label>
                             <input id="wind_mph" name="wind_mph" type="number" step="1" placeholder="4" data-coach-tip="Wind can make pace slower even when effort is strong.">
                         </div>
                     </div>
 
-                    <label for="route_type">Route type</label>
+                    <label for="route_type">{{ _('route_type') }}</label>
                     <select id="route_type" name="route_type" data-coach-tip="Routes matter. Trail, hills, and treadmill runs can feel very different.">
                         <option value="">Not tracked</option>
                         <option value="Road">Road</option>
@@ -424,26 +453,26 @@
                         <option value="Hilly">Hilly</option>
                     </select>
 
-                    <label for="route_notes">Route notes</label>
+                    <label for="route_notes">{{ _('route_notes') }}</label>
                     <textarea id="route_notes" name="route_notes" rows="3" placeholder="Flat loop, hills, treadmill, park route" data-coach-tip="Add route details like hills, flat loop, track, or treadmill."></textarea>
 
-                    <h3 class="form-section-title">Wearable-style data</h3>
+                    <h3 class="form-section-title">{{ _('wearable_style_data') }}</h3>
 
                     <div class="form-row">
                         <div>
-                            <label for="avg_heart_rate">Avg HR</label>
+                            <label for="avg_heart_rate">{{ _('avg_heart_rate') }}</label>
                             <input id="avg_heart_rate" name="avg_heart_rate" type="number" min="1" placeholder="148" data-coach-tip="Average heart rate helps me understand effort beyond pace.">
                         </div>
                         <div>
-                            <label for="cadence">Cadence</label>
+                            <label for="cadence">{{ _('cadence') }}</label>
                             <input id="cadence" name="cadence" type="number" min="1" placeholder="170" data-coach-tip="Cadence can help with form. Quick, light steps are often smoother.">
                         </div>
                     </div>
 
-                    <label for="steps">Steps</label>
+                    <label for="steps">{{ _('steps') }}</label>
                     <input id="steps" name="steps" type="number" min="1" placeholder="1500" data-coach-tip="Steps are optional, but they make the wearable-style story richer.">
 
-                    <button type="submit">Save Run</button>
+                    <button type="submit">{{ _('save_run') }}</button>
                     </form>
                 </details>
 
@@ -796,6 +825,18 @@
                                     <h3>{{ video["title"] }}</h3>
                                     <p class="notes">{{ video["subtitle"] }}</p>
                                     <a href="{{ video['watch_url'] }}" target="_blank" rel="noopener noreferrer">Watch on YouTube</a>
+
+                                    <div class="accessibility-addons" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-color, #eee);">
+                                        <details class="caption-details" style="font-size: 0.9em; margin-bottom: 5px;">
+                                            <summary style="cursor: pointer; font-weight: 600; color: var(--text-link, #0066cc);">[CC] View Transcript &amp; Captions</summary>
+                                            <p style="margin-top: 5px; color: var(--text-muted, #666); line-height: 1.4;">
+                                                <em>[Transcript Placeholder]:</em> This is a transcript placeholder for "{{ video['title'] }}" by {{ video['speaker'] }}. The video discusses running techniques, pacing, and motivation. Full transcript and captions will be loaded in a future update.
+                                            </p>
+                                        </details>
+                                        <span class="asl-placeholder-link" style="font-size: 0.9em; color: var(--text-muted, #666); display: inline-flex; align-items: center; gap: 5px;">
+                                            <span>👋</span> [ASL] ASL video support coming soon (Future ASL resource link)
+                                        </span>
+                                    </div>
                                 </div>
                             </article>
                         {% endfor %}

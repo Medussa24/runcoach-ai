@@ -35,35 +35,43 @@
         <section class="auth-layout">
             <form class="panel auth-panel" method="post">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                {% if mode == "signup" %}
-                    <h2>Sign Up</h2>
-                {% else %}
-                    <h2>Log In</h2>
-                {% endif %}
+                
+                <div class="lang-selector-auth" style="margin-bottom: 20px; text-align: right;">
+                    <select name="auth_language" onchange="const f = document.createElement('form'); f.method='POST'; f.action='{{ url_for('set_language') }}'; const i = document.createElement('input'); i.type='hidden'; i.name='language'; i.value=this.value; const c = document.createElement('input'); c.type='hidden'; c.name='csrf_token'; c.value='{{ csrf_token() }}'; f.appendChild(i); f.appendChild(c); document.body.appendChild(f); f.submit();" style="padding: 5px; border-radius: 4px; background: var(--bg-card); color: var(--text-color); border: 1px solid var(--border-color);">
+                        <option value="en" {% if current_lang == 'en' %}selected{% endif %}>English</option>
+                        <option value="es" {% if current_lang == 'es' %}selected{% endif %}>Español</option>
+                    </select>
+                </div>
 
+                {% if mode == "signup" %}
+                    <h2>{{ 'Sign Up' if current_lang == 'en' else 'Registrarse' }}</h2>
+                {% else %}
+                    <h2>{{ 'Log In' if current_lang == 'en' else 'Iniciar Sesión' }}</h2>
+                {% endif %}
+ 
                 {% if error %}
                     <p class="error-message">{{ error }}</p>
                 {% endif %}
-
+ 
                 {% if mode != "signup" %}
                     <div class="demo-callout">
-                        <p class="notes">Demo mode uses fake workout data for privacy-safe testing.</p>
-                        <button class="demo-button" type="submit" form="demoLoginForm">Try Demo</button>
+                        <p class="notes">{{ 'Demo mode uses fake workout data for privacy-safe testing.' if current_lang == 'en' else 'El modo de demostración utiliza datos de entrenamiento simulados para pruebas seguras de privacidad.' }}</p>
+                        <button class="demo-button" type="submit" form="demoLoginForm">{{ 'Try Demo' if current_lang == 'en' else 'Probar Demo' }}</button>
                     </div>
                 {% endif %}
-
-                <label for="email">Email</label>
+ 
+                <label for="email">{{ 'Email' if current_lang == 'en' else 'Correo electrónico' }}</label>
                 <input id="email" name="email" type="email" autocomplete="email" required>
-
-                <label for="password">Password</label>
+ 
+                <label for="password">{{ 'Password' if current_lang == 'en' else 'Contraseña' }}</label>
                 <input id="password" name="password" type="password" autocomplete="{% if mode == 'signup' %}new-password{% else %}current-password{% endif %}" required>
-
-                <button type="submit">{% if mode == "signup" %}Create Account{% else %}Log In{% endif %}</button>
-
+ 
+                <button type="submit">{% if mode == "signup" %}{{ 'Create Account' if current_lang == 'en' else 'Crear cuenta' }}{% else %}{{ 'Log In' if current_lang == 'en' else 'Iniciar Sesión' }}{% endif %}</button>
+ 
                 {% if mode == "signup" %}
-                    <p class="notes">Already have an account? <a href="{{ url_for('login') }}">Log in</a>.</p>
+                    <p class="notes">{{ 'Already have an account?' if current_lang == 'en' else '¿Ya tienes una cuenta?' }} <a href="{{ url_for('login') }}">{{ 'Log in' if current_lang == 'en' else 'Iniciar sesión' }}</a>.</p>
                 {% else %}
-                    <p class="notes">Need an account? <a href="{{ url_for('signup') }}">Sign up</a>.</p>
+                    <p class="notes">{{ 'Need an account?' if current_lang == 'en' else '¿Necesitas una cuenta?' }} <a href="{{ url_for('signup') }}">{{ 'Sign up' if current_lang == 'en' else 'Registrarse' }}</a>.</p>
                 {% endif %}
             </form>
 

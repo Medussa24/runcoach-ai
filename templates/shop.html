@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="{{ current_lang }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ _('shop') }} - RunCoach AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-accessibility-mode="{{ current_accessibility_mode }}">
+    <main class="dashboard-shell">
+        <aside class="dashboard-nav" aria-label="Dashboard navigation">
+            <img class="nav-logo" src="{{ url_for('static', filename='runcoach-logo.png') }}" alt="RunCoach AI">
+            <nav>
+                <a href="{{ url_for('index') }}#dashboard-top"><span>⌂</span>{{ _('dashboard') }}</a>
+                <a href="{{ url_for('index') }}#agentChatForm"><img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="">{{ _('rico_runner') }}</a>
+                <a href="{{ url_for('index') }}#iggyChatForm"><img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="">{{ _('iggy_walk_agent') }}</a>
+                <a href="{{ url_for('index') }}#luna-recovery"><img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">{{ _('luna_recovery') }}</a>
+                <a href="{{ url_for('index') }}#progress-visuals"><span>▧</span>{{ _('progress') }}</a>
+                <a href="{{ url_for('index') }}#previous-runs"><span>◷</span>{{ _('history') }}</a>
+                <a href="{{ url_for('planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
+                <a href="{{ url_for('import_workouts') }}"><span>⇧</span>{{ _('import_data') }}</a>
+                <a href="{{ url_for('index') }}#coach-library"><span>☷</span>{{ _('coach_library') }}</a>
+                <a href="{{ url_for('events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
+                <a class="is-active" href="{{ url_for('shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
+                <a href="{{ url_for('logout') }}"><span>↩</span>{{ _('log_out') }}</a>
+            </nav>
+        </aside>
+
+        <section class="dashboard-main">
+            <section class="intro">
+                <div class="intro-copy">
+                    <p class="eyebrow">Gear</p>
+                    <h1>RunCoach AI Shop</h1>
+                    <p class="hero-description">Show your support with premium merchandise. (Payments are currently in test-only mode.)</p>
+                </div>
+            </section>
+
+            <div class="shop-grid">
+                {% for product in products %}
+                    <article class="product-card panel">
+                        <div class="product-image-container">
+                            <img src="{{ url_for('static', filename=product['image']) }}" alt="{{ product['title'] }} mockup image" class="product-image">
+                        </div>
+                        <div class="product-info">
+                            <h3>{{ product['title'] }}</h3>
+                            <p class="product-description">{{ product['description'] }}</p>
+                            <div class="product-footer">
+                                <span class="product-price">{{ product['price'] }}</span>
+                                <button type="button" class="button buy-now-btn" data-product-title="{{ product['title'] }}">{{ _('buy_now') }}</button>
+                            </div>
+                        </div>
+                    </article>
+                {% endfor %}
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal for Buy Now placeholder -->
+    <div id="stripeModal" class="custom-modal" aria-hidden="true" role="dialog" aria-labelledby="modalTitle">
+        <div class="modal-content panel">
+            <h2 id="modalTitle">Stripe Checkout Placeholder</h2>
+            <p id="modalMessage">You clicked to buy the product. Stripe integration is under development. No charges will be made yet!</p>
+            <button type="button" class="button" id="closeModalBtn">Got it</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const modal = document.querySelector("#stripeModal");
+            const modalMessage = document.querySelector("#modalMessage");
+            const closeModalBtn = document.querySelector("#closeModalBtn");
+            const buyButtons = document.querySelectorAll(".buy-now-btn");
+
+            buyButtons.forEach(button => {
+                button.addEventListener("click", () => {
+                    const title = button.dataset.productTitle;
+                    modalMessage.textContent = `Checkout session for "${title}" will load here. Stripe Checkout integration is coming in a future update!`;
+                    modal.classList.add("is-active");
+                    modal.setAttribute("aria-hidden", "false");
+                    closeModalBtn.focus();
+                });
+            });
+
+            closeModalBtn.addEventListener("click", () => {
+                modal.classList.remove("is-active");
+                modal.setAttribute("aria-hidden", "true");
+            });
+
+            // Close on escape key
+            document.addEventListener("keydown", (e) => {
+                if (e.key === "Escape" && modal.classList.contains("is-active")) {
+                    modal.classList.remove("is-active");
+                    modal.setAttribute("aria-hidden", "true");
+                }
+            });
+        });
+    </script>
+</body>
+</html>

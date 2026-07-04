@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="{{ current_lang }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ _('events_community') }} - RunCoach AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-accessibility-mode="{{ current_accessibility_mode }}">
+    <main class="dashboard-shell">
+        <aside class="dashboard-nav" aria-label="Dashboard navigation">
+            <img class="nav-logo" src="{{ url_for('static', filename='runcoach-logo.png') }}" alt="RunCoach AI">
+            <nav>
+                <a href="{{ url_for('index') }}#dashboard-top"><span>⌂</span>{{ _('dashboard') }}</a>
+                <a href="{{ url_for('index') }}#agentChatForm"><img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="">{{ _('rico_runner') }}</a>
+                <a href="{{ url_for('index') }}#iggyChatForm"><img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="">{{ _('iggy_walk_agent') }}</a>
+                <a href="{{ url_for('index') }}#luna-recovery"><img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">{{ _('luna_recovery') }}</a>
+                <a href="{{ url_for('index') }}#progress-visuals"><span>▧</span>{{ _('progress') }}</a>
+                <a href="{{ url_for('index') }}#previous-runs"><span>◷</span>{{ _('history') }}</a>
+                <a href="{{ url_for('planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
+                <a href="{{ url_for('import_workouts') }}"><span>⇧</span>{{ _('import_data') }}</a>
+                <a href="{{ url_for('index') }}#coach-library"><span>☷</span>{{ _('coach_library') }}</a>
+                <a class="is-active" href="{{ url_for('events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
+                <a href="{{ url_for('shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
+                <a href="{{ url_for('logout') }}"><span>↩</span>{{ _('log_out') }}</a>
+            </nav>
+        </aside>
+
+        <section class="dashboard-main">
+            <section class="intro">
+                <div class="intro-copy">
+                    <p class="eyebrow">{{ _('events_community') }}</p>
+                    <h1>Find your crew. Run or walk together.</h1>
+                    <p class="hero-description">Create and join community movement events. Coordinate with paces, languages, and locations.</p>
+                </div>
+            </section>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, message in messages %}
+                    <p class="planner-notice planner-notice-{{ category }}" role="status">{{ message }}</p>
+                {% endfor %}
+            {% endwith %}
+
+            <div class="events-grid">
+                <!-- Create Event Form -->
+                <section class="panel event-form-panel">
+                    <h2>{{ _('create_event') }}</h2>
+                    <form method="post" action="{{ url_for('events_list') }}" class="runcoach-form">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+                        <label for="eventTitle">{{ _('event_title') }}</label>
+                        <input type="text" id="eventTitle" name="title" maxlength="120" placeholder="e.g. Saturday Morning Coffee Run" required>
+
+                        <label for="eventDescription">{{ _('description') }}</label>
+                        <textarea id="eventDescription" name="description" rows="3" maxlength="1000" placeholder="Describe pace, route, and details..." required></textarea>
+
+                        <div class="form-row-split">
+                            <div>
+                                <label for="eventType">{{ _('event_type') }}</label>
+                                <select id="eventType" name="event_type" required>
+                                    <option value="run">Run</option>
+                                    <option value="walk">Walk</option>
+                                    <option value="walkathon">Walkathon</option>
+                                    <option value="marathon">Marathon</option>
+                                    <option value="practice">Practice</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="eventLanguage">{{ _('language') }}</label>
+                                <select id="eventLanguage" name="language" required>
+                                    <option value="English">English</option>
+                                    <option value="Spanish">Spanish</option>
+                                    <option value="Bilingual (En/Es)">Bilingual (En/Es)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-row-split">
+                            <div>
+                                <label for="eventDate">{{ _('date') }}</label>
+                                <input type="date" id="eventDate" name="event_date" required>
+                            </div>
+                            <div>
+                                <label for="eventTime">{{ _('time') }}</label>
+                                <input type="time" id="eventTime" name="event_time" required>
+                            </div>
+                        </div>
+
+                        <label for="eventLocation">{{ _('location') }}</label>
+                        <input type="text" id="eventLocation" name="location" maxlength="200" placeholder="e.g. Central Park East Gate" required>
+
+                        <label for="eventPace">{{ _('pace_group') }}</label>
+                        <input type="text" id="eventPace" name="pace_group" maxlength="100" placeholder="e.g. 10:30 min/mile, conversational" required>
+
+                        <button type="submit" class="button">{{ _('create_event') }}</button>
+                    </form>
+                </section>
+
+                <!-- Upcoming Events List -->
+                <section class="panel events-list-panel">
+                    <h2>{{ _('upcoming_events') }}</h2>
+                    {% if events %}
+                        <div class="events-feed">
+                            {% for event in events %}
+                                <article class="event-card panel">
+                                    <div class="event-card-header">
+                                        <span class="event-badge badge-{{ event['event_type'] }}">{{ event['event_type'].upper() }}</span>
+                                        <span class="event-lang-badge">{{ event['language'] }}</span>
+                                    </div>
+                                    <h3><a href="{{ url_for('event_detail', event_id=event['id']) }}">{{ event['title'] }}</a></h3>
+                                    <p class="event-meta-info">
+                                        <span>📅 <strong>{{ event['event_date'] }}</strong> at {{ event['event_time'] }}</span><br>
+                                        <span>📍 {{ event['location'] }}</span>
+                                    </p>
+                                    <p class="event-desc-preview">{{ event['description'][:180] }}{% if event['description']|length > 180 %}...{% endif %}</p>
+                                    <dl class="event-stats-list">
+                                        <div>
+                                            <dt>{{ _('pace_group') }}</dt>
+                                            <dd>{{ event['pace_group'] }}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>Organized by</dt>
+                                            <dd>{{ event['creator_name'] }}</dd>
+                                        </div>
+                                        <div>
+                                            <dt>RSVPs</dt>
+                                            <dd><strong>{{ event['rsvp_count'] }}</strong> joined</dd>
+                                        </div>
+                                    </dl>
+
+                                    <div class="event-card-actions">
+                                        <a href="{{ url_for('event_detail', event_id=event['id']) }}" class="button-secondary">Details</a>
+                                        <form method="post" action="{{ url_for('event_rsvp', event_id=event['id']) }}" style="display:inline;">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            {% if event['rsvped'] %}
+                                                <button type="submit" class="button button-joined">Joined ✓</button>
+                                            {% else %}
+                                                <button type="submit" class="button button-primary">Join Event</button>
+                                            {% endif %}
+                                        </form>
+                                    </div>
+                                </article>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="notes">No upcoming events scheduled yet. Be the first to create one!</p>
+                    {% endif %}
+                </section>
+            </div>
+        </section>
+    </main>
+</body>
+</html>
