@@ -285,14 +285,18 @@ def test_email_fallback_and_configured_smtp(planner_client, monkeypatch):
         "/planner/event",
         data={
             "title": "Morning walk",
-            "event_date": date.today().isoformat(),
+            "event_date": "2026-07-06",
             "start_time": "08:00",
             "duration_minutes": "20",
             "details": "Easy walk.",
         },
     )
 
-    unconfigured = client.post("/planner/email", follow_redirects=True)
+    unconfigured = client.post(
+        "/planner/email",
+        data={"week_start": "2026-07-06"},
+        follow_redirects=True
+    )
     assert "Email reminders are not configured" in unconfigured.get_data(as_text=True)
 
     sent_messages = []

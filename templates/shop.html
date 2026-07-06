@@ -24,6 +24,7 @@
                 <a href="{{ url_for('events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
                 <a class="is-active" href="{{ url_for('shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
                 <a href="{{ url_for('integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
+                <a href="{{ url_for('challenges_page') }}"><span>🏆</span>{{ _('challenges') }}</a>
                 <a href="{{ url_for('logout') }}"><span>↩</span>{{ _('log_out') }}</a>
             </nav>
         </aside>

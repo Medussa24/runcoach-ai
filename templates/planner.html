@@ -20,6 +20,7 @@
                 <a href="{{ url_for('events_list') }}">{{ _('events_community') }}</a>
                 <a href="{{ url_for('shop_page') }}">{{ _('shop') }}</a>
                 <a href="{{ url_for('integrations_page') }}">{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones' }}</a>
+                <a href="{{ url_for('challenges_page') }}">{{ _('challenges') }}</a>
                 <a href="{{ url_for('planner_calendar', week_start=week_start) }}">Download calendar</a>
             </nav>
         </header>

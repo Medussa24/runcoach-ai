@@ -94,6 +94,32 @@ add_personal_planner_event = planner_store.add_personal_event
 planner_calendar_days = planner_store.calendar_days
 
 
+def seed_monthly_challenges(connection):
+    from datetime import date
+    import calendar
+    today = date.today()
+    start_date = date(today.year, today.month, 1).strftime("%Y-%m-%d")
+    last_day = calendar.monthrange(today.year, today.month)[1]
+    end_date = date(today.year, today.month, last_day).strftime("%Y-%m-%d")
+    
+    challenges = [
+        ("Run 10 Miles", "Log running workouts to accumulate 10 miles this month.", "distance", "run", 10.0, "miles"),
+        ("Walk 20 Miles", "Walk regularly to reach a total of 20 miles this month.", "distance", "walk", 20.0, "miles"),
+        ("Burn 2,000 Calories", "Burn a total of 2,000 calories from all workouts this month.", "calories", "any", 2000.0, "calories"),
+        ("Complete 12 Workouts", "Stay active by completing 12 or more workouts this month.", "workout_count", "any", 12.0, "workouts"),
+        ("Active Days Challenge", "Log activities on 15 separate days this month.", "active_days", "any", 15.0, "days"),
+        ("Community Distance Goal", "All users contribute to a shared goal of 500 total miles.", "community_distance", "any", 500.0, "miles")
+    ]
+    
+    for title, desc, c_type, act_type, target, unit in challenges:
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO monthly_challenges (title, description, challenge_type, activity_type, target_value, unit, start_date, end_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (title, desc, c_type, act_type, target, unit, start_date, end_date)
+        )
+
 def setup_database():
     """Create the app tables if they do not already exist."""
     connection = get_database_connection()
@@ -283,6 +309,49 @@ def setup_database():
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS monthly_challenges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                challenge_type TEXT NOT NULL,
+                activity_type TEXT NOT NULL,
+                target_value REAL NOT NULL,
+                unit TEXT NOT NULL,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                is_public INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(title, start_date, end_date)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_challenge_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                challenge_id INTEGER NOT NULL,
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                UNIQUE(user_id, challenge_id)
+            )
+            """
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_runs_user_date ON runs(user_id, run_date)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_runs_user_activity_date ON runs(user_id, workout_type, run_date)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_user_challenge_entries_challenge_user ON user_challenge_entries(challenge_id, user_id)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_monthly_challenges_dates ON monthly_challenges(start_date, end_date)"
+        )
+        seed_monthly_challenges(connection)
         connection.commit()
     finally:
         connection.close()
@@ -2063,7 +2132,15 @@ TRANSLATIONS = {
         "location": "Location",
         "pace_group": "Pace Group",
         "buy_now": "Buy Now",
-        "share_facebook": "Share to Facebook"
+        "share_facebook": "Share to Facebook",
+        "challenges": "Challenges",
+        "monthly_challenge": "Monthly Challenge",
+        "join_challenge": "Join Challenge",
+        "leave_challenge": "Leave Challenge",
+        "completed": "Completed",
+        "workouts": "Workouts",
+        "active_days": "Active Days",
+        "community_goal": "Community Goal"
     },
     "es": {
         "dashboard": "Tablero",
@@ -2120,7 +2197,15 @@ TRANSLATIONS = {
         "location": "Ubicación",
         "pace_group": "Grupo de Ritmo",
         "buy_now": "Comprar ahora",
-        "share_facebook": "Compartir en Facebook"
+        "share_facebook": "Compartir en Facebook",
+        "challenges": "Desafíos",
+        "monthly_challenge": "Desafío Mensual",
+        "join_challenge": "Unirse al Desafío",
+        "leave_challenge": "Dejar Desafío",
+        "completed": "Completado",
+        "workouts": "Entrenamientos",
+        "active_days": "Días Activos",
+        "community_goal": "Meta de la Comunidad"
     }
 }
 
@@ -2751,6 +2836,382 @@ def approve_imported_activity(activity_id):
     else:
         flash("Unable to approve activity (already approved or not found).", "error")
     return redirect(url_for("integrations_page"))
+
+
+# ----------------------------------------------------
+# MONTHLY FITNESS CHALLENGES
+# ----------------------------------------------------
+
+def get_all_challenges():
+    connection = get_database_connection()
+    try:
+        rows = connection.execute(
+            "SELECT * FROM monthly_challenges ORDER BY start_date DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        connection.close()
+
+def get_challenge_by_id(challenge_id):
+    connection = get_database_connection()
+    try:
+        row = connection.execute(
+            "SELECT * FROM monthly_challenges WHERE id = ?",
+            (challenge_id,)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        connection.close()
+
+def join_challenge(user_id, challenge_id):
+    connection = get_database_connection()
+    try:
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO user_challenge_entries (user_id, challenge_id)
+            VALUES (?, ?)
+            """,
+            (user_id, challenge_id)
+        )
+        connection.commit()
+        return "joined"
+    finally:
+        connection.close()
+
+def leave_challenge(user_id, challenge_id):
+    connection = get_database_connection()
+    try:
+        connection.execute(
+            """
+            DELETE FROM user_challenge_entries
+            WHERE user_id = ? AND challenge_id = ?
+            """,
+            (user_id, challenge_id)
+        )
+        connection.commit()
+        return "left"
+    finally:
+        connection.close()
+
+def is_user_joined_challenge(user_id, challenge_id):
+    connection = get_database_connection()
+    try:
+        row = connection.execute(
+            "SELECT 1 FROM user_challenge_entries WHERE user_id = ? AND challenge_id = ?",
+            (user_id, challenge_id)
+        ).fetchone()
+        return row is not None
+    finally:
+        connection.close()
+
+def get_challenge_participants(challenge_id):
+    connection = get_database_connection()
+    try:
+        rows = connection.execute(
+            """
+            SELECT u.*
+            FROM user_challenge_entries e
+            JOIN users u ON e.user_id = u.id
+            WHERE e.challenge_id = ?
+            """,
+            (challenge_id,)
+        ).fetchall()
+        
+        result = []
+        for r in rows:
+            user_data = dict(r)
+            result.append({
+                "id": user_data["id"],
+                "display_name": get_display_name(r)
+            })
+        return result
+    finally:
+        connection.close()
+
+def calculate_community_distance_progress(challenge):
+    connection = get_database_connection()
+    try:
+        result = connection.execute(
+            """
+            SELECT COALESCE(SUM(r.distance), 0) AS total_distance
+            FROM user_challenge_entries e
+            JOIN runs r ON r.user_id = e.user_id
+            WHERE e.challenge_id = ?
+              AND date(r.run_date) BETWEEN date(?) AND date(?)
+              AND (? = 'any'
+                   OR (? = 'workout' AND (r.workout_type IS NOT NULL AND r.workout_type != ''))
+                   OR lower(r.workout_type) = lower(?))
+              AND r.distance IS NOT NULL
+              AND r.distance > 0
+            """,
+            (
+                challenge["id"],
+                challenge["start_date"],
+                challenge["end_date"],
+                challenge["activity_type"],
+                challenge["activity_type"],
+                challenge["activity_type"]
+            )
+        ).fetchone()
+        return float(result["total_distance"] or 0)
+    finally:
+        connection.close()
+
+def calculate_challenge_progress(user_id, challenge):
+    connection = get_database_connection()
+    try:
+        c_type = challenge["challenge_type"]
+        act_type = challenge["activity_type"]
+        target = challenge["target_value"]
+        start = challenge["start_date"]
+        end = challenge["end_date"]
+        
+        if c_type == "distance":
+            row = connection.execute(
+                """
+                SELECT COALESCE(SUM(distance), 0) AS total_distance
+                FROM runs
+                WHERE user_id = ?
+                  AND date(run_date) BETWEEN date(?) AND date(?)
+                  AND (? = 'any'
+                       OR (? = 'workout' AND (workout_type IS NOT NULL AND workout_type != ''))
+                       OR lower(workout_type) = lower(?))
+                  AND distance IS NOT NULL
+                  AND distance > 0
+                """,
+                (user_id, start, end, act_type, act_type, act_type)
+            ).fetchone()
+            current = float(row["total_distance"] or 0)
+            percent = min(100, int((current / target) * 100)) if target > 0 else 0
+            return {
+                "current": current,
+                "target": target,
+                "unit": challenge["unit"],
+                "percent": percent,
+                "completed": current >= target,
+                "available": True,
+                "message": None
+            }
+            
+        elif c_type == "calories":
+            has_data = connection.execute(
+                """
+                SELECT 1 FROM runs
+                WHERE user_id = ?
+                  AND date(run_date) BETWEEN date(?) AND date(?)
+                  AND (? = 'any'
+                       OR (? = 'workout' AND (workout_type IS NOT NULL AND workout_type != ''))
+                       OR lower(workout_type) = lower(?))
+                  AND calories IS NOT NULL LIMIT 1
+                """,
+                (user_id, start, end, act_type, act_type, act_type)
+            ).fetchone() is not None
+            
+            if not has_data:
+                return {
+                    "current": 0.0,
+                    "target": target,
+                    "unit": challenge["unit"],
+                    "percent": 0,
+                    "completed": False,
+                    "available": False,
+                    "message": "Calorie tracking requires imported activity data or manual calorie entry."
+                }
+                
+            row = connection.execute(
+                """
+                SELECT COALESCE(SUM(calories), 0) AS total_calories
+                FROM runs
+                WHERE user_id = ?
+                  AND date(run_date) BETWEEN date(?) AND date(?)
+                  AND (? = 'any'
+                       OR (? = 'workout' AND (workout_type IS NOT NULL AND workout_type != ''))
+                       OR lower(workout_type) = lower(?))
+                """,
+                (user_id, start, end, act_type, act_type, act_type)
+            ).fetchone()
+            current = float(row["total_calories"] or 0)
+            percent = min(100, int((current / target) * 100)) if target > 0 else 0
+            return {
+                "current": current,
+                "target": target,
+                "unit": challenge["unit"],
+                "percent": percent,
+                "completed": current >= target,
+                "available": True,
+                "message": None
+            }
+            
+        elif c_type == "workout_count":
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS total_count
+                FROM runs
+                WHERE user_id = ?
+                  AND date(run_date) BETWEEN date(?) AND date(?)
+                  AND (? = 'any'
+                       OR (? = 'workout' AND (workout_type IS NOT NULL AND workout_type != ''))
+                       OR lower(workout_type) = lower(?))
+                """,
+                (user_id, start, end, act_type, act_type, act_type)
+            ).fetchone()
+            current = int(row["total_count"] or 0)
+            percent = min(100, int((current / target) * 100)) if target > 0 else 0
+            return {
+                "current": current,
+                "target": target,
+                "unit": challenge["unit"],
+                "percent": percent,
+                "completed": current >= target,
+                "available": True,
+                "message": None
+            }
+            
+        elif c_type == "active_days":
+            row = connection.execute(
+                """
+                SELECT COUNT(DISTINCT date(run_date)) AS total_days
+                FROM runs
+                WHERE user_id = ?
+                  AND date(run_date) BETWEEN date(?) AND date(?)
+                  AND (? = 'any'
+                       OR (? = 'workout' AND (workout_type IS NOT NULL AND workout_type != ''))
+                       OR lower(workout_type) = lower(?))
+                """,
+                (user_id, start, end, act_type, act_type, act_type)
+            ).fetchone()
+            current = int(row["total_days"] or 0)
+            percent = min(100, int((current / target) * 100)) if target > 0 else 0
+            return {
+                "current": current,
+                "target": target,
+                "unit": challenge["unit"],
+                "percent": percent,
+                "completed": current >= target,
+                "available": True,
+                "message": None
+            }
+            
+        elif c_type == "community_distance":
+            row = connection.execute(
+                """
+                SELECT COALESCE(SUM(distance), 0) AS total_distance
+                FROM runs
+                WHERE user_id = ?
+                  AND date(run_date) BETWEEN date(?) AND date(?)
+                  AND (? = 'any'
+                       OR (? = 'workout' AND (workout_type IS NOT NULL AND workout_type != ''))
+                       OR lower(workout_type) = lower(?))
+                  AND distance IS NOT NULL
+                  AND distance > 0
+                """,
+                (user_id, start, end, act_type, act_type, act_type)
+            ).fetchone()
+            current = float(row["total_distance"] or 0)
+            comm_total = calculate_community_distance_progress(challenge)
+            percent = min(100, int((comm_total / target) * 100)) if target > 0 else 0
+            return {
+                "current": current,
+                "target": target,
+                "unit": challenge["unit"],
+                "percent": percent,
+                "completed": comm_total >= target,
+                "available": True,
+                "message": None,
+                "community_total": comm_total
+            }
+            
+        return {
+            "current": 0.0,
+            "target": target,
+            "unit": challenge["unit"],
+            "percent": 0,
+            "completed": False,
+            "available": True,
+            "message": None
+        }
+    finally:
+        connection.close()
+
+
+@app.route("/challenges")
+@login_required
+def challenges_page():
+    user = current_user()
+    user_id = user["id"]
+    
+    challenges = get_all_challenges()
+    for c in challenges:
+        c["joined"] = is_user_joined_challenge(user_id, c["id"])
+        c["progress"] = calculate_challenge_progress(user_id, c)
+        
+    return render_template("challenges.html", challenges=challenges, current_user=user)
+
+
+@app.route("/challenge/<int:challenge_id>")
+def challenge_detail(challenge_id):
+    challenge = get_challenge_by_id(challenge_id)
+    if not challenge:
+        return "Challenge not found", 404
+        
+    user_id = current_user_id()
+    joined = False
+    user_progress = None
+    if user_id:
+        joined = is_user_joined_challenge(user_id, challenge_id)
+        user_progress = calculate_challenge_progress(user_id, challenge)
+        
+    participants = get_challenge_participants(challenge_id)
+    
+    for p in participants:
+        p["progress"] = calculate_challenge_progress(p["id"], challenge)
+        
+    act = challenge["activity_type"].lower()
+    if act == "run":
+        coach_message = "Rico says: Keep pushin' those miles, one step at a time! Consistency is your superpower!"
+    elif act == "walk":
+        coach_message = "Iggy says: A steady walk clears the mind and builds the heart. You've got this!"
+    else:
+        coach_message = "Luna says: Recovery and pacing are just as important as speed. Listen to your body!"
+        
+    user = current_user()
+    return render_template(
+        "challenge_detail.html",
+        challenge=challenge,
+        joined=joined,
+        user_progress=user_progress,
+        participants=participants,
+        coach_message=coach_message,
+        current_user=user
+    )
+
+
+@app.route("/challenge/<int:challenge_id>/join", methods=["POST"])
+@login_required
+def join_challenge_route(challenge_id):
+    user_id = current_user_id()
+    challenge = get_challenge_by_id(challenge_id)
+    if not challenge:
+        flash("Challenge not found.", "error")
+        return redirect(url_for("challenges_page"))
+        
+    join_challenge(user_id, challenge_id)
+    flash("Successfully joined the challenge! Keep moving!", "success")
+    return redirect(url_for("challenge_detail", challenge_id=challenge_id))
+
+
+@app.route("/challenge/<int:challenge_id>/leave", methods=["POST"])
+@login_required
+def leave_challenge_route(challenge_id):
+    user_id = current_user_id()
+    challenge = get_challenge_by_id(challenge_id)
+    if not challenge:
+        flash("Challenge not found.", "error")
+        return redirect(url_for("challenges_page"))
+        
+    leave_challenge(user_id, challenge_id)
+    flash("You have left the challenge.", "success")
+    return redirect(url_for("challenge_detail", challenge_id=challenge_id))
 
 
 if __name__ == "__main__":
