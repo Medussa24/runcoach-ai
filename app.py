@@ -3,6 +3,7 @@ import io
 import math
 import os
 import sqlite3
+import sys
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta
 from functools import wraps
@@ -45,6 +46,10 @@ from runcoach_services import (
 )
 from sentinel_qa import SentinelQA
 
+
+# Blueprints import shared helpers from this module. When launched with
+# `python app.py`, expose this module under its import name to avoid reloading it.
+sys.modules.setdefault("app", sys.modules[__name__])
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "runcoach-ai-local-dev-secret")
@@ -627,7 +632,7 @@ def login_required(route_function):
             session.clear()
             if request.method != "GET" or request.path == "/agent":
                 return jsonify({"error": "Login required"}), 401
-            return redirect(url_for("login"))
+            return redirect(url_for("auth.login"))
 
         return route_function(*args, **kwargs)
 
@@ -1840,141 +1845,6 @@ def agent_api():
     return jsonify({"answer": answer, "agent": agent_name})
 
 
-@app.route("/planner")
-@login_required
-def planner():
-    user = current_user()
-    timezone_name = get_user_timezone(user["id"])
-    week_start = parse_week_start(request.args.get("week_start"), timezone_name)
-    week_end = week_start + timedelta(days=6)
-    return render_template(
-        "planner.html",
-        current_user=user,
-        week_start=week_start.isoformat(),
-        week_label=(
-            f"{week_start.strftime('%b %d')} – "
-            f"{week_end.strftime('%b %d, %Y')}"
-        ),
-        previous_week=(week_start - timedelta(days=7)).isoformat(),
-        next_week=(week_start + timedelta(days=7)).isoformat(),
-        calendar_days=planner_calendar_days(
-            user["id"],
-            week_start,
-            timezone_name,
-        ),
-        timezone_name=timezone_name,
-        supported_timezones=SUPPORTED_TIMEZONES,
-    )
-
-
-@app.route("/planner/generate", methods=["POST"])
-@login_required
-def generate_weekly_plan():
-    user_id = current_user_id()
-    week_start = parse_week_start(
-        request.form.get("week_start"),
-        get_user_timezone(user_id),
-    )
-    preferred_time = request.form.get("preferred_time", "07:00")
-    goal = request.form.get("goal", "")
-    summary = build_private_agent_summary(user_id, get_all_runs(user_id))
-    events, source = WeeklyPlannerAgent().generate(
-        week_start,
-        preferred_time,
-        goal,
-        summary,
-    )
-    save_generated_plan(user_id, events, week_start, source)
-    flash(
-        f"{len(events)} workouts added using {source}.",
-        "success",
-    )
-    return redirect(url_for("planner", week_start=week_start.isoformat()))
-
-
-@app.route("/planner/event", methods=["POST"])
-@login_required
-def add_planner_event():
-    event_day = parse_week_start(
-        request.form.get("event_date"),
-        get_user_timezone(current_user_id()),
-    )
-    week_start = event_day - timedelta(days=event_day.weekday())
-    try:
-        add_personal_planner_event(current_user_id(), request.form)
-    except ValueError as error:
-        flash(str(error), "error")
-    else:
-        flash("Personal event added.", "success")
-    return redirect(url_for("planner", week_start=week_start.isoformat()))
-
-
-@app.route("/planner/event/<int:event_id>/toggle", methods=["POST"])
-@login_required
-def toggle_planner_event(event_id):
-    planner_store.toggle_event(event_id, current_user_id())
-    return redirect(request.referrer or url_for("planner"))
-
-
-@app.route("/planner/timezone", methods=["POST"])
-@login_required
-def update_planner_timezone():
-    timezone_name = update_user_timezone(
-        current_user_id(),
-        request.form.get("timezone"),
-    )
-    flash(f"Planner timezone updated to {timezone_name}.", "success")
-    return redirect(
-        url_for(
-            "planner",
-            week_start=request.form.get("week_start") or None,
-        )
-    )
-
-
-@app.route("/planner/calendar.ics")
-@login_required
-def planner_calendar():
-    user_id = current_user_id()
-    timezone_name = get_user_timezone(user_id)
-    start = parse_week_start(request.args.get("week_start"), timezone_name)
-    events = get_planner_events(
-        user_id,
-        start,
-        start + timedelta(days=6),
-    )
-    return Response(
-        build_calendar_ics(events, timezone_name),
-        mimetype="text/calendar",
-        headers={
-            "Content-Disposition": "attachment; filename=runcoach-week.ics"
-        },
-    )
-
-
-@app.route("/planner/email", methods=["POST"])
-@login_required
-def email_weekly_plan():
-    user = current_user()
-    timezone_name = get_user_timezone(user["id"])
-    start = parse_week_start(request.form.get("week_start"), timezone_name)
-    events = get_planner_events(
-        user["id"],
-        start,
-        start + timedelta(days=6),
-    )
-    if not events:
-        flash("Add or generate events before emailing your week.", "error")
-        return redirect(url_for("planner", week_start=start.isoformat()))
-    sent, message = PlanEmailService().send_week(
-        user["email"],
-        events,
-        build_calendar_ics(events, timezone_name),
-        timezone_name,
-    )
-    flash(message, "success" if sent else "warning")
-    return redirect(url_for("planner", week_start=start.isoformat()))
-
 
 @app.route("/walk-task/<int:task_id>/toggle", methods=["POST"])
 @login_required
@@ -1990,76 +1860,7 @@ def reset_walk_tasks_route():
     return redirect(url_for("index", walk_task=1))
 
 
-@app.route("/signup", methods=["GET", "POST"])
-def signup():
-    seed_demo_user()
 
-    error = None
-
-    if request.method == "POST":
-        email = request.form.get("email", "").lower().strip()
-        password = request.form.get("password", "")
-
-        if not email or not password:
-            error = "Enter an email and password."
-        elif len(password) < 6:
-            error = "Use at least 6 characters for the password."
-        else:
-            try:
-                user_id = create_user(email, password)
-            except sqlite3.IntegrityError:
-                error = "An account with that email already exists."
-            else:
-                establish_user_session(user_id)
-                return redirect(url_for("index", welcome=1))
-
-    return render_template(
-        "auth.html",
-        mode="signup",
-        error=error,
-        demo_email=DEMO_EMAIL,
-        demo_password=DEMO_PASSWORD,
-    )
-
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    seed_demo_data()
-
-    error = None
-
-    if request.method == "POST":
-        email = request.form.get("email", "").lower().strip()
-        password = request.form.get("password", "")
-        user = get_user_by_email(email)
-
-        if user and check_password_hash(user["password_hash"], password):
-            establish_user_session(user["id"], is_demo=user["email"] == DEMO_EMAIL)
-            return redirect(url_for("index", welcome=1))
-
-        error = "Email or password was not correct."
-
-    return render_template(
-        "auth.html",
-        mode="login",
-        error=error,
-        demo_email=DEMO_EMAIL,
-        demo_password=DEMO_PASSWORD,
-    )
-
-
-@app.route("/demo-login", methods=["POST"])
-def demo_login():
-    """Log evaluators into the privacy-safe demo account in one click."""
-    demo_user_id = reset_demo_account()
-    establish_user_session(demo_user_id, is_demo=True)
-    return redirect(url_for("index", welcome=1))
-
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
 
 
 @app.route("/health")
@@ -2427,124 +2228,6 @@ def update_settings():
     return redirect(request.referrer or url_for("index"))
 
 
-@app.route("/events", methods=["GET", "POST"])
-@login_required
-def events_list():
-    user = current_user()
-    user_id = user["id"]
-    
-    if request.method == "POST":
-        title = request.form.get("title", "").strip()
-        description = request.form.get("description", "").strip()
-        event_type = request.form.get("event_type", "").strip()
-        event_date = request.form.get("event_date", "").strip()
-        event_time = request.form.get("event_time", "").strip()
-        location = request.form.get("location", "").strip()
-        pace_group = request.form.get("pace_group", "").strip()
-        language = request.form.get("language", "").strip()
-        
-        errors = []
-        if not title or len(title) > 120:
-            errors.append("Title is required and must be under 120 characters.")
-        if not description or len(description) > 1000:
-            errors.append("Description is required and must be under 1000 characters.")
-        if event_type not in ("run", "walk", "walkathon", "marathon", "practice"):
-            errors.append("Invalid event type.")
-        if not event_date or not event_time:
-            errors.append("Date and time are required.")
-        if not location or len(location) > 200:
-            errors.append("Location is required and must be under 200 characters.")
-        if not pace_group or len(pace_group) > 100:
-            errors.append("Pace group is required and must be under 100 characters.")
-        if not language or len(language) > 50:
-            errors.append("Language is required.")
-            
-        if errors:
-            for err in errors:
-                flash(err, "error")
-        else:
-            create_community_event(user_id, title, description, event_type, event_date, event_time, location, pace_group, language)
-            flash("Event created successfully!", "success")
-            return redirect(url_for("events_list"))
-            
-    events = get_upcoming_events()
-    for e in events:
-        e["rsvped"] = is_user_rsvped(user_id, e["id"])
-        e["rsvp_count"] = get_event_rsvps_count(e["id"])
-        
-    return render_template("events.html", events=events, current_user=user)
-
-
-@app.route("/event/<int:event_id>")
-def event_detail(event_id):
-    event = get_event_by_id(event_id)
-    if not event:
-        return "Event not found", 404
-        
-    user_id = current_user_id()
-    rsvped = False
-    if user_id:
-        rsvped = is_user_rsvped(user_id, event_id)
-        
-    rsvp_count = get_event_rsvps_count(event_id)
-    rsvp_users = get_event_rsvp_users(event_id)
-    
-    user = current_user()
-    return render_template("event_detail.html", event=event, rsvped=rsvped, rsvp_count=rsvp_count, rsvp_users=rsvp_users, current_user=user)
-
-
-@app.route("/event/<int:event_id>/rsvp", methods=["POST"])
-@login_required
-def event_rsvp(event_id):
-    user_id = current_user_id()
-    event = get_event_by_id(event_id)
-    if not event:
-        flash("Event not found.", "error")
-        return redirect(url_for("events_list"))
-        
-    action = toggle_event_rsvp(user_id, event_id)
-    if action == "added":
-        flash("Successfully RSVPed to the event!", "success")
-    else:
-        flash("Cancelled your RSVP.", "success")
-    return redirect(request.referrer or url_for("event_detail", event_id=event_id))
-
-
-@app.route("/shop")
-@login_required
-def shop_page():
-    user = current_user()
-    products = [
-        {
-            "id": "tshirt",
-            "title": "RunCoach AI T-shirt",
-            "description": "High-quality, breathable running T-shirt with the RunCoach AI logo.",
-            "price": "$25.00",
-            "image": "tshirt.png"
-        },
-        {
-            "id": "hoodie",
-            "title": "Rico Runner hoodie",
-            "description": "Warm and stylish hoodie featuring Rico Runner, perfect for warmups.",
-            "price": "$45.00",
-            "image": "hoodie.png"
-        },
-        {
-            "id": "walker_shirt",
-            "title": "Walker-friendly shirt",
-            "description": "Relaxed fit, moisture-wicking shirt designed for comfort during long walks.",
-            "price": "$22.00",
-            "image": "walker_shirt.png"
-        },
-        {
-            "id": "stickers",
-            "title": "Sticker pack",
-            "description": "Show your love with custom stickers of Rico Runner, Iggy, and Luna.",
-            "price": "$5.00",
-            "image": "stickers.png"
-        }
-    ]
-    return render_template("shop.html", products=products, current_user=user)
 
 
 # ----------------------------------------------------
@@ -2691,151 +2374,7 @@ def convert_imported_activity_to_run(user_id, activity_id):
         connection.close()
 
 
-@app.route("/integrations")
-@login_required
-def integrations_page():
-    user = current_user()
-    user_id = user["id"]
-    
-    connections = get_health_connections(user_id)
-    connections_map = {conn["provider"]: conn for conn in connections}
-    
-    imported_activities = get_imported_activities(user_id)
-    
-    for conn in connections_map.values():
-        conn["access_token"] = "•" * 12 if conn["access_token"] else None
-        conn["refresh_token"] = "•" * 12 if conn["refresh_token"] else None
-        
-    return render_template(
-        "integrations.html",
-        current_user=user,
-        connections=connections_map,
-        imported_activities=imported_activities
-    )
 
-
-@app.route("/integrations/connect/<provider>", methods=["POST"])
-@login_required
-def connect_mock_provider(provider):
-    if provider not in ("strava", "fitbit", "garmin"):
-        flash("Invalid provider.", "error")
-        return redirect(url_for("integrations_page"))
-        
-    user_id = current_user_id()
-    create_health_connection(
-        user_id=user_id,
-        provider=provider,
-        provider_user_id=f"mock-user-{user_id}",
-        access_token="mock-access-token",
-        refresh_token="mock-refresh-token",
-        token_expires_at="2027-01-01 00:00:00",
-        sync_enabled=1
-    )
-    flash(f"Successfully connected to mock {provider.capitalize()}!", "success")
-    return redirect(url_for("integrations_page"))
-
-
-@app.route("/integrations/disconnect/<provider>", methods=["POST"])
-@login_required
-def disconnect_provider(provider):
-    if provider not in ("strava", "fitbit", "garmin"):
-        flash("Invalid provider.", "error")
-        return redirect(url_for("integrations_page"))
-        
-    user_id = current_user_id()
-    connection = get_database_connection()
-    try:
-        connection.execute(
-            "DELETE FROM health_connections WHERE user_id = ? AND provider = ?",
-            (user_id, provider)
-        )
-        connection.commit()
-    finally:
-        connection.close()
-        
-    flash(f"Disconnected from {provider.capitalize()}.", "success")
-    return redirect(url_for("integrations_page"))
-
-
-@app.route("/integrations/toggle/<provider>", methods=["POST"])
-@login_required
-def toggle_provider_sync(provider):
-    user_id = current_user_id()
-    res = toggle_health_sync(user_id, provider)
-    if res is not None:
-        status = "enabled" if res else "disabled"
-        flash(f"Syncing {status} for {provider.capitalize()}.", "success")
-    else:
-        flash("Connection not found.", "error")
-    return redirect(url_for("integrations_page"))
-
-
-@app.route("/integrations/sync", methods=["POST"])
-@login_required
-def sync_activities():
-    user_id = current_user_id()
-    connections = get_health_connections(user_id)
-    active_providers = [c["provider"] for c in connections if c["sync_enabled"]]
-    
-    if not active_providers:
-        flash("No active connected services with sync enabled.", "error")
-        return redirect(url_for("integrations_page"))
-        
-    import random
-    from datetime import datetime, timedelta
-    
-    imported_count = 0
-    errors_count = 0
-    
-    for provider in active_providers:
-        external_id = f"act-{random.randint(100000, 999999)}"
-        dist = round(random.uniform(2.0, 6.0), 2)
-        dur = round(dist * random.uniform(8.0, 11.0), 2)
-        pace_val = dur / dist
-        start = (datetime.now() - timedelta(days=random.randint(0, 5))).strftime("%Y-%m-%d %H:%M:%S")
-        
-        try:
-            save_imported_activity(
-                user_id=user_id,
-                provider=provider,
-                external_activity_id=external_id,
-                activity_type="run",
-                start_time=start,
-                end_time=None,
-                distance=dist,
-                duration=dur,
-                pace=pace_val,
-                avg_heart_rate=random.randint(130, 165),
-                max_heart_rate=random.randint(170, 185),
-                calories=random.randint(200, 600),
-                steps=random.randint(4000, 12000),
-                source_name=f"{provider.capitalize()} Wearable",
-                raw_summary=f"Afternoon run synced via mock {provider.capitalize()} webhook."
-            )
-            imported_count += 1
-        except Exception:
-            errors_count += 1
-            
-    if imported_count > 0:
-        flash(f"Sync complete! Imported {imported_count} new activity/activities.", "success")
-    elif errors_count > 0:
-        flash("Sync complete. No new workouts found (duplicates skipped).", "success")
-    else:
-        flash("No workouts found on remote servers.", "success")
-        
-    return redirect(url_for("integrations_page"))
-
-
-@app.route("/integrations/activity/<int:activity_id>/approve", methods=["POST"])
-@login_required
-def approve_imported_activity(activity_id):
-    user_id = current_user_id()
-    res = convert_imported_activity_to_run(user_id, activity_id)
-    if res:
-        flash("Activity approved and saved to your run history!", "success")
-    else:
-        flash("Unable to approve activity (already approved or not found).", "error")
-    return redirect(url_for("integrations_page"))
 
 
 # ----------------------------------------------------
@@ -3134,84 +2673,24 @@ def calculate_challenge_progress(user_id, challenge):
         connection.close()
 
 
-@app.route("/challenges")
-@login_required
-def challenges_page():
-    user = current_user()
-    user_id = user["id"]
-    
-    challenges = get_all_challenges()
-    for c in challenges:
-        c["joined"] = is_user_joined_challenge(user_id, c["id"])
-        c["progress"] = calculate_challenge_progress(user_id, c)
-        
-    return render_template("challenges.html", challenges=challenges, current_user=user)
+from blueprints.challenges import challenges_bp
+app.register_blueprint(challenges_bp)
 
 
-@app.route("/challenge/<int:challenge_id>")
-def challenge_detail(challenge_id):
-    challenge = get_challenge_by_id(challenge_id)
-    if not challenge:
-        return "Challenge not found", 404
-        
-    user_id = current_user_id()
-    joined = False
-    user_progress = None
-    if user_id:
-        joined = is_user_joined_challenge(user_id, challenge_id)
-        user_progress = calculate_challenge_progress(user_id, challenge)
-        
-    participants = get_challenge_participants(challenge_id)
-    
-    for p in participants:
-        p["progress"] = calculate_challenge_progress(p["id"], challenge)
-        
-    act = challenge["activity_type"].lower()
-    if act == "run":
-        coach_message = "Rico says: Keep pushin' those miles, one step at a time! Consistency is your superpower!"
-    elif act == "walk":
-        coach_message = "Iggy says: A steady walk clears the mind and builds the heart. You've got this!"
-    else:
-        coach_message = "Luna says: Recovery and pacing are just as important as speed. Listen to your body!"
-        
-    user = current_user()
-    return render_template(
-        "challenge_detail.html",
-        challenge=challenge,
-        joined=joined,
-        user_progress=user_progress,
-        participants=participants,
-        coach_message=coach_message,
-        current_user=user
-    )
+from blueprints.shop import shop_bp
+app.register_blueprint(shop_bp)
 
+from blueprints.events import events_bp
+app.register_blueprint(events_bp)
 
-@app.route("/challenge/<int:challenge_id>/join", methods=["POST"])
-@login_required
-def join_challenge_route(challenge_id):
-    user_id = current_user_id()
-    challenge = get_challenge_by_id(challenge_id)
-    if not challenge:
-        flash("Challenge not found.", "error")
-        return redirect(url_for("challenges_page"))
-        
-    join_challenge(user_id, challenge_id)
-    flash("Successfully joined the challenge! Keep moving!", "success")
-    return redirect(url_for("challenge_detail", challenge_id=challenge_id))
+from blueprints.integrations import integrations_bp
+app.register_blueprint(integrations_bp)
 
+from blueprints.planner import planner_bp
+app.register_blueprint(planner_bp)
 
-@app.route("/challenge/<int:challenge_id>/leave", methods=["POST"])
-@login_required
-def leave_challenge_route(challenge_id):
-    user_id = current_user_id()
-    challenge = get_challenge_by_id(challenge_id)
-    if not challenge:
-        flash("Challenge not found.", "error")
-        return redirect(url_for("challenges_page"))
-        
-    leave_challenge(user_id, challenge_id)
-    flash("You have left the challenge.", "success")
-    return redirect(url_for("challenge_detail", challenge_id=challenge_id))
+from blueprints.auth import auth_bp
+app.register_blueprint(auth_bp)
 
 
 if __name__ == "__main__":

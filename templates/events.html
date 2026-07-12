@@ -18,14 +18,14 @@
                 <a href="{{ url_for('index') }}#luna-recovery"><img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">{{ _('luna_recovery') }}</a>
                 <a href="{{ url_for('index') }}#progress-visuals"><span>▧</span>{{ _('progress') }}</a>
                 <a href="{{ url_for('index') }}#previous-runs"><span>◷</span>{{ _('history') }}</a>
-                <a href="{{ url_for('planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
+                <a href="{{ url_for('planner.planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
                 <a href="{{ url_for('import_workouts') }}"><span>⇧</span>{{ _('import_data') }}</a>
                 <a href="{{ url_for('index') }}#coach-library"><span>☷</span>{{ _('coach_library') }}</a>
-                <a class="is-active" href="{{ url_for('events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
-                <a href="{{ url_for('shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
-                <a href="{{ url_for('integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
-                <a href="{{ url_for('challenges_page') }}"><span>🏆</span>{{ _('challenges') }}</a>
-                <a href="{{ url_for('logout') }}"><span>↩</span>{{ _('log_out') }}</a>
+                <a class="is-active" href="{{ url_for('events.events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
+                <a href="{{ url_for('shop.shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
+                <a href="{{ url_for('integrations.integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
+                <a href="{{ url_for('challenges.challenges_page') }}"><span>🏆</span>{{ _('challenges') }}</a>
+                <a href="{{ url_for('auth.logout') }}"><span>↩</span>{{ _('log_out') }}</a>
             </nav>
         </aside>
 
@@ -48,7 +48,7 @@
                 <!-- Create Event Form -->
                 <section class="panel event-form-panel">
                     <h2>{{ _('create_event') }}</h2>
-                    <form method="post" action="{{ url_for('events_list') }}" class="runcoach-form">
+                    <form method="post" action="{{ url_for('events.events_list') }}" class="runcoach-form">
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                         <label for="eventTitle">{{ _('event_title') }}</label>
@@ -110,7 +110,7 @@
                                         <span class="event-badge badge-{{ event['event_type'] }}">{{ event['event_type'].upper() }}</span>
                                         <span class="event-lang-badge">{{ event['language'] }}</span>
                                     </div>
-                                    <h3><a href="{{ url_for('event_detail', event_id=event['id']) }}">{{ event['title'] }}</a></h3>
+                                    <h3><a href="{{ url_for('events.event_detail', event_id=event['id']) }}">{{ event['title'] }}</a></h3>
                                     <p class="event-meta-info">
                                         <span>📅 <strong>{{ event['event_date'] }}</strong> at {{ event['event_time'] }}</span><br>
                                         <span>📍 {{ event['location'] }}</span>
@@ -132,8 +132,8 @@
                                     </dl>
 
                                     <div class="event-card-actions">
-                                        <a href="{{ url_for('event_detail', event_id=event['id']) }}" class="button-secondary">Details</a>
-                                        <form method="post" action="{{ url_for('event_rsvp', event_id=event['id']) }}" style="display:inline;">
+                                        <a href="{{ url_for('events.event_detail', event_id=event['id']) }}" class="button-secondary">Details</a>
+                                        <form method="post" action="{{ url_for('events.event_rsvp', event_id=event['id']) }}" style="display:inline;">
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             {% if event['rsvped'] %}
                                                 <button type="submit" class="button button-joined">Joined ✓</button>

@@ -14,11 +14,11 @@
             <h1>{{ _('import_workouts') }}</h1>
             <div class="nav-actions">
                 <a href="{{ url_for('index') }}">{{ _('dashboard') }}</a>
-                <a href="{{ url_for('events_list') }}">{{ _('events_community') }}</a>
-                <a href="{{ url_for('shop_page') }}">{{ _('shop') }}</a>
-                <a href="{{ url_for('integrations_page') }}">{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones' }}</a>
-                <a href="{{ url_for('challenges_page') }}">{{ _('challenges') }}</a>
-                <a href="{{ url_for('logout') }}">{{ _('log_out') }}</a>
+                <a href="{{ url_for('events.events_list') }}">{{ _('events_community') }}</a>
+                <a href="{{ url_for('shop.shop_page') }}">{{ _('shop') }}</a>
+                <a href="{{ url_for('integrations.integrations_page') }}">{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones' }}</a>
+                <a href="{{ url_for('challenges.challenges_page') }}">{{ _('challenges') }}</a>
+                <a href="{{ url_for('auth.logout') }}">{{ _('log_out') }}</a>
             </div>
             {% if current_user %}
                 <p class="notes account-note">Logged in as {{ current_user["email"] }}</p>

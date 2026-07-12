@@ -69,9 +69,9 @@
                 <button type="submit">{% if mode == "signup" %}{{ 'Create Account' if current_lang == 'en' else 'Crear cuenta' }}{% else %}{{ 'Log In' if current_lang == 'en' else 'Iniciar Sesión' }}{% endif %}</button>
  
                 {% if mode == "signup" %}
-                    <p class="notes">{{ 'Already have an account?' if current_lang == 'en' else '¿Ya tienes una cuenta?' }} <a href="{{ url_for('login') }}">{{ 'Log in' if current_lang == 'en' else 'Iniciar sesión' }}</a>.</p>
+                    <p class="notes">{{ 'Already have an account?' if current_lang == 'en' else '¿Ya tienes una cuenta?' }} <a href="{{ url_for('auth.login') }}">{{ 'Log in' if current_lang == 'en' else 'Iniciar sesión' }}</a>.</p>
                 {% else %}
-                    <p class="notes">{{ 'Need an account?' if current_lang == 'en' else '¿Necesitas una cuenta?' }} <a href="{{ url_for('signup') }}">{{ 'Sign up' if current_lang == 'en' else 'Registrarse' }}</a>.</p>
+                    <p class="notes">{{ 'Need an account?' if current_lang == 'en' else '¿Necesitas una cuenta?' }} <a href="{{ url_for('auth.signup') }}">{{ 'Sign up' if current_lang == 'en' else 'Registrarse' }}</a>.</p>
                 {% endif %}
             </form>
 
@@ -92,7 +92,7 @@
             </section>
         </section>
         {% if mode != "signup" %}
-            <form id="demoLoginForm" method="post" action="{{ url_for('demo_login') }}">
+            <form id="demoLoginForm" method="post" action="{{ url_for('auth.demo_login') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             </form>
         {% endif %}

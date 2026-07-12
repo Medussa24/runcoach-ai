@@ -18,14 +18,14 @@
                 <a href="{{ url_for('index') }}#luna-recovery"><img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">{{ _('luna_recovery') }}</a>
                 <a href="{{ url_for('index') }}#progress-visuals"><span>▧</span>{{ _('progress') }}</a>
                 <a href="{{ url_for('index') }}#previous-runs"><span>◷</span>{{ _('history') }}</a>
-                <a href="{{ url_for('planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
+                <a href="{{ url_for('planner.planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
                 <a href="{{ url_for('import_workouts') }}"><span>⇧</span>{{ _('import_data') }}</a>
                 <a href="{{ url_for('index') }}#coach-library"><span>☷</span>{{ _('coach_library') }}</a>
-                <a href="{{ url_for('events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
-                <a class="is-active" href="{{ url_for('shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
-                <a href="{{ url_for('integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
-                <a href="{{ url_for('challenges_page') }}"><span>🏆</span>{{ _('challenges') }}</a>
-                <a href="{{ url_for('logout') }}"><span>↩</span>{{ _('log_out') }}</a>
+                <a href="{{ url_for('events.events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
+                <a class="is-active" href="{{ url_for('shop.shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
+                <a href="{{ url_for('integrations.integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
+                <a href="{{ url_for('challenges.challenges_page') }}"><span>🏆</span>{{ _('challenges') }}</a>
+                <a href="{{ url_for('auth.logout') }}"><span>↩</span>{{ _('log_out') }}</a>
             </nav>
         </aside>
 

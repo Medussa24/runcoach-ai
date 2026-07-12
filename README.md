@@ -183,6 +183,11 @@ python app.py
 
 The default model is `gemini-2.5-flash`. `GEMINI_MODEL` may override the model name. If the key or SDK is unavailable, Gemini returns no text, or the provider request fails, the existing local rule-based response runs automatically so Try Demo and offline demonstrations continue working.
 
+Known release-check note: live Gemini verification returned a provider
+`ClientError` during this release check. The deterministic local fallback was
+successfully verified for the coaching flow, so offline and demo-safe behavior
+remains available.
+
 The deployed Cloud Run service uses Vertex AI with Application Default
 Credentials instead of consuming the AI Studio API key:
 

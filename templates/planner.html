@@ -17,21 +17,21 @@
             </div>
             <nav class="planner-actions" aria-label="Planner actions">
                 <a href="{{ url_for('index') }}">{{ _('dashboard') }}</a>
-                <a href="{{ url_for('events_list') }}">{{ _('events_community') }}</a>
-                <a href="{{ url_for('shop_page') }}">{{ _('shop') }}</a>
-                <a href="{{ url_for('integrations_page') }}">{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones' }}</a>
-                <a href="{{ url_for('challenges_page') }}">{{ _('challenges') }}</a>
-                <a href="{{ url_for('planner_calendar', week_start=week_start) }}">Download calendar</a>
+                <a href="{{ url_for('events.events_list') }}">{{ _('events_community') }}</a>
+                <a href="{{ url_for('shop.shop_page') }}">{{ _('shop') }}</a>
+                <a href="{{ url_for('integrations.integrations_page') }}">{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones' }}</a>
+                <a href="{{ url_for('challenges.challenges_page') }}">{{ _('challenges') }}</a>
+                <a href="{{ url_for('planner.planner_calendar', week_start=week_start) }}">Download calendar</a>
             </nav>
         </header>
 
         <nav class="planner-week-nav" aria-label="Calendar week navigation">
-            <a href="{{ url_for('planner', week_start=previous_week) }}">← Previous week</a>
+            <a href="{{ url_for('planner.planner', week_start=previous_week) }}">← Previous week</a>
             <strong>{{ week_label }}</strong>
-            <a href="{{ url_for('planner', week_start=next_week) }}">Next week →</a>
+            <a href="{{ url_for('planner.planner', week_start=next_week) }}">Next week →</a>
         </nav>
 
-        <form class="planner-timezone" method="post" action="{{ url_for('update_planner_timezone') }}">
+        <form class="planner-timezone" method="post" action="{{ url_for('planner.update_planner_timezone') }}">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <input type="hidden" name="week_start" value="{{ week_start }}">
             <label for="plannerTimezone">Calendar timezone</label>
@@ -50,7 +50,7 @@
         {% endwith %}
 
         <section class="planner-controls">
-            <form class="planner-form planner-generate" method="post" action="{{ url_for('generate_weekly_plan') }}">
+            <form class="planner-form planner-generate" method="post" action="{{ url_for('planner.generate_weekly_plan') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div>
                     <p class="eyebrow">Agent planner</p>
@@ -69,7 +69,7 @@
                 <button type="submit">Generate Weekly Workouts</button>
             </form>
 
-            <form class="planner-form" method="post" action="{{ url_for('add_planner_event') }}">
+            <form class="planner-form" method="post" action="{{ url_for('planner.add_planner_event') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div>
                     <p class="eyebrow">Personal event</p>
@@ -124,7 +124,7 @@
                                     <p>{{ event["details"] }}</p>
                                 {% endif %}
                                 {% if event["notes"] %}<p class="notes">{{ event["notes"] }}</p>{% endif %}
-                                <form method="post" action="{{ url_for('toggle_planner_event', event_id=event['id']) }}">
+                                <form method="post" action="{{ url_for('planner.toggle_planner_event', event_id=event['id']) }}">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="planner-complete">
                                         {% if event["is_completed"] %}Completed ✓{% else %}Mark complete{% endif %}
@@ -145,12 +145,12 @@
                 <h2>Take the plan with you</h2>
                 <p>Email the visible week to {{ current_user["email"] }} with a calendar attachment, or download the `.ics` file directly. Times use {{ timezone_name }}.</p>
             </div>
-            <form method="post" action="{{ url_for('email_weekly_plan') }}">
+            <form method="post" action="{{ url_for('planner.email_weekly_plan') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <input type="hidden" name="week_start" value="{{ week_start }}">
                 <button type="submit">Email My Week</button>
             </form>
-            <a class="button-secondary" href="{{ url_for('planner_calendar', week_start=week_start) }}">Download .ics</a>
+            <a class="button-secondary" href="{{ url_for('planner.planner_calendar', week_start=week_start) }}">Download .ics</a>
         </section>
 
         <p class="planner-safety">Wellness guidance is general and not medical advice. Adjust or skip a workout when movement does not feel safe.</p>

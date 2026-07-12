@@ -18,14 +18,14 @@
                 <a href="{{ url_for('index') }}#luna-recovery"><img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">{{ _('luna_recovery') }}</a>
                 <a href="{{ url_for('index') }}#progress-visuals"><span>▧</span>{{ _('progress') }}</a>
                 <a href="{{ url_for('index') }}#previous-runs"><span>◷</span>{{ _('history') }}</a>
-                <a href="{{ url_for('planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
+                <a href="{{ url_for('planner.planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
                 <a href="{{ url_for('import_workouts') }}"><span>⇧</span>{{ _('import_data') }}</a>
                 <a href="{{ url_for('index') }}#coach-library"><span>☷</span>{{ _('coach_library') }}</a>
-                <a href="{{ url_for('events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
-                <a href="{{ url_for('shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
-                <a href="{{ url_for('integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
-                <a class="is-active" href="{{ url_for('challenges_page') }}"><span>🏆</span>{{ _('challenges') }}</a>
-                <a href="{{ url_for('logout') }}"><span>↩</span>{{ _('log_out') }}</a>
+                <a href="{{ url_for('events.events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
+                <a href="{{ url_for('shop.shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
+                <a href="{{ url_for('integrations.integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
+                <a class="is-active" href="{{ url_for('challenges.challenges_page') }}"><span>🏆</span>{{ _('challenges') }}</a>
+                <a href="{{ url_for('auth.logout') }}"><span>↩</span>{{ _('log_out') }}</a>
             </nav>
         </aside>
 
@@ -73,7 +73,7 @@
 
                         <!-- Info Area -->
                         <div class="product-info" style="padding: 20px; display: flex; flex-direction: column; flex-grow: 1; min-height: 250px;">
-                            <h3 style="margin-top:0; margin-bottom: 8px;"><a href="{{ url_for('challenge_detail', challenge_id=c.id) }}" style="text-decoration:none; color:inherit;">{{ c.title }}</a></h3>
+                            <h3 style="margin-top:0; margin-bottom: 8px;"><a href="{{ url_for('challenges.challenge_detail', challenge_id=c.id) }}" style="text-decoration:none; color:inherit;">{{ c.title }}</a></h3>
                             <p class="product-description" style="color: var(--muted); font-size: 0.9em; line-height: 1.4; margin-bottom: 20px; flex-grow: 1;">{{ c.description }}</p>
 
                             <!-- Date range info -->
@@ -123,19 +123,19 @@
 
                             <!-- Action Footer -->
                             <div class="product-footer" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 14px; margin-top: auto;">
-                                <a href="{{ url_for('challenge_detail', challenge_id=c.id) }}" class="button" style="background: var(--border); border-color: var(--border); padding: 6px 12px; font-size: 0.9em;">
+                                <a href="{{ url_for('challenges.challenge_detail', challenge_id=c.id) }}" class="button" style="background: var(--border); border-color: var(--border); padding: 6px 12px; font-size: 0.9em;">
                                     {{ 'View Details' if current_lang == 'en' else 'Ver Detalles' }}
                                 </a>
 
                                 {% if c.joined %}
-                                    <form method="post" action="{{ url_for('leave_challenge_route', challenge_id=c.id) }}">
+                                    <form method="post" action="{{ url_for('challenges.leave_challenge_route', challenge_id=c.id) }}">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="button" style="background: rgba(239,68,68,0.15); border-color: #ef4444; color: #f87171;">
                                             {{ _('leave_challenge') }}
                                         </button>
                                     </form>
                                 {% else %}
-                                    <form method="post" action="{{ url_for('join_challenge_route', challenge_id=c.id) }}">
+                                    <form method="post" action="{{ url_for('challenges.join_challenge_route', challenge_id=c.id) }}">
                                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="button" style="background: var(--highlight); color: var(--surface); border: 1px solid var(--highlight);">
                                             {{ _('join_challenge') }}

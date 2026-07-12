@@ -26,21 +26,21 @@
                 <a href="{{ url_for('index') }}#luna-recovery"><img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">{{ _('luna_recovery') }}</a>
                 <a href="{{ url_for('index') }}#progress-visuals"><span>▧</span>{{ _('progress') }}</a>
                 <a href="{{ url_for('index') }}#previous-runs"><span>◷</span>{{ _('history') }}</a>
-                <a href="{{ url_for('planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
+                <a href="{{ url_for('planner.planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
                 <a href="{{ url_for('import_workouts') }}"><span>⇧</span>{{ _('import_data') }}</a>
                 <a href="{{ url_for('index') }}#coach-library"><span>☷</span>{{ _('coach_library') }}</a>
-                <a class="is-active" href="{{ url_for('events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
-                <a href="{{ url_for('shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
-                <a href="{{ url_for('integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
-                <a href="{{ url_for('challenges_page') }}"><span>🏆</span>{{ _('challenges') }}</a>
-                <a href="{{ url_for('logout') }}"><span>↩</span>{{ _('log_out') }}</a>
+                <a class="is-active" href="{{ url_for('events.events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
+                <a href="{{ url_for('shop.shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
+                <a href="{{ url_for('integrations.integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
+                <a href="{{ url_for('challenges.challenges_page') }}"><span>🏆</span>{{ _('challenges') }}</a>
+                <a href="{{ url_for('auth.logout') }}"><span>↩</span>{{ _('log_out') }}</a>
             </nav>
         </aside>
 
         <section class="dashboard-main">
             <section class="intro">
                 <div class="intro-copy">
-                    <p class="eyebrow"><a href="{{ url_for('events_list') }}" style="color: var(--text-link); text-decoration: none;">← Back to Events</a></p>
+                    <p class="eyebrow"><a href="{{ url_for('events.events_list') }}" style="color: var(--text-link); text-decoration: none;">← Back to Events</a></p>
                     <h1>{{ event['title'] }}</h1>
                     <p class="hero-description">Organized by {{ event['creator_name'] }} · Language: {{ event['language'] }}</p>
                 </div>
@@ -83,7 +83,7 @@
 
                     <div class="event-actions" style="margin-top: 30px; display: flex; gap: 15px; flex-wrap: wrap;">
                         {% if current_user %}
-                            <form method="post" action="{{ url_for('event_rsvp', event_id=event['id']) }}">
+                            <form method="post" action="{{ url_for('events.event_rsvp', event_id=event['id']) }}">
                                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 {% if rsvped %}
                                     <button type="submit" class="button button-joined">Cancel RSVP</button>
@@ -92,7 +92,7 @@
                                 {% endif %}
                             </form>
                         {% else %}
-                            <a href="{{ url_for('login') }}" class="button">Log in to RSVP</a>
+                            <a href="{{ url_for('auth.login') }}" class="button">Log in to RSVP</a>
                         {% endif %}
 
                         <a href="https://www.facebook.com/sharer/sharer.php?u={{ request.url | urlencode }}" target="_blank" rel="noopener noreferrer" class="button button-facebook">
