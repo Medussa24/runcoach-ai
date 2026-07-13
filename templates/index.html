@@ -41,13 +41,14 @@
                 <a href="#luna-recovery"><img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">{{ _('luna_recovery') }}</a>
                 <a href="#progress-visuals"><span>▧</span>{{ _('progress') }}</a>
                 <a href="#previous-runs"><span>◷</span>{{ _('history') }}</a>
-                <a href="{{ url_for('planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
+                <a href="{{ url_for('planner.planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
                 <a href="{{ url_for('import_workouts') }}"><span>⇧</span>{{ _('import_data') }}</a>
                 <a href="#coach-library"><span>☷</span>{{ _('coach_library') }}</a>
-                <a href="{{ url_for('events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
-                <a href="{{ url_for('shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
-                <a href="{{ url_for('integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
-                <a href="{{ url_for('logout') }}"><span>↩</span>{{ _('log_out') }}</a>
+                <a href="{{ url_for('events.events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
+                <a href="{{ url_for('shop.shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
+                <a href="{{ url_for('integrations.integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
+                <a href="{{ url_for('challenges.challenges_page') }}"><span>🏆</span>{{ _('challenges') }}</a>
+                <a href="{{ url_for('auth.logout') }}"><span>↩</span>{{ _('log_out') }}</a>
             </nav>
             <section class="nav-card">
                 <p class="eyebrow">Daily Streak</p>
@@ -72,9 +73,9 @@
                 <div class="nav-actions">
                     <a href="#log-run">{{ _('log_a_run') }}</a>
                     <a href="#beginner-path">{{ _('beginner_path') }}</a>
-                    <a href="{{ url_for('planner') }}">{{ _('my_plan') }}</a>
+                    <a href="{{ url_for('planner.planner') }}">{{ _('my_plan') }}</a>
                     <a href="{{ url_for('import_workouts') }}">{{ _('import_workouts') }}</a>
-                    <a href="{{ url_for('logout') }}">{{ _('log_out') }}</a>
+                    <a href="{{ url_for('auth.logout') }}">{{ _('log_out') }}</a>
                 </div>
                 {% if current_user %}
                     <p class="notes account-note">Logged in as {{ current_user["email"] }}</p>
@@ -164,7 +165,7 @@
                             <strong>Import Workouts</strong>
                             <small>CSV, XML, or screenshots</small>
                         </a>
-                        <a class="action-tile action-sky" href="{{ url_for('planner') }}">
+                        <a class="action-tile action-sky" href="{{ url_for('planner.planner') }}">
                             <span>▦</span>
                             <strong>My Plan</strong>
                             <small>Workouts by date and time</small>
@@ -187,7 +188,7 @@
                             <p>Let Rico, Iggy, and Luna organize workouts, hydration, warm-ups, and cool-downs.</p>
                         {% endif %}
                     </div>
-                    <a href="{{ url_for('planner') }}">
+                    <a href="{{ url_for('planner.planner') }}">
                         {% if next_plan_event %}Open My Plan{% else %}Generate My Week{% endif %}
                     </a>
                 </section>

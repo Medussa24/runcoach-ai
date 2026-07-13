@@ -18,13 +18,14 @@
                 <a href="{{ url_for('index') }}#luna-recovery"><img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">{{ _('luna_recovery') }}</a>
                 <a href="{{ url_for('index') }}#progress-visuals"><span>▧</span>{{ _('progress') }}</a>
                 <a href="{{ url_for('index') }}#previous-runs"><span>◷</span>{{ _('history') }}</a>
-                <a href="{{ url_for('planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
+                <a href="{{ url_for('planner.planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
                 <a href="{{ url_for('import_workouts') }}"><span>⇧</span>{{ _('import_data') }}</a>
                 <a href="{{ url_for('index') }}#coach-library"><span>☷</span>{{ _('coach_library') }}</a>
-                <a href="{{ url_for('events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
-                <a href="{{ url_for('shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
-                <a class="is-active" href="{{ url_for('integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
-                <a href="{{ url_for('logout') }}"><span>↩</span>{{ _('log_out') }}</a>
+                <a href="{{ url_for('events.events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
+                <a href="{{ url_for('shop.shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
+                <a class="is-active" href="{{ url_for('integrations.integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
+                <a href="{{ url_for('challenges.challenges_page') }}"><span>🏆</span>{{ _('challenges') }}</a>
+                <a href="{{ url_for('auth.logout') }}"><span>↩</span>{{ _('log_out') }}</a>
             </nav>
         </aside>
 
@@ -76,13 +77,13 @@
                         <div class="product-footer" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 14px;">
                             {% if 'strava' in connections %}
                                 <span style="color: #22c55e; font-weight: 600;">✓ {{ 'Connected' if current_lang == 'en' else 'Conectado' }}</span>
-                                <form method="post" action="{{ url_for('disconnect_provider', provider='strava') }}">
+                                <form method="post" action="{{ url_for('integrations.disconnect_provider', provider='strava') }}">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="button" style="background: var(--border); border-color: var(--border);">{{ 'Disconnect' if current_lang == 'en' else 'Desconectar' }}</button>
                                 </form>
                             {% else %}
                                 <span style="color: var(--muted); font-size: 0.85em;">{{ 'Mock API Ready' if current_lang == 'en' else 'Mock API Listo' }}</span>
-                                <form method="post" action="{{ url_for('connect_mock_provider', provider='strava') }}">
+                                <form method="post" action="{{ url_for('integrations.connect_mock_provider', provider='strava') }}">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="button" style="background: var(--highlight); color: var(--surface); border: 1px solid var(--highlight);">{{ 'Connect' if current_lang == 'en' else 'Conectar' }}</button>
                                 </form>
@@ -102,13 +103,13 @@
                         <div class="product-footer" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 14px;">
                             {% if 'fitbit' in connections %}
                                 <span style="color: #22c55e; font-weight: 600;">✓ {{ 'Connected' if current_lang == 'en' else 'Conectado' }}</span>
-                                <form method="post" action="{{ url_for('disconnect_provider', provider='fitbit') }}">
+                                <form method="post" action="{{ url_for('integrations.disconnect_provider', provider='fitbit') }}">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="button" style="background: var(--border); border-color: var(--border);">{{ 'Disconnect' if current_lang == 'en' else 'Desconectar' }}</button>
                                 </form>
                             {% else %}
                                 <span style="color: var(--muted); font-size: 0.85em;">{{ 'Mock API Ready' if current_lang == 'en' else 'Mock API Listo' }}</span>
-                                <form method="post" action="{{ url_for('connect_mock_provider', provider='fitbit') }}">
+                                <form method="post" action="{{ url_for('integrations.connect_mock_provider', provider='fitbit') }}">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="button" style="background: var(--highlight); color: var(--surface); border: 1px solid var(--highlight);">{{ 'Connect' if current_lang == 'en' else 'Conectar' }}</button>
                                 </form>
@@ -128,13 +129,13 @@
                         <div class="product-footer" style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 14px;">
                             {% if 'garmin' in connections %}
                                 <span style="color: #22c55e; font-weight: 600;">✓ {{ 'Connected' if current_lang == 'en' else 'Conectado' }}</span>
-                                <form method="post" action="{{ url_for('disconnect_provider', provider='garmin') }}">
+                                <form method="post" action="{{ url_for('integrations.disconnect_provider', provider='garmin') }}">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="button" style="background: var(--border); border-color: var(--border);">{{ 'Disconnect' if current_lang == 'en' else 'Desconectar' }}</button>
                                 </form>
                             {% else %}
                                 <span style="color: var(--muted); font-size: 0.85em;">{{ 'Mock API Ready' if current_lang == 'en' else 'Mock API Listo' }}</span>
-                                <form method="post" action="{{ url_for('connect_mock_provider', provider='garmin') }}">
+                                <form method="post" action="{{ url_for('integrations.connect_mock_provider', provider='garmin') }}">
                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="button" style="background: var(--highlight); color: var(--surface); border: 1px solid var(--highlight);">{{ 'Connect' if current_lang == 'en' else 'Conectar' }}</button>
                                 </form>
@@ -180,7 +181,7 @@
                 <h2 style="margin-top:0;">{{ 'Connection Settings' if current_lang == 'en' else 'Ajustes de Conexión' }}</h2>
                 {% if connections %}
                     <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 20px;">
-                        <form method="post" action="{{ url_for('sync_activities') }}">
+                        <form method="post" action="{{ url_for('integrations.sync_activities') }}">
                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                             <button type="submit" class="button" style="background: #22c55e; border-color: #22c55e; color: white;">
                                 🔄 {{ 'Sync Workouts Now' if current_lang == 'en' else 'Sincronizar Entrenamientos Ahora' }}
@@ -211,7 +212,7 @@
                                         {% endif %}
                                     </td>
                                     <td style="padding: 12px 10px;">
-                                        <form method="post" action="{{ url_for('toggle_provider_sync', provider=provider) }}" style="display:inline;">
+                                        <form method="post" action="{{ url_for('integrations.toggle_provider_sync', provider=provider) }}" style="display:inline;">
                                             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                             <button type="submit" class="button" style="padding: 4px 8px; font-size: 0.85em; background: var(--border); border-color: var(--border);">
                                                 {{ 'Toggle Sync' if current_lang == 'en' else 'Alternar Sinc' }}
@@ -275,7 +276,7 @@
                                         </td>
                                         <td style="padding: 12px 10px;">
                                             {% if not act.is_approved %}
-                                                <form method="post" action="{{ url_for('approve_imported_activity', activity_id=act.id) }}">
+                                                <form method="post" action="{{ url_for('integrations.approve_imported_activity', activity_id=act.id) }}">
                                                     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                                     <button type="submit" class="button" style="background: #22c55e; border-color: #22c55e; color: white; padding: 4px 10px; font-size: 0.85em;">
                                                         {{ 'Approve & Log' if current_lang == 'en' else 'Aprobar y Reg' }}

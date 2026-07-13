@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="{{ current_lang }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ challenge['title'] }} - RunCoach AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body data-accessibility-mode="{{ current_accessibility_mode }}">
+    <main class="dashboard-shell">
+        <aside class="dashboard-nav" aria-label="Dashboard navigation">
+            <img class="nav-logo" src="{{ url_for('static', filename='runcoach-logo.png') }}" alt="RunCoach AI">
+            <nav>
+                <a href="{{ url_for('index') }}#dashboard-top"><span>⌂</span>{{ _('dashboard') }}</a>
+                <a href="{{ url_for('index') }}#agentChatForm"><img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="">{{ _('rico_runner') }}</a>
+                <a href="{{ url_for('index') }}#iggyChatForm"><img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="">{{ _('iggy_walk_agent') }}</a>
+                <a href="{{ url_for('index') }}#luna-recovery"><img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="">{{ _('luna_recovery') }}</a>
+                <a href="{{ url_for('index') }}#progress-visuals"><span>▧</span>{{ _('progress') }}</a>
+                <a href="{{ url_for('index') }}#previous-runs"><span>◷</span>{{ _('history') }}</a>
+                <a href="{{ url_for('planner.planner') }}"><span>▦</span>{{ _('my_plan') }}</a>
+                <a href="{{ url_for('import_workouts') }}"><span>⇧</span>{{ _('import_data') }}</a>
+                <a href="{{ url_for('index') }}#coach-library"><span>☷</span>{{ _('coach_library') }}</a>
+                <a href="{{ url_for('events.events_list') }}"><span>👥</span>{{ _('events_community') }}</a>
+                <a href="{{ url_for('shop.shop_page') }}"><span>🛍️</span>{{ _('shop') }}</a>
+                <a href="{{ url_for('integrations.integrations_page') }}"><span>🔄</span>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }}</a>
+                <a class="is-active" href="{{ url_for('challenges.challenges_page') }}"><span>🏆</span>{{ _('challenges') }}</a>
+                <a href="{{ url_for('auth.logout') }}"><span>↩</span>{{ _('log_out') }}</a>
+            </nav>
+        </aside>
+
+        <section class="dashboard-main">
+            <!-- Header Section -->
+            <section class="intro" style="margin-bottom: 24px;">
+                <div class="intro-copy">
+                    <p class="eyebrow">{{ _('monthly_challenge') }}</p>
+                    <h1>{{ challenge['title'] }}</h1>
+                    <p>{{ challenge['description'] }}</p>
+                </div>
+            </section>
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash flash-{{ category }}" style="margin-bottom: 20px; padding: 12px; border-radius: 6px; background: {% if category == 'success' %}rgba(34,197,94,0.15){% else %}rgba(239,68,68,0.15){% endif %}; color: {% if category == 'success' %}#4ade80{% else %}#f87171{% endif %}; border: 1px solid {% if category == 'success' %}#22c55e{% else %}#ef4444{% endif %};">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="event-detail-layout" style="display: grid; grid-template-columns: 2fr 1fr; gap: 24px; align-items: start;">
+                <!-- Main Area: Details & Leaderboard -->
+                <div style="display: flex; flex-direction: column; gap: 24px;">
+                    
+                    <!-- Challenge Specs Panel -->
+                    <section class="panel" style="background: var(--surface); padding: 24px; border-radius: 12px; border: 1px solid var(--border);">
+                        <h2 style="margin-top:0; font-size:1.3em;">Challenge Information</h2>
+                        <div class="event-meta-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-top: 15px;">
+                            <div>
+                                <strong>{{ 'Type' if current_lang == 'en' else 'Tipo' }}</strong>
+                                <span style="text-transform: uppercase;">{{ challenge['challenge_type'] }}</span>
+                            </div>
+                            <div>
+                                <strong>{{ 'Activity' if current_lang == 'en' else 'Actividad' }}</strong>
+                                <span>{{ challenge['activity_type'].upper() }}</span>
+                            </div>
+                            <div>
+                                <strong>{{ 'Target' if current_lang == 'en' else 'Meta' }}</strong>
+                                <span>{{ challenge['target_value'] }} {{ challenge['unit'] }}</span>
+                            </div>
+                            <div>
+                                <strong>{{ 'Duration' if current_lang == 'en' else 'Duración' }}</strong>
+                                <span style="font-size:0.9em;">{{ challenge['start_date'] }} {{ 'to' if current_lang == 'en' else 'al' }} {{ challenge['end_date'] }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Progress Display -->
+                        {% if joined and user_progress %}
+                            <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
+                                <h3 style="margin-top:0;">{{ 'Your Progress' if current_lang == 'en' else 'Tu Progreso' }}</h3>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.9em; font-weight: 600; margin-bottom: 8px;">
+                                    <span>{{ _('progress') }}</span>
+                                    {% if user_progress.available %}
+                                        <span>{{ user_progress.current }} / {{ challenge['target_value'] }} {{ challenge['unit'] }}</span>
+                                    {% else %}
+                                        <span style="color: var(--muted);">--</span>
+                                    {% endif %}
+                                </div>
+
+                                <div style="background: var(--border); border-radius: 8px; height: 20px; overflow: hidden; position: relative;" 
+                                     role="progressbar" 
+                                     aria-valuenow="{{ user_progress.percent }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100" 
+                                     aria-label="User challenge progress bar">
+                                    <div style="background: var(--sun, #ffcf4d); width: {{ user_progress.percent }}%; height: 100%; transition: width 0.3s ease;"></div>
+                                    <span style="position: absolute; width: 100%; text-align: center; font-size: 0.8em; font-weight: bold; top: 2px; left: 0; color: #fff; text-shadow: 0 0 2px rgba(0,0,0,0.8);">{{ user_progress.percent }}%</span>
+                                </div>
+
+                                {% if not user_progress.available %}
+                                    <p style="color: var(--muted); font-size: 0.85em; margin-top: 8px;">⚠️ {{ user_progress.message }}</p>
+                                {% endif %}
+
+                                {% if user_progress.completed %}
+                                    <div style="margin-top: 12px; color: #4ade80; font-weight: bold; display: flex; align-items: center; gap: 8px;">
+                                        <span>🏆</span> {{ _('completed') }}!
+                                    </div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+
+                        <!-- Community distance target tracker -->
+                        {% if challenge['challenge_type'] == 'community_distance' and user_progress %}
+                            <div style="margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--border);">
+                                <h3>👥 {{ 'Community Progress' if current_lang == 'en' else 'Progreso de la Comunidad' }}</h3>
+                                <div style="display: flex; justify-content: space-between; font-size: 0.9em; font-weight: 600; margin-bottom: 8px;">
+                                    <span>{{ 'Total Distance Contributed' if current_lang == 'en' else 'Distancia Total Contribuida' }}</span>
+                                    <span>{{ user_progress.community_total }} / {{ challenge['target_value'] }} {{ challenge['unit'] }}</span>
+                                </div>
+
+                                <div style="background: var(--border); border-radius: 8px; height: 20px; overflow: hidden; position: relative;" 
+                                     role="progressbar" 
+                                     aria-valuenow="{{ user_progress.percent }}" 
+                                     aria-valuemin="0" 
+                                     aria-valuemax="100" 
+                                     aria-label="Community challenge progress bar">
+                                    <div style="background: var(--highlight); width: {{ user_progress.percent }}%; height: 100%; transition: width 0.3s ease;"></div>
+                                    <span style="position: absolute; width: 100%; text-align: center; font-size: 0.8em; font-weight: bold; top: 2px; left: 0; color: #fff; text-shadow: 0 0 2px rgba(0,0,0,0.8);">{{ user_progress.percent }}%</span>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </section>
+
+                    <!-- Safe Participants / Leaderboard Board -->
+                    <section class="panel" style="background: var(--surface); padding: 24px; border-radius: 12px; border: 1px solid var(--border);">
+                        <h2 style="margin-top:0; font-size: 1.3em;">{{ 'Participants' if current_lang == 'en' else 'Participantes' }}</h2>
+                        {% if participants %}
+                            <table style="width: 100%; border-collapse: collapse; margin-top: 12px;">
+                                <thead>
+                                    <tr style="border-bottom: 2px solid var(--border); text-align: left; font-size:0.9em; color: var(--muted);">
+                                        <th style="padding: 10px;">{{ 'Runner' if current_lang == 'en' else 'Corredor' }}</th>
+                                        <th style="padding: 10px;">{{ 'Current' if current_lang == 'en' else 'Actual' }}</th>
+                                        <th style="padding: 10px;">{{ 'Status' if current_lang == 'en' else 'Estado' }}</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in participants %}
+                                        <tr style="border-bottom: 1px solid var(--border);">
+                                            <td style="padding: 10px; font-weight: 600;">{{ p.display_name }}</td>
+                                            <td style="padding: 10px;">
+                                                {% if p.progress.available %}
+                                                    {{ p.progress.current }} {{ challenge['unit'] }}
+                                                {% else %}
+                                                    --
+                                                {% endif %}
+                                            </td>
+                                            <td style="padding: 10px;">
+                                                {% if p.progress.completed %}
+                                                    <span class="event-badge badge-practice" style="font-size:0.8em;">{{ _('completed') }}</span>
+                                                {% else %}
+                                                    <span class="event-badge badge-walkathon" style="font-size:0.8em;">{{ _('progress') }}</span>
+                                                {% endif %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            <p style="color: var(--muted); margin: 0;">{{ 'No participants yet. Be the first to join!' if current_lang == 'en' else 'Aún no hay participantes. ¡Sé el primero en unirte!' }}</p>
+                        {% endif %}
+                    </section>
+                </div>
+
+                <!-- Sidebar: Coach Advice and Actions -->
+                <div style="display: flex; flex-direction: column; gap: 24px;">
+                    <!-- Actions Panel -->
+                    <section class="panel" style="background: var(--surface); padding: 24px; border-radius: 12px; border: 1px solid var(--border);">
+                        <h2 style="margin-top:0; font-size:1.2em;">{{ 'Join/Leave' if current_lang == 'en' else 'Unirse/Dejar' }}</h2>
+                        {% if joined %}
+                            <form method="post" action="{{ url_for('challenges.leave_challenge_route', challenge_id=challenge['id']) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="button" style="width: 100%; background: rgba(239,68,68,0.15); border-color: #ef4444; color: #f87171;">
+                                    {{ _('leave_challenge') }}
+                                </button>
+                            </form>
+                        {% else %}
+                            <form method="post" action="{{ url_for('challenges.join_challenge_route', challenge_id=challenge['id']) }}">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="button" style="width: 100%; background: var(--highlight); color: var(--surface); border: 1px solid var(--highlight);">
+                                    {{ _('join_challenge') }}
+                                </button>
+                            </form>
+                        {% endif %}
+                    </section>
+
+                    <!-- Coach Advice Panel -->
+                    <section class="panel" style="background: var(--surface); padding: 24px; border-radius: 12px; border: 1px solid var(--border); border-left: 4px solid var(--sun, #ffcf4d);">
+                        <h2 style="margin-top:0; font-size: 1.15em;">📣 Coach Advice</h2>
+                        <p style="font-style: italic; line-height: 1.5; font-size: 0.95em; margin: 10px 0 0 0;">
+                            {{ coach_message }}
+                        </p>
+                    </section>
+                </div>
+            </div>
+        </section>
+    </main>
+</body>
+</html>

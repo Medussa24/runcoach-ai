@@ -3,6 +3,7 @@ import io
 import math
 import os
 import sqlite3
+import sys
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta
 from functools import wraps
@@ -45,6 +46,10 @@ from runcoach_services import (
 )
 from sentinel_qa import SentinelQA
 
+
+# Blueprints import shared helpers from this module. When launched with
+# `python app.py`, expose this module under its import name to avoid reloading it.
+sys.modules.setdefault("app", sys.modules[__name__])
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "runcoach-ai-local-dev-secret")
@@ -93,6 +98,32 @@ save_generated_plan = planner_store.save_generated_plan
 add_personal_planner_event = planner_store.add_personal_event
 planner_calendar_days = planner_store.calendar_days
 
+
+def seed_monthly_challenges(connection):
+    from datetime import date
+    import calendar
+    today = date.today()
+    start_date = date(today.year, today.month, 1).strftime("%Y-%m-%d")
+    last_day = calendar.monthrange(today.year, today.month)[1]
+    end_date = date(today.year, today.month, last_day).strftime("%Y-%m-%d")
+    
+    challenges = [
+        ("Run 10 Miles", "Log running workouts to accumulate 10 miles this month.", "distance", "run", 10.0, "miles"),
+        ("Walk 20 Miles", "Walk regularly to reach a total of 20 miles this month.", "distance", "walk", 20.0, "miles"),
+        ("Burn 2,000 Calories", "Burn a total of 2,000 calories from all workouts this month.", "calories", "any", 2000.0, "calories"),
+        ("Complete 12 Workouts", "Stay active by completing 12 or more workouts this month.", "workout_count", "any", 12.0, "workouts"),
+        ("Active Days Challenge", "Log activities on 15 separate days this month.", "active_days", "any", 15.0, "days"),
+        ("Community Distance Goal", "All users contribute to a shared goal of 500 total miles.", "community_distance", "any", 500.0, "miles")
+    ]
+    
+    for title, desc, c_type, act_type, target, unit in challenges:
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO monthly_challenges (title, description, challenge_type, activity_type, target_value, unit, start_date, end_date)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (title, desc, c_type, act_type, target, unit, start_date, end_date)
+        )
 
 def setup_database():
     """Create the app tables if they do not already exist."""
@@ -283,6 +314,49 @@ def setup_database():
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS monthly_challenges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT NOT NULL,
+                challenge_type TEXT NOT NULL,
+                activity_type TEXT NOT NULL,
+                target_value REAL NOT NULL,
+                unit TEXT NOT NULL,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                is_public INTEGER DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(title, start_date, end_date)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_challenge_entries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                challenge_id INTEGER NOT NULL,
+                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP,
+                UNIQUE(user_id, challenge_id)
+            )
+            """
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_runs_user_date ON runs(user_id, run_date)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_runs_user_activity_date ON runs(user_id, workout_type, run_date)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_user_challenge_entries_challenge_user ON user_challenge_entries(challenge_id, user_id)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_monthly_challenges_dates ON monthly_challenges(start_date, end_date)"
+        )
+        seed_monthly_challenges(connection)
         connection.commit()
     finally:
         connection.close()
@@ -558,7 +632,7 @@ def login_required(route_function):
             session.clear()
             if request.method != "GET" or request.path == "/agent":
                 return jsonify({"error": "Login required"}), 401
-            return redirect(url_for("login"))
+            return redirect(url_for("auth.login"))
 
         return route_function(*args, **kwargs)
 
@@ -1771,141 +1845,6 @@ def agent_api():
     return jsonify({"answer": answer, "agent": agent_name})
 
 
-@app.route("/planner")
-@login_required
-def planner():
-    user = current_user()
-    timezone_name = get_user_timezone(user["id"])
-    week_start = parse_week_start(request.args.get("week_start"), timezone_name)
-    week_end = week_start + timedelta(days=6)
-    return render_template(
-        "planner.html",
-        current_user=user,
-        week_start=week_start.isoformat(),
-        week_label=(
-            f"{week_start.strftime('%b %d')} – "
-            f"{week_end.strftime('%b %d, %Y')}"
-        ),
-        previous_week=(week_start - timedelta(days=7)).isoformat(),
-        next_week=(week_start + timedelta(days=7)).isoformat(),
-        calendar_days=planner_calendar_days(
-            user["id"],
-            week_start,
-            timezone_name,
-        ),
-        timezone_name=timezone_name,
-        supported_timezones=SUPPORTED_TIMEZONES,
-    )
-
-
-@app.route("/planner/generate", methods=["POST"])
-@login_required
-def generate_weekly_plan():
-    user_id = current_user_id()
-    week_start = parse_week_start(
-        request.form.get("week_start"),
-        get_user_timezone(user_id),
-    )
-    preferred_time = request.form.get("preferred_time", "07:00")
-    goal = request.form.get("goal", "")
-    summary = build_private_agent_summary(user_id, get_all_runs(user_id))
-    events, source = WeeklyPlannerAgent().generate(
-        week_start,
-        preferred_time,
-        goal,
-        summary,
-    )
-    save_generated_plan(user_id, events, week_start, source)
-    flash(
-        f"{len(events)} workouts added using {source}.",
-        "success",
-    )
-    return redirect(url_for("planner", week_start=week_start.isoformat()))
-
-
-@app.route("/planner/event", methods=["POST"])
-@login_required
-def add_planner_event():
-    event_day = parse_week_start(
-        request.form.get("event_date"),
-        get_user_timezone(current_user_id()),
-    )
-    week_start = event_day - timedelta(days=event_day.weekday())
-    try:
-        add_personal_planner_event(current_user_id(), request.form)
-    except ValueError as error:
-        flash(str(error), "error")
-    else:
-        flash("Personal event added.", "success")
-    return redirect(url_for("planner", week_start=week_start.isoformat()))
-
-
-@app.route("/planner/event/<int:event_id>/toggle", methods=["POST"])
-@login_required
-def toggle_planner_event(event_id):
-    planner_store.toggle_event(event_id, current_user_id())
-    return redirect(request.referrer or url_for("planner"))
-
-
-@app.route("/planner/timezone", methods=["POST"])
-@login_required
-def update_planner_timezone():
-    timezone_name = update_user_timezone(
-        current_user_id(),
-        request.form.get("timezone"),
-    )
-    flash(f"Planner timezone updated to {timezone_name}.", "success")
-    return redirect(
-        url_for(
-            "planner",
-            week_start=request.form.get("week_start") or None,
-        )
-    )
-
-
-@app.route("/planner/calendar.ics")
-@login_required
-def planner_calendar():
-    user_id = current_user_id()
-    timezone_name = get_user_timezone(user_id)
-    start = parse_week_start(request.args.get("week_start"), timezone_name)
-    events = get_planner_events(
-        user_id,
-        start,
-        start + timedelta(days=6),
-    )
-    return Response(
-        build_calendar_ics(events, timezone_name),
-        mimetype="text/calendar",
-        headers={
-            "Content-Disposition": "attachment; filename=runcoach-week.ics"
-        },
-    )
-
-
-@app.route("/planner/email", methods=["POST"])
-@login_required
-def email_weekly_plan():
-    user = current_user()
-    timezone_name = get_user_timezone(user["id"])
-    start = parse_week_start(request.form.get("week_start"), timezone_name)
-    events = get_planner_events(
-        user["id"],
-        start,
-        start + timedelta(days=6),
-    )
-    if not events:
-        flash("Add or generate events before emailing your week.", "error")
-        return redirect(url_for("planner", week_start=start.isoformat()))
-    sent, message = PlanEmailService().send_week(
-        user["email"],
-        events,
-        build_calendar_ics(events, timezone_name),
-        timezone_name,
-    )
-    flash(message, "success" if sent else "warning")
-    return redirect(url_for("planner", week_start=start.isoformat()))
-
 
 @app.route("/walk-task/<int:task_id>/toggle", methods=["POST"])
 @login_required
@@ -1921,76 +1860,7 @@ def reset_walk_tasks_route():
     return redirect(url_for("index", walk_task=1))
 
 
-@app.route("/signup", methods=["GET", "POST"])
-def signup():
-    seed_demo_user()
 
-    error = None
-
-    if request.method == "POST":
-        email = request.form.get("email", "").lower().strip()
-        password = request.form.get("password", "")
-
-        if not email or not password:
-            error = "Enter an email and password."
-        elif len(password) < 6:
-            error = "Use at least 6 characters for the password."
-        else:
-            try:
-                user_id = create_user(email, password)
-            except sqlite3.IntegrityError:
-                error = "An account with that email already exists."
-            else:
-                establish_user_session(user_id)
-                return redirect(url_for("index", welcome=1))
-
-    return render_template(
-        "auth.html",
-        mode="signup",
-        error=error,
-        demo_email=DEMO_EMAIL,
-        demo_password=DEMO_PASSWORD,
-    )
-
-
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    seed_demo_data()
-
-    error = None
-
-    if request.method == "POST":
-        email = request.form.get("email", "").lower().strip()
-        password = request.form.get("password", "")
-        user = get_user_by_email(email)
-
-        if user and check_password_hash(user["password_hash"], password):
-            establish_user_session(user["id"], is_demo=user["email"] == DEMO_EMAIL)
-            return redirect(url_for("index", welcome=1))
-
-        error = "Email or password was not correct."
-
-    return render_template(
-        "auth.html",
-        mode="login",
-        error=error,
-        demo_email=DEMO_EMAIL,
-        demo_password=DEMO_PASSWORD,
-    )
-
-
-@app.route("/demo-login", methods=["POST"])
-def demo_login():
-    """Log evaluators into the privacy-safe demo account in one click."""
-    demo_user_id = reset_demo_account()
-    establish_user_session(demo_user_id, is_demo=True)
-    return redirect(url_for("index", welcome=1))
-
-
-@app.route("/logout")
-def logout():
-    session.clear()
-    return redirect(url_for("login"))
 
 
 @app.route("/health")
@@ -2063,7 +1933,15 @@ TRANSLATIONS = {
         "location": "Location",
         "pace_group": "Pace Group",
         "buy_now": "Buy Now",
-        "share_facebook": "Share to Facebook"
+        "share_facebook": "Share to Facebook",
+        "challenges": "Challenges",
+        "monthly_challenge": "Monthly Challenge",
+        "join_challenge": "Join Challenge",
+        "leave_challenge": "Leave Challenge",
+        "completed": "Completed",
+        "workouts": "Workouts",
+        "active_days": "Active Days",
+        "community_goal": "Community Goal"
     },
     "es": {
         "dashboard": "Tablero",
@@ -2120,7 +1998,15 @@ TRANSLATIONS = {
         "location": "Ubicación",
         "pace_group": "Grupo de Ritmo",
         "buy_now": "Comprar ahora",
-        "share_facebook": "Compartir en Facebook"
+        "share_facebook": "Compartir en Facebook",
+        "challenges": "Desafíos",
+        "monthly_challenge": "Desafío Mensual",
+        "join_challenge": "Unirse al Desafío",
+        "leave_challenge": "Dejar Desafío",
+        "completed": "Completado",
+        "workouts": "Entrenamientos",
+        "active_days": "Días Activos",
+        "community_goal": "Meta de la Comunidad"
     }
 }
 
@@ -2342,124 +2228,6 @@ def update_settings():
     return redirect(request.referrer or url_for("index"))
 
 
-@app.route("/events", methods=["GET", "POST"])
-@login_required
-def events_list():
-    user = current_user()
-    user_id = user["id"]
-    
-    if request.method == "POST":
-        title = request.form.get("title", "").strip()
-        description = request.form.get("description", "").strip()
-        event_type = request.form.get("event_type", "").strip()
-        event_date = request.form.get("event_date", "").strip()
-        event_time = request.form.get("event_time", "").strip()
-        location = request.form.get("location", "").strip()
-        pace_group = request.form.get("pace_group", "").strip()
-        language = request.form.get("language", "").strip()
-        
-        errors = []
-        if not title or len(title) > 120:
-            errors.append("Title is required and must be under 120 characters.")
-        if not description or len(description) > 1000:
-            errors.append("Description is required and must be under 1000 characters.")
-        if event_type not in ("run", "walk", "walkathon", "marathon", "practice"):
-            errors.append("Invalid event type.")
-        if not event_date or not event_time:
-            errors.append("Date and time are required.")
-        if not location or len(location) > 200:
-            errors.append("Location is required and must be under 200 characters.")
-        if not pace_group or len(pace_group) > 100:
-            errors.append("Pace group is required and must be under 100 characters.")
-        if not language or len(language) > 50:
-            errors.append("Language is required.")
-            
-        if errors:
-            for err in errors:
-                flash(err, "error")
-        else:
-            create_community_event(user_id, title, description, event_type, event_date, event_time, location, pace_group, language)
-            flash("Event created successfully!", "success")
-            return redirect(url_for("events_list"))
-            
-    events = get_upcoming_events()
-    for e in events:
-        e["rsvped"] = is_user_rsvped(user_id, e["id"])
-        e["rsvp_count"] = get_event_rsvps_count(e["id"])
-        
-    return render_template("events.html", events=events, current_user=user)
-
-
-@app.route("/event/<int:event_id>")
-def event_detail(event_id):
-    event = get_event_by_id(event_id)
-    if not event:
-        return "Event not found", 404
-        
-    user_id = current_user_id()
-    rsvped = False
-    if user_id:
-        rsvped = is_user_rsvped(user_id, event_id)
-        
-    rsvp_count = get_event_rsvps_count(event_id)
-    rsvp_users = get_event_rsvp_users(event_id)
-    
-    user = current_user()
-    return render_template("event_detail.html", event=event, rsvped=rsvped, rsvp_count=rsvp_count, rsvp_users=rsvp_users, current_user=user)
-
-
-@app.route("/event/<int:event_id>/rsvp", methods=["POST"])
-@login_required
-def event_rsvp(event_id):
-    user_id = current_user_id()
-    event = get_event_by_id(event_id)
-    if not event:
-        flash("Event not found.", "error")
-        return redirect(url_for("events_list"))
-        
-    action = toggle_event_rsvp(user_id, event_id)
-    if action == "added":
-        flash("Successfully RSVPed to the event!", "success")
-    else:
-        flash("Cancelled your RSVP.", "success")
-    return redirect(request.referrer or url_for("event_detail", event_id=event_id))
-
-
-@app.route("/shop")
-@login_required
-def shop_page():
-    user = current_user()
-    products = [
-        {
-            "id": "tshirt",
-            "title": "RunCoach AI T-shirt",
-            "description": "High-quality, breathable running T-shirt with the RunCoach AI logo.",
-            "price": "$25.00",
-            "image": "tshirt.png"
-        },
-        {
-            "id": "hoodie",
-            "title": "Rico Runner hoodie",
-            "description": "Warm and stylish hoodie featuring Rico Runner, perfect for warmups.",
-            "price": "$45.00",
-            "image": "hoodie.png"
-        },
-        {
-            "id": "walker_shirt",
-            "title": "Walker-friendly shirt",
-            "description": "Relaxed fit, moisture-wicking shirt designed for comfort during long walks.",
-            "price": "$22.00",
-            "image": "walker_shirt.png"
-        },
-        {
-            "id": "stickers",
-            "title": "Sticker pack",
-            "description": "Show your love with custom stickers of Rico Runner, Iggy, and Luna.",
-            "price": "$5.00",
-            "image": "stickers.png"
-        }
-    ]
-    return render_template("shop.html", products=products, current_user=user)
 
 
 # ----------------------------------------------------
@@ -2606,151 +2374,323 @@ def convert_imported_activity_to_run(user_id, activity_id):
         connection.close()
 
 
-@app.route("/integrations")
-@login_required
-def integrations_page():
-    user = current_user()
-    user_id = user["id"]
-    
-    connections = get_health_connections(user_id)
-    connections_map = {conn["provider"]: conn for conn in connections}
-    
-    imported_activities = get_imported_activities(user_id)
-    
-    for conn in connections_map.values():
-        conn["access_token"] = "•" * 12 if conn["access_token"] else None
-        conn["refresh_token"] = "•" * 12 if conn["refresh_token"] else None
-        
-    return render_template(
-        "integrations.html",
-        current_user=user,
-        connections=connections_map,
-        imported_activities=imported_activities
-    )
 
 
-@app.route("/integrations/connect/<provider>", methods=["POST"])
-@login_required
-def connect_mock_provider(provider):
-    if provider not in ("strava", "fitbit", "garmin"):
-        flash("Invalid provider.", "error")
-        return redirect(url_for("integrations_page"))
-        
-    user_id = current_user_id()
-    create_health_connection(
-        user_id=user_id,
-        provider=provider,
-        provider_user_id=f"mock-user-{user_id}",
-        access_token="mock-access-token",
-        refresh_token="mock-refresh-token",
-        token_expires_at="2027-01-01 00:00:00",
-        sync_enabled=1
-    )
-    flash(f"Successfully connected to mock {provider.capitalize()}!", "success")
-    return redirect(url_for("integrations_page"))
 
+# ----------------------------------------------------
+# MONTHLY FITNESS CHALLENGES
+# ----------------------------------------------------
 
-@app.route("/integrations/disconnect/<provider>", methods=["POST"])
-@login_required
-def disconnect_provider(provider):
-    if provider not in ("strava", "fitbit", "garmin"):
-        flash("Invalid provider.", "error")
-        return redirect(url_for("integrations_page"))
-        
-    user_id = current_user_id()
+def get_all_challenges():
+    connection = get_database_connection()
+    try:
+        rows = connection.execute(
+            "SELECT * FROM monthly_challenges ORDER BY start_date DESC"
+        ).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        connection.close()
+
+def get_challenge_by_id(challenge_id):
+    connection = get_database_connection()
+    try:
+        row = connection.execute(
+            "SELECT * FROM monthly_challenges WHERE id = ?",
+            (challenge_id,)
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        connection.close()
+
+def join_challenge(user_id, challenge_id):
     connection = get_database_connection()
     try:
         connection.execute(
-            "DELETE FROM health_connections WHERE user_id = ? AND provider = ?",
-            (user_id, provider)
+            """
+            INSERT OR IGNORE INTO user_challenge_entries (user_id, challenge_id)
+            VALUES (?, ?)
+            """,
+            (user_id, challenge_id)
         )
         connection.commit()
+        return "joined"
     finally:
         connection.close()
+
+def leave_challenge(user_id, challenge_id):
+    connection = get_database_connection()
+    try:
+        connection.execute(
+            """
+            DELETE FROM user_challenge_entries
+            WHERE user_id = ? AND challenge_id = ?
+            """,
+            (user_id, challenge_id)
+        )
+        connection.commit()
+        return "left"
+    finally:
+        connection.close()
+
+def is_user_joined_challenge(user_id, challenge_id):
+    connection = get_database_connection()
+    try:
+        row = connection.execute(
+            "SELECT 1 FROM user_challenge_entries WHERE user_id = ? AND challenge_id = ?",
+            (user_id, challenge_id)
+        ).fetchone()
+        return row is not None
+    finally:
+        connection.close()
+
+def get_challenge_participants(challenge_id):
+    connection = get_database_connection()
+    try:
+        rows = connection.execute(
+            """
+            SELECT u.*
+            FROM user_challenge_entries e
+            JOIN users u ON e.user_id = u.id
+            WHERE e.challenge_id = ?
+            """,
+            (challenge_id,)
+        ).fetchall()
         
-    flash(f"Disconnected from {provider.capitalize()}.", "success")
-    return redirect(url_for("integrations_page"))
+        result = []
+        for r in rows:
+            user_data = dict(r)
+            result.append({
+                "id": user_data["id"],
+                "display_name": get_display_name(r)
+            })
+        return result
+    finally:
+        connection.close()
 
-
-@app.route("/integrations/toggle/<provider>", methods=["POST"])
-@login_required
-def toggle_provider_sync(provider):
-    user_id = current_user_id()
-    res = toggle_health_sync(user_id, provider)
-    if res is not None:
-        status = "enabled" if res else "disabled"
-        flash(f"Syncing {status} for {provider.capitalize()}.", "success")
-    else:
-        flash("Connection not found.", "error")
-    return redirect(url_for("integrations_page"))
-
-
-@app.route("/integrations/sync", methods=["POST"])
-@login_required
-def sync_activities():
-    user_id = current_user_id()
-    connections = get_health_connections(user_id)
-    active_providers = [c["provider"] for c in connections if c["sync_enabled"]]
-    
-    if not active_providers:
-        flash("No active connected services with sync enabled.", "error")
-        return redirect(url_for("integrations_page"))
-        
-    import random
-    from datetime import datetime, timedelta
-    
-    imported_count = 0
-    errors_count = 0
-    
-    for provider in active_providers:
-        external_id = f"act-{random.randint(100000, 999999)}"
-        dist = round(random.uniform(2.0, 6.0), 2)
-        dur = round(dist * random.uniform(8.0, 11.0), 2)
-        pace_val = dur / dist
-        start = (datetime.now() - timedelta(days=random.randint(0, 5))).strftime("%Y-%m-%d %H:%M:%S")
-        
-        try:
-            save_imported_activity(
-                user_id=user_id,
-                provider=provider,
-                external_activity_id=external_id,
-                activity_type="run",
-                start_time=start,
-                end_time=None,
-                distance=dist,
-                duration=dur,
-                pace=pace_val,
-                avg_heart_rate=random.randint(130, 165),
-                max_heart_rate=random.randint(170, 185),
-                calories=random.randint(200, 600),
-                steps=random.randint(4000, 12000),
-                source_name=f"{provider.capitalize()} Wearable",
-                raw_summary=f"Afternoon run synced via mock {provider.capitalize()} webhook."
+def calculate_community_distance_progress(challenge):
+    connection = get_database_connection()
+    try:
+        result = connection.execute(
+            """
+            SELECT COALESCE(SUM(r.distance), 0) AS total_distance
+            FROM user_challenge_entries e
+            JOIN runs r ON r.user_id = e.user_id
+            WHERE e.challenge_id = ?
+              AND date(r.run_date) BETWEEN date(?) AND date(?)
+              AND (? = 'any'
+                   OR (? = 'workout' AND (r.workout_type IS NOT NULL AND r.workout_type != ''))
+                   OR lower(r.workout_type) = lower(?))
+              AND r.distance IS NOT NULL
+              AND r.distance > 0
+            """,
+            (
+                challenge["id"],
+                challenge["start_date"],
+                challenge["end_date"],
+                challenge["activity_type"],
+                challenge["activity_type"],
+                challenge["activity_type"]
             )
-            imported_count += 1
-        except Exception:
-            errors_count += 1
-            
-    if imported_count > 0:
-        flash(f"Sync complete! Imported {imported_count} new activity/activities.", "success")
-    elif errors_count > 0:
-        flash("Sync complete. No new workouts found (duplicates skipped).", "success")
-    else:
-        flash("No workouts found on remote servers.", "success")
+        ).fetchone()
+        return float(result["total_distance"] or 0)
+    finally:
+        connection.close()
+
+def calculate_challenge_progress(user_id, challenge):
+    connection = get_database_connection()
+    try:
+        c_type = challenge["challenge_type"]
+        act_type = challenge["activity_type"]
+        target = challenge["target_value"]
+        start = challenge["start_date"]
+        end = challenge["end_date"]
         
-    return redirect(url_for("integrations_page"))
+        if c_type == "distance":
+            row = connection.execute(
+                """
+                SELECT COALESCE(SUM(distance), 0) AS total_distance
+                FROM runs
+                WHERE user_id = ?
+                  AND date(run_date) BETWEEN date(?) AND date(?)
+                  AND (? = 'any'
+                       OR (? = 'workout' AND (workout_type IS NOT NULL AND workout_type != ''))
+                       OR lower(workout_type) = lower(?))
+                  AND distance IS NOT NULL
+                  AND distance > 0
+                """,
+                (user_id, start, end, act_type, act_type, act_type)
+            ).fetchone()
+            current = float(row["total_distance"] or 0)
+            percent = min(100, int((current / target) * 100)) if target > 0 else 0
+            return {
+                "current": current,
+                "target": target,
+                "unit": challenge["unit"],
+                "percent": percent,
+                "completed": current >= target,
+                "available": True,
+                "message": None
+            }
+            
+        elif c_type == "calories":
+            has_data = connection.execute(
+                """
+                SELECT 1 FROM runs
+                WHERE user_id = ?
+                  AND date(run_date) BETWEEN date(?) AND date(?)
+                  AND (? = 'any'
+                       OR (? = 'workout' AND (workout_type IS NOT NULL AND workout_type != ''))
+                       OR lower(workout_type) = lower(?))
+                  AND calories IS NOT NULL LIMIT 1
+                """,
+                (user_id, start, end, act_type, act_type, act_type)
+            ).fetchone() is not None
+            
+            if not has_data:
+                return {
+                    "current": 0.0,
+                    "target": target,
+                    "unit": challenge["unit"],
+                    "percent": 0,
+                    "completed": False,
+                    "available": False,
+                    "message": "Calorie tracking requires imported activity data or manual calorie entry."
+                }
+                
+            row = connection.execute(
+                """
+                SELECT COALESCE(SUM(calories), 0) AS total_calories
+                FROM runs
+                WHERE user_id = ?
+                  AND date(run_date) BETWEEN date(?) AND date(?)
+                  AND (? = 'any'
+                       OR (? = 'workout' AND (workout_type IS NOT NULL AND workout_type != ''))
+                       OR lower(workout_type) = lower(?))
+                """,
+                (user_id, start, end, act_type, act_type, act_type)
+            ).fetchone()
+            current = float(row["total_calories"] or 0)
+            percent = min(100, int((current / target) * 100)) if target > 0 else 0
+            return {
+                "current": current,
+                "target": target,
+                "unit": challenge["unit"],
+                "percent": percent,
+                "completed": current >= target,
+                "available": True,
+                "message": None
+            }
+            
+        elif c_type == "workout_count":
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS total_count
+                FROM runs
+                WHERE user_id = ?
+                  AND date(run_date) BETWEEN date(?) AND date(?)
+                  AND (? = 'any'
+                       OR (? = 'workout' AND (workout_type IS NOT NULL AND workout_type != ''))
+                       OR lower(workout_type) = lower(?))
+                """,
+                (user_id, start, end, act_type, act_type, act_type)
+            ).fetchone()
+            current = int(row["total_count"] or 0)
+            percent = min(100, int((current / target) * 100)) if target > 0 else 0
+            return {
+                "current": current,
+                "target": target,
+                "unit": challenge["unit"],
+                "percent": percent,
+                "completed": current >= target,
+                "available": True,
+                "message": None
+            }
+            
+        elif c_type == "active_days":
+            row = connection.execute(
+                """
+                SELECT COUNT(DISTINCT date(run_date)) AS total_days
+                FROM runs
+                WHERE user_id = ?
+                  AND date(run_date) BETWEEN date(?) AND date(?)
+                  AND (? = 'any'
+                       OR (? = 'workout' AND (workout_type IS NOT NULL AND workout_type != ''))
+                       OR lower(workout_type) = lower(?))
+                """,
+                (user_id, start, end, act_type, act_type, act_type)
+            ).fetchone()
+            current = int(row["total_days"] or 0)
+            percent = min(100, int((current / target) * 100)) if target > 0 else 0
+            return {
+                "current": current,
+                "target": target,
+                "unit": challenge["unit"],
+                "percent": percent,
+                "completed": current >= target,
+                "available": True,
+                "message": None
+            }
+            
+        elif c_type == "community_distance":
+            row = connection.execute(
+                """
+                SELECT COALESCE(SUM(distance), 0) AS total_distance
+                FROM runs
+                WHERE user_id = ?
+                  AND date(run_date) BETWEEN date(?) AND date(?)
+                  AND (? = 'any'
+                       OR (? = 'workout' AND (workout_type IS NOT NULL AND workout_type != ''))
+                       OR lower(workout_type) = lower(?))
+                  AND distance IS NOT NULL
+                  AND distance > 0
+                """,
+                (user_id, start, end, act_type, act_type, act_type)
+            ).fetchone()
+            current = float(row["total_distance"] or 0)
+            comm_total = calculate_community_distance_progress(challenge)
+            percent = min(100, int((comm_total / target) * 100)) if target > 0 else 0
+            return {
+                "current": current,
+                "target": target,
+                "unit": challenge["unit"],
+                "percent": percent,
+                "completed": comm_total >= target,
+                "available": True,
+                "message": None,
+                "community_total": comm_total
+            }
+            
+        return {
+            "current": 0.0,
+            "target": target,
+            "unit": challenge["unit"],
+            "percent": 0,
+            "completed": False,
+            "available": True,
+            "message": None
+        }
+    finally:
+        connection.close()
 
 
-@app.route("/integrations/activity/<int:activity_id>/approve", methods=["POST"])
-@login_required
-def approve_imported_activity(activity_id):
-    user_id = current_user_id()
-    res = convert_imported_activity_to_run(user_id, activity_id)
-    if res:
-        flash("Activity approved and saved to your run history!", "success")
-    else:
-        flash("Unable to approve activity (already approved or not found).", "error")
-    return redirect(url_for("integrations_page"))
+from blueprints.challenges import challenges_bp
+app.register_blueprint(challenges_bp)
+
+
+from blueprints.shop import shop_bp
+app.register_blueprint(shop_bp)
+
+from blueprints.events import events_bp
+app.register_blueprint(events_bp)
+
+from blueprints.integrations import integrations_bp
+app.register_blueprint(integrations_bp)
+
+from blueprints.planner import planner_bp
+app.register_blueprint(planner_bp)
+
+from blueprints.auth import auth_bp
+app.register_blueprint(auth_bp)
 
 
 if __name__ == "__main__":
