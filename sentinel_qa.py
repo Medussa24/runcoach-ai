@@ -295,14 +295,22 @@ class SentinelQA:
             record("Rico Runner", "Rico Runner" in dashboard_html, "Rico Runner did not render.")
             record("Iggy Walk Agent", "Iggy" in dashboard_html, "Iggy did not render.")
             record("Luna Recovery", "Luna Recovery" in dashboard_html, "Luna Recovery did not render.")
+
+            progress = client.get("/progress")
+            progress_html = progress.get_data(as_text=True)
+            record(
+                "progress route",
+                progress.status_code == 200,
+                "/progress did not render.",
+            )
             record(
                 "Data Analyst Agent",
-                "AI Data Analyst" in dashboard_html,
+                "AI Data Analyst" in progress_html,
                 "Data Analyst did not render.",
             )
             record(
                 "previous runs",
-                "Previous Runs" in dashboard_html and "run-card" in dashboard_html,
+                "Previous Runs" in progress_html and "run-history-notes" in progress_html,
                 "Previous Runs did not render demo workout content.",
             )
 

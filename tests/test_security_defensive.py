@@ -189,7 +189,7 @@ def test_xss_payloads_are_escaped_in_notes_and_chat(client):
 
     add_run(client, notes=XSS_PAYLOAD, route_notes=XSS_PAYLOAD)
     client.post("/agent", json={"agent": "rico", "question": XSS_PAYLOAD})
-    page = client.get("/")
+    page = client.get("/progress")
     html_text = page.get_data(as_text=True)
 
     assert page.status_code == 200
@@ -315,7 +315,7 @@ def test_user_id_separation_blocks_other_users_dashboard_and_agent_data(client):
     )
 
     login_as(client, user_one)
-    dashboard = client.get("/")
+    dashboard = client.get("/progress")
     html_text = dashboard.get_data(as_text=True)
 
     assert dashboard.status_code == 200
@@ -349,7 +349,7 @@ def test_screenshot_placeholder_is_stored_and_user_scoped(client):
 
     login_as(client, user_two)
     assert runcoach.get_analyst_uploads(user_two) == []
-    assert "demo.png" not in client.get("/").get_data(as_text=True)
+    assert "demo.png" not in client.get("/progress").get_data(as_text=True)
 
 
 def test_screenshot_rejects_unsupported_file_type(client):
@@ -372,16 +372,17 @@ def test_weekly_schedule_and_upload_limit_are_available(client):
     user_id = create_user("schedule@example.test")
     login_as(client, user_id)
 
-    dashboard = client.get("/")
+    planner = client.get("/planner")
+    imports = client.get("/import")
 
-    assert dashboard.status_code == 200
-    assert b"Three workouts with Rico and Iggy" in dashboard.data
-    assert dashboard.data.count(b"schedule-workout") >= 6
-    assert b"Open page" not in dashboard.data
+    assert planner.status_code == 200
+    assert b"Generate my week" in planner.data
+    assert imports.status_code == 200
+    assert b"Maximum upload size: 10 MB." in imports.data
     assert runcoach.app.config["MAX_CONTENT_LENGTH"] == 10 * 1024 * 1024
 
 
-def test_demo_tutorial_and_back_to_top_controls_render(client):
+def test_dashboard_renders_compact_action_hub_without_legacy_top_control(client):
     user_id = create_user("tutorial@example.test")
     login_as(client, user_id)
 
@@ -389,11 +390,11 @@ def test_demo_tutorial_and_back_to_top_controls_render(client):
     html = dashboard.get_data(as_text=True)
 
     assert dashboard.status_code == 200
-    assert 'id="demo-tutorial" open' in html
-    assert "Quick Demo Tutorial" in html
-    assert html.count('class="tutorial-steps"') == 1
-    assert 'id="backToTop"' in html
-    assert "Return to the top of the page" in html
+    assert "Move, improve, and stay consistent." in html
+    assert "Log a Workout" in html
+    assert "Open Community" in html
+    assert 'id="backToTop"' not in html
+    assert "Quick Demo Tutorial" not in html
 
 
 def test_coach_cards_offer_clickable_advice_bubbles(client):
@@ -401,28 +402,31 @@ def test_coach_cards_offer_clickable_advice_bubbles(client):
     login_as(client, user_id)
 
     html = client.get("/").get_data(as_text=True)
+    log_html = client.get("/log-workout").get_data(as_text=True)
 
-    assert html.count("data-coach-avatar") >= 12
-    assert 'data-agent="rico"' in html
-    assert 'data-agent="iggy"' in html
-    assert 'data-agent="luna"' in html
-    assert html.count("Click for advice") == 3
-    assert "app.js?v=intro-chime-coqui-1" in html
+    assert html.count("home-coach-card") == 3
+    assert "Rico Runner" in html
+    assert "Iggy" in html
+    assert "Luna" in html
+    assert 'data-agent="rico"' in log_html
+    assert 'data-agent="iggy"' in log_html
+    assert "app.js?v=intro-chime-coqui-1" in log_html
 
 
-def test_motivation_feed_has_videos_and_social_quote_posts(client):
+def test_dashboard_excludes_progress_history_import_and_motivation_sections(client):
     user_id = create_user("motivation-feed@example.test")
     login_as(client, user_id)
 
     html = client.get("/").get_data(as_text=True)
 
-    assert html.count("youtube-player-frame") >= 7
-    assert html.count("motivation-quote-image") >= 6
-    assert "Your movement inspiration feed" in html
-    assert "Daily motivation" in html
+    assert "youtube-player-frame" not in html
+    assert "motivation-quote-image" not in html
+    assert 'id="previous-runs"' not in html
+    assert 'id="progress-visuals"' not in html
+    assert "Upload CSV" not in html
 
 
-def test_demo_intro_renders_silent_dialogue_and_completion_sounds(client):
+def test_dashboard_links_to_dedicated_multi_page_sections(client):
     user_id = create_user("countdown@example.test")
     login_as(client, user_id)
 
@@ -430,13 +434,12 @@ def test_demo_intro_renders_silent_dialogue_and_completion_sounds(client):
     html = dashboard.get_data(as_text=True)
 
     assert dashboard.status_code == 200
-    assert 'id="introStartButton"' in html
-    assert 'data-intro-agent="rico"' in html
-    assert 'data-intro-agent="iggy"' in html
-    assert 'data-intro-agent="luna"' in html
+    assert 'href="/progress"' in html
+    assert 'href="/planner"' in html
+    assert 'href="/log-workout#log-run"' in html
+    assert 'href="/import"' in html
+    assert 'href="/integrations"' in html
     assert "gentle chime" not in html
-    assert "coquí-style chirp" not in html
-
 
 def test_progress_and_previous_runs_render_growth_charts(client):
     user_id = create_user("growth-charts@example.test")
@@ -444,17 +447,17 @@ def test_progress_and_previous_runs_render_growth_charts(client):
     add_run(client, run_date="2026-06-18", distance="1.5", duration="18")
     add_run(client, run_date="2026-06-20", distance="2.0", duration="20")
 
-    html = client.get("/").get_data(as_text=True)
+    html = client.get("/progress").get_data(as_text=True)
 
-    assert html.count("data-run-chart=") >= 6
+    assert html.count("data-run-chart=") >= 5
     assert "Distance over time" in html
     assert "Pace over time" in html
     assert "Weekly total miles" in html
     assert "Mood trend" in html
     assert "Walking and recovery activity" in html
     assert "Your training story" in html
-    assert "View run history" in html
-    assert 'class="run-history-details"' in html
+    assert "Previous Runs" in html
+    assert 'class="run-history-notes"' in html
     assert 'id="runChartData"' in html
 
 
@@ -496,7 +499,7 @@ def test_data_analyst_generates_user_scoped_chart_json(client):
     assert chart_data["weekly_recovery"] == [0, 1]
     assert chart_data["insights"]["week_over_week_mileage_change"] == 50.0
 
-    html = client.get("/").get_data(as_text=True)
+    html = client.get("/progress").get_data(as_text=True)
     embedded = re.search(
         r'<script id="runChartData" type="application/json">(.*?)</script>',
         html,
@@ -552,7 +555,7 @@ def test_try_demo_creates_authenticated_demo_session(client):
         assert demo_user["email"] == runcoach.DEMO_EMAIL
         dashboard = client.get("/?welcome=1")
         assert dashboard.status_code == 200
-        assert runcoach.DEMO_EMAIL in dashboard.get_data(as_text=True)
+        assert "Move, improve, and stay consistent." in dashboard.get_data(as_text=True)
     finally:
         runcoach.app.config["WTF_CSRF_ENABLED"] = False
 
@@ -579,7 +582,7 @@ def test_demo_login_is_not_interrupted_by_sentinel_scheduler(client, monkeypatch
 
         dashboard = client.get("/?welcome=1")
         assert dashboard.status_code == 200
-        assert runcoach.DEMO_EMAIL in dashboard.get_data(as_text=True)
+        assert "Move, improve, and stay consistent." in dashboard.get_data(as_text=True)
         assert scheduled_user_ids == [demo_user_id]
         with client.session_transaction() as browser_session:
             assert browser_session["user_id"] == demo_user_id
@@ -592,10 +595,10 @@ def test_demo_user_can_log_run_with_csrf(client):
     try:
         login_token = csrf_token_from(client.get("/login"))
         client.post("/demo-login", data={"csrf_token": login_token})
-        dashboard_token = csrf_token_from(client.get("/"))
+        dashboard_token = csrf_token_from(client.get("/log-workout"))
 
         response = client.post(
-            "/",
+            "/log-workout",
             data={
                 "csrf_token": dashboard_token,
                 "run_date": "2026-06-21",

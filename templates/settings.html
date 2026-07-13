@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="{{ current_lang }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ _('settings') }} - RunCoach AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='multipage-1') }}">
+</head>
+<body data-accessibility-mode="{{ current_accessibility_mode }}">
+    <main class="dashboard-shell">
+        {% set active_page = 'settings' %}
+        {% include "_sidebar.html" %}
+        <section class="dashboard-main clean-page">
+            <header class="page-hero">
+                <p class="eyebrow">{{ _('settings') }}</p>
+                <h1>Preferences</h1>
+                <p>Language and accessibility settings supported by the current backend.</p>
+            </header>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% for category, message in messages %}
+                    <p class="planner-notice planner-notice-{{ category }}" role="status">{{ message }}</p>
+                {% endfor %}
+            {% endwith %}
+            <section class="panel run-form compact-section">
+                <h2>{{ _('accessibility_settings') }}</h2>
+                <form method="post" action="{{ url_for('update_settings') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <label for="settingsLanguage">{{ _('language') }}</label>
+                    <select id="settingsLanguage" name="language">
+                        <option value="en" {% if current_lang == 'en' %}selected{% endif %}>{{ _('english') }}</option>
+                        <option value="es" {% if current_lang == 'es' %}selected{% endif %}>{{ _('spanish') }}</option>
+                    </select>
+                    <label for="settingsAccessibility">{{ _('accessibility_settings') }}</label>
+                    <select id="settingsAccessibility" name="accessibility_mode">
+                        <option value="standard" {% if current_accessibility_mode == 'standard' %}selected{% endif %}>{{ _('standard_mode') }}</option>
+                        <option value="deaf_hoh" {% if current_accessibility_mode == 'deaf_hoh' %}selected{% endif %}>{{ _('deaf_hoh_mode') }}</option>
+                        <option value="visual_coaching" {% if current_accessibility_mode == 'visual_coaching' %}selected{% endif %}>{{ _('visual_coaching_mode') }}</option>
+                    </select>
+                    <button type="submit">{{ _('save_settings') }}</button>
+                </form>
+            </section>
+        </section>
+    </main>
+</body>
+</html>
