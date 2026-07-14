@@ -1675,6 +1675,58 @@ def dashboard_context(user, agent_question=""):
     }
 
 
+def save_manual_workout(user_id, form):
+    """Validate and save the existing manual workout form."""
+    run = parse_run_form(form)
+    pace = calculate_pace(run["distance"], run["duration"])
+    previous_run = get_previous_run(user_id)
+    feedback = create_feedback(
+        run["distance"],
+        pace,
+        run["mood"],
+        run["notes"],
+        previous_run,
+    )
+
+    connection = get_database_connection()
+    try:
+        connection.execute(
+            """
+            INSERT INTO runs (
+                run_date, distance, duration, pace, mood, notes, feedback,
+                weather_summary, temperature_f, wind_mph, route_type,
+                route_notes, avg_heart_rate, steps, cadence, source,
+                workout_type, imported_from, user_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run["run_date"],
+                run["distance"],
+                run["duration"],
+                pace,
+                run["mood"],
+                run["notes"],
+                feedback,
+                run["weather_summary"],
+                run["temperature_f"],
+                run["wind_mph"],
+                run["route_type"],
+                run["route_notes"],
+                run["avg_heart_rate"],
+                run["steps"],
+                run["cadence"],
+                "Manual",
+                "Running",
+                None,
+                user_id,
+            ),
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+
 @app.route("/", methods=["GET", "POST"])
 @login_required
 def index():
@@ -1683,70 +1735,61 @@ def index():
 
     if request.method == "POST":
         try:
-            run = parse_run_form(request.form)
+            save_manual_workout(user_id, request.form)
         except ValueError as error:
             flash(str(error), "error")
-            return redirect(f"{url_for('index')}#log-run")
+            return redirect(f"{url_for('log_workout')}#log-run")
 
-        run_date = run["run_date"]
-        distance = run["distance"]
-        duration = run["duration"]
-        mood = run["mood"]
-        notes = run["notes"]
-        weather_summary = run["weather_summary"]
-        temperature_f = run["temperature_f"]
-        wind_mph = run["wind_mph"]
-        route_type = run["route_type"]
-        route_notes = run["route_notes"]
-        avg_heart_rate = run["avg_heart_rate"]
-        steps = run["steps"]
-        cadence = run["cadence"]
+        return redirect(url_for("log_workout", saved=1))
 
-        pace = calculate_pace(distance, duration)
-        previous_run = get_previous_run(user_id)
-        feedback = create_feedback(distance, pace, mood, notes, previous_run)
+    return render_template("dashboard.html", **dashboard_context(user))
 
-        connection = get_database_connection()
+
+@app.route("/progress")
+@login_required
+def progress_page():
+    return render_template("progress.html", **dashboard_context(current_user()))
+
+
+@app.route("/log-workout", methods=["GET", "POST"])
+@login_required
+def log_workout():
+    user = current_user()
+    if request.method == "POST":
         try:
-            connection.execute(
-                """
-                INSERT INTO runs (
-                    run_date, distance, duration, pace, mood, notes, feedback,
-                    weather_summary, temperature_f, wind_mph, route_type,
-                    route_notes, avg_heart_rate, steps, cadence, source,
-                    workout_type, imported_from, user_id
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    run_date,
-                    distance,
-                    duration,
-                    pace,
-                    mood,
-                    notes,
-                    feedback,
-                    weather_summary,
-                    temperature_f,
-                    wind_mph,
-                    route_type,
-                    route_notes,
-                    avg_heart_rate,
-                    steps,
-                    cadence,
-                    "Manual",
-                    "Running",
-                    None,
-                    user_id,
-                ),
-            )
-            connection.commit()
-        finally:
-            connection.close()
+            save_manual_workout(user["id"], request.form)
+        except ValueError as error:
+            flash(str(error), "error")
+            return redirect(f"{url_for('log_workout')}#log-run")
+        return redirect(url_for("log_workout", saved=1))
+    return render_template("log_workout.html", **dashboard_context(user))
 
-        return redirect(url_for("index", saved=1))
 
-    return render_template("index.html", **dashboard_context(user))
+@app.route("/community")
+@login_required
+def community_page():
+    user = current_user()
+    user_id = user["id"]
+    events = get_upcoming_events()
+    for event in events:
+        event["rsvped"] = is_user_rsvped(user_id, event["id"])
+        event["rsvp_count"] = get_event_rsvps_count(event["id"])
+    challenges = get_all_challenges()
+    for challenge in challenges:
+        challenge["joined"] = is_user_joined_challenge(user_id, challenge["id"])
+        challenge["progress"] = calculate_challenge_progress(user_id, challenge)
+    return render_template(
+        "community.html",
+        current_user=user,
+        events=events[:3],
+        challenges=challenges[:3],
+    )
+
+
+@app.route("/settings")
+@login_required
+def settings_page():
+    return render_template("settings.html", current_user=current_user())
 
 
 @app.route("/analyze-screenshot", methods=["POST"])
@@ -1755,15 +1798,15 @@ def analyze_screenshot():
     """Store a demo screenshot and record an OCR placeholder analysis."""
     screenshot = request.files.get("screenshot")
     if not screenshot or not screenshot.filename:
-        return redirect(url_for("index", analyst="missing"))
+        return redirect(url_for("progress_page", analyst="missing"))
 
     try:
         upload = save_demo_screenshot(screenshot, SCREENSHOT_UPLOAD_DIR)
     except ValueError:
-        return redirect(url_for("index", analyst="invalid"))
+        return redirect(url_for("progress_page", analyst="invalid"))
 
     save_analyst_upload(current_user_id(), upload)
-    return redirect(url_for("index", analyst="stored"))
+    return redirect(url_for("progress_page", analyst="stored"))
 
 
 @app.route("/import", methods=["GET", "POST"])
@@ -1884,8 +1927,13 @@ TRANSLATIONS = {
         "iggy_walk_agent": "Iggy Walk Agent",
         "luna_recovery": "Luna Recovery",
         "progress": "Progress",
+        "my_progress": "My Progress",
         "history": "History",
         "my_plan": "My Plan",
+        "log_workout": "Log Workout",
+        "health_integrations": "Health Integrations",
+        "community": "Community",
+        "settings": "Settings",
         "import_data": "Import Data",
         "coach_library": "Coach Library",
         "log_out": "Log Out",
@@ -1949,8 +1997,13 @@ TRANSLATIONS = {
         "iggy_walk_agent": "Agente de Caminata Iggy",
         "luna_recovery": "Recuperación Luna",
         "progress": "Progreso",
+        "my_progress": "Mi Progreso",
         "history": "Historial",
         "my_plan": "Mi Plan",
+        "log_workout": "Registrar Entrenamiento",
+        "health_integrations": "Integraciones de Salud",
+        "community": "Comunidad",
+        "settings": "Ajustes",
         "import_data": "Importar Datos",
         "coach_library": "Biblioteca de Entrenadores",
         "log_out": "Cerrar Sesión",

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="{{ current_lang }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{{ _('my_progress') }} - RunCoach AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='multipage-1') }}">
+</head>
+<body data-accessibility-mode="{{ current_accessibility_mode }}">
+    <main class="dashboard-shell">
+        {% set active_page = 'progress' %}
+        {% include "_sidebar.html" %}
+        <section class="dashboard-main clean-page">
+            <header class="page-hero">
+                <p class="eyebrow">{{ _('my_progress') }}</p>
+                <h1>Your training story.</h1>
+                <p>History, charts, AI Data Analyst summaries, mood, walking, and recovery patterns.</p>
+            </header>
+            <section class="summary-strip">
+                <article><span>Weekly total miles</span><strong>{{ "%.2f"|format(analyst_summary["weekly_mileage"]) }}</strong></article>
+                <article><span>Longest Run</span><strong>{{ "%.2f"|format(analyst_summary["longest_run"]) }}</strong></article>
+                <article><span>Average Pace</span><strong>{{ analyst_summary["average_pace_label"] or "--" }}</strong></article>
+            </section>
+            <section class="visual-dashboard panel" id="progress-visuals">
+                <h2>{{ _('progress_visuals') }}</h2>
+                <div class="canvas-chart-grid">
+                    <section class="chart-panel canvas-chart-card"><h3>Distance over time</h3><canvas data-run-chart="distance"></canvas><p class="chart-empty" hidden>Distance will appear here.</p></section>
+                    <section class="chart-panel canvas-chart-card"><h3>Pace over time</h3><canvas data-run-chart="pace"></canvas><p class="chart-empty" hidden>Pace will appear here.</p></section>
+                    <section class="chart-panel canvas-chart-card"><h3>Weekly total miles</h3><canvas data-run-chart="weekly"></canvas><p class="chart-empty" hidden>Weekly miles will appear here.</p></section>
+                    <section class="chart-panel canvas-chart-card"><h3>Mood trend</h3><canvas data-run-chart="mood"></canvas><p class="chart-empty" hidden>Mood will appear here.</p></section>
+                    <section class="chart-panel canvas-chart-card"><h3>Walking and recovery activity</h3><canvas data-run-chart="activity"></canvas><p class="chart-note">Completed walk tasks: {{ chart_data["completed_walk_tasks"] }}</p><p class="chart-empty" hidden>Walking and recovery activity will appear here.</p></section>
+                </div>
+            </section>
+            <section class="panel" id="previous-runs">
+                <h2>{{ _('previous_runs') }}</h2>
+                {% if runs %}
+                    <div class="activity-table">
+                        <div><span>Date</span><span>Workout</span><span>Pace</span><span>Mood</span><span>Notes</span></div>
+                        {% for run in runs[:12] %}
+                            <div>
+                                <span>{{ run["run_date"] }}</span>
+                                <span>{{ "%.2f"|format(run["distance"]) }} mi / {{ "%.1f"|format(run["duration"]) }} min</span>
+                                <span>{{ format_pace(run["pace"]) }}</span>
+                                <span>{{ run["mood"] }}</span>
+                                <span class="run-history-notes">{{ run["notes"] }} {{ run["route_notes"] or "" }}</span>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p class="empty-state">Your saved workouts will appear here.</p>
+                {% endif %}
+            </section>
+            <section class="panel analyst-panel">
+                <h2>AI Data Analyst</h2>
+                <p class="notes">Imported CSV/XML and demo screenshot data become structured summaries for the coaches.</p>
+                <form class="upload-drop" method="post" action="{{ url_for('analyze_screenshot') }}" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <label for="analystScreenshot">Demo workout screenshot</label>
+                    <input id="analystScreenshot" name="screenshot" type="file" accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp" required>
+                    <button type="submit">Analyze Screenshot</button>
+                </form>
+                {% if analyst_notice == "stored" %}<p class="analyst-status">Screenshot stored. OCR is unavailable in this lightweight demo, so a placeholder analysis was created.</p>{% endif %}
+                {% if analyst_notice == "invalid" %}<p class="analyst-status analyst-error">Choose a valid image file: PNG, JPG, JPEG, or WEBP.</p>{% endif %}
+                {% if analyst_notice == "missing" %}<p class="analyst-status analyst-error">Choose a valid image file before uploading.</p>{% endif %}
+            </section>
+        </section>
+    </main>
+    <script id="runChartData" type="application/json">{{ chart_data|tojson }}</script>
+    <script src="{{ url_for('static', filename='app.js', v='intro-chime-coqui-1') }}"></script>
+</body>
+</html>

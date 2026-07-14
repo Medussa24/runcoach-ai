@@ -7,8 +7,11 @@
     <title>My Plan · RunCoach AI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='planner-1') }}">
 </head>
-<body class="planner-page">
-    <main class="planner-shell">
+<body class="planner-page" data-accessibility-mode="{{ current_accessibility_mode }}">
+    <main class="dashboard-shell">
+        {% set active_page = 'planner' %}
+        {% include "_sidebar.html" %}
+        <section class="dashboard-main planner-shell">
         <header class="planner-header">
             <div>
                 <p class="eyebrow">Personal calendar</p>
@@ -16,11 +19,8 @@
                 <p>Weekly workouts and personal events, organized by date and time.</p>
             </div>
             <nav class="planner-actions" aria-label="Planner actions">
-                <a href="{{ url_for('index') }}">{{ _('dashboard') }}</a>
-                <a href="{{ url_for('events.events_list') }}">{{ _('events_community') }}</a>
-                <a href="{{ url_for('shop.shop_page') }}">{{ _('shop') }}</a>
-                <a href="{{ url_for('integrations.integrations_page') }}">{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones' }}</a>
-                <a href="{{ url_for('challenges.challenges_page') }}">{{ _('challenges') }}</a>
+                <a href="{{ url_for('log_workout') }}">{{ _('log_workout') }}</a>
+                <a href="{{ url_for('progress_page') }}">{{ _('my_progress') }}</a>
                 <a href="{{ url_for('planner.planner_calendar', week_start=week_start) }}">Download calendar</a>
             </nav>
         </header>
@@ -154,6 +154,7 @@
         </section>
 
         <p class="planner-safety">Wellness guidance is general and not medical advice. Adjust or skip a workout when movement does not feel safe.</p>
+        </section>
     </main>
 </body>
 </html>

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,25 +7,18 @@
     <title>Import Workouts - RunCoach AI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body data-celebrate="{{ 'import-success' if result and result['imported'] > 0 else '' }}">
-    <main class="page">
-        <section class="intro">
-            <p class="eyebrow">RunCoach AI</p>
-            <h1>{{ _('import_workouts') }}</h1>
-            <div class="nav-actions">
-                <a href="{{ url_for('index') }}">{{ _('dashboard') }}</a>
-                <a href="{{ url_for('events.events_list') }}">{{ _('events_community') }}</a>
-                <a href="{{ url_for('shop.shop_page') }}">{{ _('shop') }}</a>
-                <a href="{{ url_for('integrations.integrations_page') }}">{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones' }}</a>
-                <a href="{{ url_for('challenges.challenges_page') }}">{{ _('challenges') }}</a>
-                <a href="{{ url_for('auth.logout') }}">{{ _('log_out') }}</a>
-            </div>
-            {% if current_user %}
-                <p class="notes account-note">Logged in as {{ current_user["email"] }}</p>
-            {% endif %}
-        </section>
+<body data-celebrate="{{ 'import-success' if result and result['imported'] > 0 else '' }}" data-accessibility-mode="{{ current_accessibility_mode }}">
+    <main class="dashboard-shell">
+        {% set active_page = 'import' %}
+        {% include "_sidebar.html" %}
+        <section class="dashboard-main clean-page">
+            <header class="page-hero">
+                <p class="eyebrow">RunCoach AI</p>
+                <h1>{{ _('import_workouts') }}</h1>
+                <p>Import workout history from CSV or Apple Health XML without mixing upload controls into the dashboard.</p>
+            </header>
 
-        <section class="import-layout">
+            <section class="import-layout">
             <section class="panel import-panel">
                 <div class="agent-mascot">
                     <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner coqui coach mascot">
@@ -58,9 +51,9 @@
 
                 <button type="submit">Import CSV Workouts</button>
             </form>
-        </section>
+            </section>
 
-        <section class="import-layout import-help">
+            <section class="import-layout import-help">
             <section class="panel import-panel">
                 <h2>Apple Health XML</h2>
                 <p class="notes">Use the Apple Health <code>export.xml</code> file from your export zip. The app imports only running and walking workouts, then ignores unsupported workouts such as cycling or yoga.</p>
@@ -81,36 +74,37 @@
                 </ul>
                 <p class="notes">Supported workout types: Running, Run, Walking, Outdoor Run.</p>
             </section>
-        </section>
-
-        {% if result %}
-            <section class="panel import-results">
-                <h2>Import Results</h2>
-                <dl class="run-stats">
-                    <div>
-                        <dt>Imported</dt>
-                        <dd>{{ result["imported"] }}</dd>
-                    </div>
-                    <div>
-                        <dt>Duplicates</dt>
-                        <dd>{{ result["duplicates"] }}</dd>
-                    </div>
-                    <div>
-                        <dt>Skipped</dt>
-                        <dd>{{ result["skipped"] }}</dd>
-                    </div>
-                </dl>
-
-                {% if result["errors"] %}
-                    <h3>Notes</h3>
-                    <ul class="simple-list">
-                        {% for error in result["errors"] %}
-                            <li>{{ error }}</li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
             </section>
-        {% endif %}
+
+            {% if result %}
+                <section class="panel import-results">
+                    <h2>Import Results</h2>
+                    <dl class="run-stats">
+                        <div>
+                            <dt>Imported</dt>
+                            <dd>{{ result["imported"] }}</dd>
+                        </div>
+                        <div>
+                            <dt>Duplicates</dt>
+                            <dd>{{ result["duplicates"] }}</dd>
+                        </div>
+                        <div>
+                            <dt>Skipped</dt>
+                            <dd>{{ result["skipped"] }}</dd>
+                        </div>
+                    </dl>
+
+                    {% if result["errors"] %}
+                        <h3>Notes</h3>
+                        <ul class="simple-list">
+                            {% for error in result["errors"] %}
+                                <li>{{ error }}</li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </section>
+            {% endif %}
+        </section>
     </main>
     <div class="fireworks" id="fireworks" aria-hidden="true"></div>
     <script src="{{ url_for('static', filename='app.js') }}"></script>
