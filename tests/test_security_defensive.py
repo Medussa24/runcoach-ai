@@ -390,10 +390,13 @@ def test_dashboard_renders_compact_action_hub_without_legacy_top_control(client)
     html = dashboard.get_data(as_text=True)
 
     assert dashboard.status_code == 200
-    assert "Move, improve, and stay consistent." in html
-    assert "Log a Workout" in html
-    assert "Open Community" in html
+    assert 'id="dashboard-title">Dashboard</h1>' in html
+    assert 'id="dashboardSearch"' not in html
+    assert html.count("dashboard-coach-card") == 3
+    assert "Log a workout" in html
+    assert "Training snapshot" in html
     assert 'id="backToTop"' not in html
+    assert 'id="quickTipsToggle"' not in html
     assert "Quick Demo Tutorial" not in html
 
 
@@ -404,13 +407,13 @@ def test_coach_cards_offer_clickable_advice_bubbles(client):
     html = client.get("/").get_data(as_text=True)
     log_html = client.get("/log-workout").get_data(as_text=True)
 
-    assert html.count("home-coach-card") == 3
+    assert html.count("dashboard-coach-card") == 3
     assert "Rico Runner" in html
     assert "Iggy" in html
     assert "Luna" in html
     assert 'data-agent="rico"' in log_html
     assert 'data-agent="iggy"' in log_html
-    assert "app.js?v=intro-chime-coqui-1" in log_html
+    assert "app.js?v=dashboard-six-1" in html
 
 
 def test_dashboard_excludes_progress_history_import_and_motivation_sections(client):
@@ -555,7 +558,7 @@ def test_try_demo_creates_authenticated_demo_session(client):
         assert demo_user["email"] == runcoach.DEMO_EMAIL
         dashboard = client.get("/?welcome=1")
         assert dashboard.status_code == 200
-        assert "Move, improve, and stay consistent." in dashboard.get_data(as_text=True)
+        assert 'id="dashboard-title">Dashboard</h1>' in dashboard.get_data(as_text=True)
     finally:
         runcoach.app.config["WTF_CSRF_ENABLED"] = False
 
@@ -582,7 +585,7 @@ def test_demo_login_is_not_interrupted_by_sentinel_scheduler(client, monkeypatch
 
         dashboard = client.get("/?welcome=1")
         assert dashboard.status_code == 200
-        assert "Move, improve, and stay consistent." in dashboard.get_data(as_text=True)
+        assert 'id="dashboard-title">Dashboard</h1>' in dashboard.get_data(as_text=True)
         assert scheduled_user_ids == [demo_user_id]
         with client.session_transaction() as browser_session:
             assert browser_session["user_id"] == demo_user_id

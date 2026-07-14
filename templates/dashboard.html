@@ -1,3 +1,14 @@
+{% macro coach_card(card_id, card_class, image_name, image_alt, eyebrow, title, body, href, cta) -%}
+<article class="dashboard-coach-card {{ card_class }}" id="{{ card_id }}" aria-labelledby="{{ card_id }}-title">
+    <img src="{{ url_for('static', filename=image_name) }}" alt="{{ image_alt }}">
+    <div>
+        <p class="eyebrow">{{ eyebrow }}</p>
+        <h2 id="{{ card_id }}-title">{{ title }}</h2>
+        <p>{{ body }}</p>
+        <a class="text-link" href="{{ href }}">{{ cta }} <span aria-hidden="true">&rarr;</span></a>
+    </div>
+</article>
+{%- endmacro %}
 <!doctype html>
 <html lang="{{ current_lang }}">
 <head>
@@ -5,84 +16,75 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>RunCoach AI Dashboard</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='multipage-1') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='dashboard-six-1') }}">
 </head>
 <body data-celebrate="{{ 'run-saved' if request.args.get('saved') else '' }}" data-welcome="{{ 'race-start' if request.args.get('welcome') else '' }}" data-accessibility-mode="{{ current_accessibility_mode }}">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
     <main class="dashboard-shell">
         {% set active_page = 'dashboard' %}
         {% include "_sidebar.html" %}
 
-        <section class="dashboard-main clean-page" id="dashboard-top">
-            <header class="page-hero compact-hero">
-                <p class="eyebrow">RunCoach AI</p>
-                <h1>Move, improve, and stay consistent.</h1>
-                <p>Choose a coach, log today&apos;s movement, or connect with the RunCoach community.</p>
+        <section class="dashboard-main dashboard-six-page" id="main-content" tabindex="-1">
+            <header class="dashboard-welcome" aria-labelledby="dashboard-title">
+                <div>
+                    <p class="eyebrow">RunCoach AI</p>
+                    <h1 id="dashboard-title">{{ _('dashboard') }}</h1>
+                    <p>Ready for your next move? Log today&apos;s activity or choose a coach for focused guidance.</p>
+                </div>
+                <a class="button dashboard-primary-action" href="{{ url_for('log_workout') }}#log-run">Log a workout</a>
             </header>
 
-            <section class="summary-strip" aria-label="Personal summary">
-                <article>
-                    <span>Weekly Miles</span>
-                    <strong>{{ "%.2f"|format(analyst_summary["weekly_mileage"]) }}</strong>
-                </article>
-                <article>
-                    <span>Current Streak</span>
-                    <strong>{{ chart_data["current_streak"] if chart_data["current_streak"] is defined else (1 if runs else 0) }}</strong>
-                </article>
-                <article>
-                    <span>Today&apos;s Activity</span>
-                    <strong>{% if next_plan_event %}{{ next_plan_event["title"] }}{% else %}Open{% endif %}</strong>
-                </article>
+            <section class="dashboard-snapshot" aria-label="Training snapshot">
+                <article><span>This week</span><strong>{{ "%.1f"|format(analyst_summary["weekly_mileage"]) }} mi</strong></article>
+                <article><span>Workouts logged</span><strong>{{ runs|length }}</strong></article>
+                <article><span>Up next</span><strong>{% if next_plan_event %}{{ next_plan_event["title"] }}{% else %}Choose a workout{% endif %}</strong></article>
+                <a href="{{ url_for('progress_page') }}">View progress <span aria-hidden="true">&rarr;</span></a>
             </section>
 
-            <section class="coach-card-grid" aria-label="RunCoach AI coaches">
-                <article class="home-coach-card" id="agentChatForm">
-                    <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner">
-                    <p class="eyebrow">Run Coach</p>
-                    <h2>Rico Runner</h2>
-                    <p>Pace, consistency, next workouts, and progress check-ins.</p>
-                    <a class="button" href="{{ url_for('log_workout') }}#agentChatForm">Ask Rico</a>
-                </article>
-                <article class="home-coach-card" id="iggyChatForm">
-                    <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy">
-                    <p class="eyebrow">Beginner Walking</p>
-                    <h2>Iggy</h2>
-                    <p>Walk routines, breathing, stretches, and gentle starting steps.</p>
-                    <a class="button" href="{{ url_for('log_workout') }}#iggyChatForm">Ask Iggy</a>
-                </article>
-                <article class="home-coach-card" id="luna-recovery">
-                    <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery">
-                    <p class="eyebrow">Recovery</p>
-                    <h2>Luna</h2>
-                    <p>Hydration, stretching, rest, gratitude, and calm recovery support.</p>
-                    <a class="button" href="{{ url_for('log_workout') }}#luna-recovery">Open Recovery</a>
-                </article>
-            </section>
-
-            <section class="primary-action-grid" aria-label="Primary actions">
-                <a class="action-tile action-green" href="{{ url_for('log_workout') }}#log-run"><strong>Log a Workout</strong><small>Run, walk, mood, or recovery</small></a>
-                <a class="action-tile action-blue" href="{{ url_for('events.events_list') }}"><strong>View Events</strong><small>RSVP or create a meetup</small></a>
-                <a class="action-tile action-gold" href="{{ url_for('community_page') }}"><strong>Open Community</strong><small>Events and challenges together</small></a>
-            </section>
-
-            <section class="home-preview-grid">
-                <article class="panel">
-                    <h2>Events</h2>
-                    {% if next_plan_event %}
-                        <p class="notes">Next planned: {{ next_plan_event["title"] }} on {{ next_plan_event["event_date"] }}.</p>
-                    {% else %}
-                        <p class="notes">Find a walk, run, practice, or beginner-friendly community event.</p>
-                    {% endif %}
-                    <a class="primary-link" href="{{ url_for('events.events_list') }}">Go to Events</a>
-                </article>
-                <article class="panel">
-                    <h2>Community</h2>
-                    <p class="notes">Join challenges, RSVP to events, and keep the support simple.</p>
-                    <a class="primary-link" href="{{ url_for('community_page') }}">Go to Community</a>
-                </article>
+            <section class="dashboard-coaches" aria-labelledby="dashboard-coaches-title">
+                <div class="section-heading">
+                    <p class="eyebrow">Your coaching team</p>
+                    <h2 id="dashboard-coaches-title">What do you need today?</h2>
+                </div>
+                <div class="dashboard-coach-grid">
+                {{ coach_card(
+                    "dashboard-rico",
+                    "coach-card-rico",
+                    "coqui-coach.svg",
+                    "Rico Runner",
+                    "Run Coach",
+                    "Rico Runner",
+                    "Pacing, consistency, and your next run.",
+                    url_for('log_workout') ~ "#agentChatForm",
+                    "Ask Rico"
+                ) }}
+                {{ coach_card(
+                    "dashboard-iggy",
+                    "coach-card-iggy",
+                    "iggy-coach.svg",
+                    "Iggy",
+                    "Beginner Walking",
+                    "Iggy",
+                    "Gentle walks, breathing, and beginner steps.",
+                    url_for('log_workout') ~ "#iggyChatForm",
+                    "Ask Iggy"
+                ) }}
+                {{ coach_card(
+                    "dashboard-luna",
+                    "coach-card-luna",
+                    "luna-recovery.svg",
+                    "Luna Recovery",
+                    "Recovery",
+                    "Luna",
+                    "Hydration, stretching, rest, and calm resets.",
+                    url_for('log_workout') ~ "#luna-recovery",
+                    "Open Luna"
+                ) }}
+                </div>
             </section>
         </section>
     </main>
     <div class="fireworks" id="fireworks" aria-hidden="true"></div>
-    <script src="{{ url_for('static', filename='app.js', v='intro-chime-coqui-1') }}"></script>
+    <script src="{{ url_for('static', filename='app.js', v='dashboard-six-1') }}"></script>
 </body>
 </html>
