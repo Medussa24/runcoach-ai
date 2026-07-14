@@ -1819,15 +1819,25 @@ def community_page():
     return render_template(
         "community.html",
         current_user=user,
-        events=events[:3],
-        challenges=challenges[:3],
+        events=events,
+        challenges=challenges,
     )
 
 
 @app.route("/settings")
 @login_required
 def settings_page():
-    return render_template("settings.html", current_user=current_user())
+    user = current_user()
+    user_id = user["id"]
+    connections = get_health_connections(user_id)
+    connections_map = {conn["provider"]: conn for conn in connections}
+    imported_activities = get_imported_activities(user_id)
+    return render_template(
+        "settings.html",
+        current_user=user,
+        connections=connections_map,
+        imported_activities=imported_activities,
+    )
 
 
 @app.route("/analyze-screenshot", methods=["POST"])

@@ -1,55 +1,112 @@
-<!doctype html>
-<html lang="{{ current_lang }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ _('community') }} - RunCoach AI</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='multipage-1') }}">
-</head>
-<body data-accessibility-mode="{{ current_accessibility_mode }}">
-    <main class="dashboard-shell">
-        {% set active_page = 'community' %}
-        {% include "_sidebar.html" %}
-        <section class="dashboard-main clean-page">
-            <header class="page-hero">
-                <p class="eyebrow">{{ _('community') }}</p>
-                <h1>Move with a little support.</h1>
-                <p>Start with events and challenges. Social posting can come later when the backend supports it.</p>
-            </header>
-            <section class="home-preview-grid">
-                <article class="panel">
-                    <h2>{{ _('upcoming_events') }}</h2>
-                    {% if events %}
-                        <ul class="simple-list">
-                            {% for event in events %}
-                                <li><a href="{{ url_for('events.event_detail', event_id=event['id']) }}">{{ event["title"] }}</a> - {{ event["event_date"] }}</li>
-                            {% endfor %}
-                        </ul>
+{% extends "base_app.html" %}
+{% set active_page = 'community' %}
+{% set asset_version = 'phase4-community-settings-1' %}
+
+{% block title %}{{ _('community') }} - RunCoach AI{% endblock %}
+
+{% block content %}
+<header class="page-hero">
+    <p class="eyebrow">{{ _('community') }}</p>
+    <h1>Move with a little support.</h1>
+    <p>Challenges, events, and groups live together here so you can find a beginner-friendly way to show up.</p>
+</header>
+
+<nav class="section-tabs" aria-label="Community sections">
+    <a href="#community-challenges">Challenges</a>
+    <a href="#community-events">Events</a>
+    <a href="#community-groups">Groups</a>
+</nav>
+
+<section class="community-section" id="community-challenges" aria-labelledby="community-challenges-title">
+    <div class="section-heading">
+        <p class="eyebrow">{{ _('monthly_challenge') }}</p>
+        <h2 id="community-challenges-title">{{ _('challenges') }}</h2>
+    </div>
+    {% if challenges %}
+        <div class="community-card-grid">
+            {% for challenge in challenges %}
+                <article class="panel community-card">
+                    <div class="community-card-header">
+                        <span class="status-badge">{{ challenge["activity_type"] }}</span>
+                        <span>{{ challenge["start_date"] }} to {{ challenge["end_date"] }}</span>
+                    </div>
+                    <h3>{{ challenge["title"] }}</h3>
+                    <p>{{ challenge["description"] }}</p>
+                    <dl class="compact-details">
+                        <div><dt>Goal</dt><dd>{{ challenge["target_value"] }} {{ challenge["unit"] }}</dd></div>
+                        <div><dt>Progress</dt><dd>{{ challenge["progress"]["percent"] }}%</dd></div>
+                    </dl>
+                    <details>
+                        <summary>Details</summary>
+                        <p class="notes">{{ challenge["description"] }}</p>
+                        <a class="primary-link" href="{{ url_for('challenges.challenge_detail', challenge_id=challenge['id']) }}">Open full challenge</a>
+                    </details>
+                    {% if challenge["joined"] %}
+                        <form method="post" action="{{ url_for('challenges.leave_challenge_route', challenge_id=challenge['id']) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit" class="button-secondary">{{ _('leave_challenge') }}</button>
+                        </form>
                     {% else %}
-                        <p class="empty-state">No community events yet. Create one when you are ready.</p>
+                        <form method="post" action="{{ url_for('challenges.join_challenge_route', challenge_id=challenge['id']) }}">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                            <button type="submit">{{ _('join_challenge') }}</button>
+                        </form>
                     {% endif %}
-                    <a class="primary-link" href="{{ url_for('events.events_list') }}">Open Events</a>
                 </article>
-                <article class="panel">
-                    <h2>{{ _('challenges') }}</h2>
-                    {% if challenges %}
-                        <ul class="simple-list">
-                            {% for challenge in challenges %}
-                                <li><a href="{{ url_for('challenges.challenge_detail', challenge_id=challenge['id']) }}">{{ challenge["title"] }}</a> - {{ challenge["progress"]["percent"] }}%</li>
-                            {% endfor %}
-                        </ul>
-                    {% else %}
-                        <p class="empty-state">Challenges will appear here after they are seeded.</p>
-                    {% endif %}
-                    <a class="primary-link" href="{{ url_for('challenges.challenges_page') }}">Open Challenges</a>
-                </article>
-            </section>
-            <section class="panel">
-                <h2>Beginner-friendly community guidance</h2>
-                <p class="notes">Choose events that match your current pace, use walking intervals freely, and treat every RSVP as a chance to show up gently rather than perform.</p>
-            </section>
+            {% endfor %}
+        </div>
+    {% else %}
+        <section class="panel empty-state-panel">
+            <h3>No challenges yet</h3>
+            <p>Challenges will appear here after they are seeded.</p>
         </section>
-    </main>
-</body>
-</html>
+    {% endif %}
+</section>
+
+<section class="community-section" id="community-events" aria-labelledby="community-events-title">
+    <div class="section-heading">
+        <p class="eyebrow">{{ _('upcoming_events') }}</p>
+        <h2 id="community-events-title">Events</h2>
+    </div>
+    {% if events %}
+        <div class="community-card-grid">
+            {% for event in events %}
+                <article class="panel community-card">
+                    <div class="community-card-header">
+                        <span class="status-badge">{{ event["event_type"] }}</span>
+                        <span>{{ event["language"] }}</span>
+                    </div>
+                    <h3><a href="{{ url_for('events.event_detail', event_id=event['id']) }}">{{ event["title"] }}</a></h3>
+                    <p class="notes">{{ event["event_date"] }} at {{ event["event_time"] }} · {{ event["location"] }}</p>
+                    <p>{{ event["description"] }}</p>
+                    <dl class="compact-details">
+                        <div><dt>Activity</dt><dd>{{ event["event_type"] }}</dd></div>
+                        <div><dt>RSVPs</dt><dd>{{ event["rsvp_count"] }}</dd></div>
+                    </dl>
+                    <form method="post" action="{{ url_for('events.event_rsvp', event_id=event['id']) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit">{{ 'Leave event' if event["rsvped"] else 'RSVP' }}</button>
+                    </form>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <section class="panel empty-state-panel">
+            <h3>No events yet</h3>
+            <p>Create an event when you are ready to invite others to a run or walk.</p>
+            <a class="button" href="{{ url_for('events.events_list') }}">Create event</a>
+        </section>
+    {% endif %}
+</section>
+
+<section class="community-section" id="community-groups" aria-labelledby="community-groups-title">
+    <div class="section-heading">
+        <p class="eyebrow">Groups</p>
+        <h2 id="community-groups-title">Groups</h2>
+    </div>
+    <section class="panel empty-state-panel">
+        <h3>Groups are planned</h3>
+        <p>Group functionality is not fully built yet. For now, use events and challenges to coordinate beginner-friendly movement.</p>
+    </section>
+</section>
+{% endblock %}

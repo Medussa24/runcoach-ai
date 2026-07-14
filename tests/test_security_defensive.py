@@ -474,6 +474,54 @@ def test_coach_workspace_preserves_selected_coach_from_dashboard_links(client):
     assert luna_html.count('id="coachWorkspaceForm"') == 1
 
 
+def test_community_combines_challenges_events_and_groups(client):
+    user_id = create_user("community-tabs@example.test")
+    login_as(client, user_id)
+
+    html = client.get("/community").get_data(as_text=True)
+
+    assert 'id="community-challenges"' in html
+    assert 'id="community-events"' in html
+    assert 'id="community-groups"' in html
+    assert "Groups are planned" in html
+    assert "Open full challenge" in html
+    assert "Challenges" in html
+    assert "Events" in html
+    assert "Groups" in html
+    assert "Shop" not in html
+
+
+def test_settings_combines_preferences_accessibility_data_devices_and_account(client):
+    user_id = create_user("settings-tabs@example.test")
+    login_as(client, user_id)
+
+    html = client.get("/settings").get_data(as_text=True)
+
+    for section_id in [
+        "settings-profile",
+        "settings-preferences",
+        "settings-accessibility",
+        "settings-data-devices",
+        "settings-account",
+    ]:
+        assert f'id="{section_id}"' in html
+    assert 'name="health_xml"' in html
+    assert 'name="workouts_csv"' in html
+    assert "Demo connection" in html
+    assert "Requires mobile app" in html
+    assert "Manage demo integrations" in html
+    assert "Log Out" in html
+
+
+def test_old_community_and_data_routes_remain_available_after_consolidation(client):
+    user_id = create_user("old-routes-phase4@example.test")
+    login_as(client, user_id)
+
+    for old_url in ["/events", "/challenges", "/import", "/integrations", "/shop"]:
+        response = client.get(old_url)
+        assert response.status_code == 200
+
+
 def test_coach_cards_offer_clickable_advice_bubbles(client):
     user_id = create_user("coach-bubbles@example.test")
     login_as(client, user_id)
