@@ -1,0 +1,62 @@
+{% extends "base_app.html" %}
+{% set active_page = 'coach' %}
+{% set asset_version = 'phase1-nav-1' %}
+
+{% block title %}{{ _('coach') }} - RunCoach AI{% endblock %}
+
+{% block content %}
+<header class="page-hero">
+    <p class="eyebrow">{{ _('coach') }}</p>
+    <h1>Choose your next coaching step.</h1>
+    <p>Rico, Iggy, Luna, quick logging, and the weekly plan will come together here in the next phase.</p>
+</header>
+
+<section class="coach-bridge-grid" aria-labelledby="coach-bridge-title">
+    <div class="section-heading">
+        <p class="eyebrow">RunCoach AI</p>
+        <h2 id="coach-bridge-title">Coach workspace preview</h2>
+    </div>
+    <article class="panel coach-bridge-card">
+        <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner">
+        <div>
+            <h3>Rico Runner</h3>
+            <p>Pacing, consistency, and training progression.</p>
+            <a class="primary-link" href="{{ url_for('log_workout') }}#agentChatForm">Ask Rico</a>
+        </div>
+    </article>
+    <article class="panel coach-bridge-card">
+        <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy">
+        <div>
+            <h3>Iggy</h3>
+            <p>Beginner walking, confidence, and gentle movement habits.</p>
+            <a class="primary-link" href="{{ url_for('log_workout') }}#iggyChatForm">Ask Iggy</a>
+        </div>
+    </article>
+    <article class="panel coach-bridge-card">
+        <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna">
+        <div>
+            <h3>Luna</h3>
+            <p>Recovery, soreness, hydration, mobility, and rest.</p>
+            <a class="primary-link" href="{{ url_for('log_workout') }}#luna-recovery">Open Luna</a>
+        </div>
+    </article>
+</section>
+
+<section class="home-preview-grid">
+    <article class="panel">
+        <h2>Today</h2>
+        {% if next_plan_event %}
+            <p><strong>{{ next_plan_event["title"] }}</strong></p>
+            <p class="notes">{{ next_plan_event["event_date"] }} at {{ next_plan_event["start_time"] }}</p>
+        {% else %}
+            <p class="empty-state">No workout is planned for today yet.</p>
+        {% endif %}
+        <a class="primary-link" href="{{ url_for('planner.planner') }}">Open weekly plan</a>
+    </article>
+    <article class="panel">
+        <h2>Quick log</h2>
+        <p class="notes">Save a run or walk without leaving your current training flow.</p>
+        <a class="primary-link" href="{{ url_for('log_workout') }}#log-run">Log a workout</a>
+    </article>
+</section>
+{% endblock %}

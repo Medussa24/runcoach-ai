@@ -1751,6 +1751,12 @@ def progress_page():
     return render_template("progress.html", **dashboard_context(current_user()))
 
 
+@app.route("/coach")
+@login_required
+def coach_page():
+    return render_template("coach.html", **dashboard_context(current_user()))
+
+
 @app.route("/log-workout", methods=["GET", "POST"])
 @login_required
 def log_workout():
@@ -1934,6 +1940,8 @@ TRANSLATIONS = {
         "health_integrations": "Health Integrations",
         "community": "Community",
         "settings": "Settings",
+        "coach": "Coach",
+        "account": "Account",
         "import_data": "Import Data",
         "coach_library": "Coach Library",
         "log_out": "Log Out",
@@ -2004,6 +2012,8 @@ TRANSLATIONS = {
         "health_integrations": "Integraciones de Salud",
         "community": "Comunidad",
         "settings": "Ajustes",
+        "coach": "Entrenador",
+        "account": "Cuenta",
         "import_data": "Importar Datos",
         "coach_library": "Biblioteca de Entrenadores",
         "log_out": "Cerrar Sesión",

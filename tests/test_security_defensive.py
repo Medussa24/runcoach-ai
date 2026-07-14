@@ -395,9 +395,53 @@ def test_dashboard_renders_compact_action_hub_without_legacy_top_control(client)
     assert html.count("dashboard-coach-card") == 3
     assert "Log a workout" in html
     assert "Training snapshot" in html
+    assert 'href="/coach"' in html
     assert 'id="backToTop"' not in html
     assert 'id="quickTipsToggle"' not in html
     assert "Quick Demo Tutorial" not in html
+
+
+def test_primary_navigation_has_five_clean_sections(client):
+    user_id = create_user("five-nav@example.test")
+    login_as(client, user_id)
+
+    html = client.get("/").get_data(as_text=True)
+
+    assert 'aria-label="Primary navigation"' in html
+    assert html.count("app-nav-item") == 5
+    assert "HomeDashboard" not in html
+    assert "StatsMy Progress" not in html
+    assert "PlanMy Plan" not in html
+    assert "ShopShop" not in html
+    for label in ["Dashboard", "Coach", "Progress", "Community", "Settings"]:
+        assert f">{label}</span>" in html
+    for removed in [
+        "My Plan",
+        "Import Workouts",
+        "Health Integrations",
+        "Events & Community",
+        "Challenges",
+        "Shop",
+    ]:
+        assert f"app-nav-label\">{removed}</span>" not in html
+
+
+def test_coach_workspace_bridge_renders_and_old_urls_remain_available(client):
+    user_id = create_user("coach-workspace@example.test")
+    login_as(client, user_id)
+
+    coach = client.get("/coach")
+    coach_html = coach.get_data(as_text=True)
+
+    assert coach.status_code == 200
+    assert "Coach workspace preview" in coach_html
+    assert 'aria-current="page"' in coach_html
+    assert 'href="/log-workout#log-run"' in coach_html
+    assert 'href="/planner"' in coach_html
+
+    for old_url in ["/planner", "/log-workout", "/import", "/integrations", "/events", "/challenges", "/shop"]:
+        response = client.get(old_url)
+        assert response.status_code == 200
 
 
 def test_coach_cards_offer_clickable_advice_bubbles(client):
@@ -438,10 +482,10 @@ def test_dashboard_links_to_dedicated_multi_page_sections(client):
 
     assert dashboard.status_code == 200
     assert 'href="/progress"' in html
-    assert 'href="/planner"' in html
     assert 'href="/log-workout#log-run"' in html
-    assert 'href="/import"' in html
-    assert 'href="/integrations"' in html
+    assert 'href="/coach"' in html
+    assert 'href="/community"' in html
+    assert 'href="/settings"' in html
     assert "gentle chime" not in html
 
 def test_progress_and_previous_runs_render_growth_charts(client):

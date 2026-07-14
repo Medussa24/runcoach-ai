@@ -1,0 +1,11 @@
+{% macro coach_card(card_id, card_class, image_name, image_alt, eyebrow, title, body, href, cta) -%}
+<article class="dashboard-coach-card {{ card_class }}" id="{{ card_id }}" aria-labelledby="{{ card_id }}-title">
+    <img src="{{ url_for('static', filename=image_name) }}" alt="{{ image_alt }}">
+    <div>
+        <p class="eyebrow">{{ eyebrow }}</p>
+        <h2 id="{{ card_id }}-title">{{ title }}</h2>
+        <p>{{ body }}</p>
+        <a class="text-link" href="{{ href }}">{{ cta }} <span aria-hidden="true">&rarr;</span></a>
+    </div>
+</article>
+{%- endmacro %}
