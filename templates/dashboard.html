@@ -37,7 +37,7 @@
             "Run Coach",
             "Rico Runner",
             "Pacing, consistency, and your next run.",
-            url_for('log_workout') ~ "#agentChatForm",
+            url_for('coach_page', coach='rico'),
             "Ask Rico"
         ) }}
         {{ cards.coach_card(
@@ -48,7 +48,7 @@
             "Beginner Walking",
             "Iggy",
             "Gentle walks, breathing, and beginner steps.",
-            url_for('log_workout') ~ "#iggyChatForm",
+            url_for('coach_page', coach='iggy'),
             "Ask Iggy"
         ) }}
         {{ cards.coach_card(
@@ -59,7 +59,7 @@
             "Recovery",
             "Luna",
             "Hydration, stretching, rest, and calm resets.",
-            url_for('log_workout') ~ "#luna-recovery",
+            url_for('coach_page', coach='luna'),
             "Open Luna"
         ) }}
     </div>

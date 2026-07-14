@@ -426,7 +426,7 @@ def test_primary_navigation_has_five_clean_sections(client):
         assert f"app-nav-label\">{removed}</span>" not in html
 
 
-def test_coach_workspace_bridge_renders_and_old_urls_remain_available(client):
+def test_unified_coach_workspace_renders_and_old_urls_remain_available(client):
     user_id = create_user("coach-workspace@example.test")
     login_as(client, user_id)
 
@@ -434,7 +434,14 @@ def test_coach_workspace_bridge_renders_and_old_urls_remain_available(client):
     coach_html = coach.get_data(as_text=True)
 
     assert coach.status_code == 200
-    assert "Coach workspace preview" in coach_html
+    assert "Choose your coach" in coach_html
+    assert 'data-coach-workspace' in coach_html
+    assert coach_html.count('data-coach-choice=') == 3
+    assert 'id="coachWorkspaceForm"' in coach_html
+    assert 'name="agent" value="rico"' in coach_html
+    assert "Rico Runner" in coach_html
+    assert "Iggy" in coach_html
+    assert "Luna" in coach_html
     assert 'aria-current="page"' in coach_html
     assert 'href="/log-workout#log-run"' in coach_html
     assert 'href="/planner"' in coach_html
@@ -442,6 +449,24 @@ def test_coach_workspace_bridge_renders_and_old_urls_remain_available(client):
     for old_url in ["/planner", "/log-workout", "/import", "/integrations", "/events", "/challenges", "/shop"]:
         response = client.get(old_url)
         assert response.status_code == 200
+
+
+def test_coach_workspace_preserves_selected_coach_from_dashboard_links(client):
+    user_id = create_user("selected-coach@example.test")
+    login_as(client, user_id)
+
+    dashboard_html = client.get("/").get_data(as_text=True)
+    assert 'href="/coach?coach=rico"' in dashboard_html
+    assert 'href="/coach?coach=iggy"' in dashboard_html
+    assert 'href="/coach?coach=luna"' in dashboard_html
+
+    luna_html = client.get("/coach?coach=luna").get_data(as_text=True)
+
+    assert 'data-selected-coach="luna"' in luna_html
+    assert 'name="agent" value="luna"' in luna_html
+    assert 'data-coach-prompts="luna"' in luna_html
+    assert "I feel sore" in luna_html
+    assert luna_html.count('id="coachWorkspaceForm"') == 1
 
 
 def test_coach_cards_offer_clickable_advice_bubbles(client):

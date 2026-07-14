@@ -1658,6 +1658,11 @@ def dashboard_context(user, agent_question=""):
         "current_user": user,
         "chat_messages": get_agent_messages(user_id, AGENT_RICO),
         "iggy_chat_messages": get_agent_messages(user_id, AGENT_IGGY),
+        "coach_messages": {
+            AGENT_RICO: get_agent_messages(user_id, AGENT_RICO),
+            AGENT_IGGY: get_agent_messages(user_id, AGENT_IGGY),
+            AGENT_LUNA: get_agent_messages(user_id, AGENT_LUNA),
+        },
         "walk_tasks": get_walk_tasks(user_id),
         "visuals": build_dashboard_visuals(runs),
         "chart_data": chart_data,
