@@ -1070,10 +1070,29 @@ def optional_int(value):
     return int(value)
 
 
+def parse_manual_duration_minutes(form):
+    """Accept either legacy duration minutes or hour/minute/second inputs."""
+    duration_parts = [
+        form.get("duration_hours"),
+        form.get("duration_minutes"),
+        form.get("duration_seconds"),
+    ]
+    if any(empty_to_none(value) is not None for value in duration_parts):
+        hours = optional_float(form.get("duration_hours")) or 0
+        minutes = optional_float(form.get("duration_minutes")) or 0
+        seconds = optional_float(form.get("duration_seconds")) or 0
+        if any(value < 0 for value in (hours, minutes, seconds)):
+            raise ValueError("Distance and duration must be greater than zero.")
+        return round((hours * 60) + minutes + (seconds / 60), 4)
+
+    return float(form.get("duration", ""))
+
+
 def parse_run_form(form):
     """Validate and normalize a manually entered run."""
     run_date = (form.get("run_date") or "").strip()
-    mood = (form.get("mood") or "").strip()
+    mood = (form.get("mood") or "Good").strip()
+    distance_unit = (form.get("distance_unit") or "mi").strip().lower()
 
     try:
         date.fromisoformat(run_date)
@@ -1081,8 +1100,8 @@ def parse_run_form(form):
         raise ValueError("Choose a valid run date.") from error
 
     try:
-        distance = float(form.get("distance", ""))
-        duration = float(form.get("duration", ""))
+        raw_distance = float(form.get("distance", ""))
+        duration = parse_manual_duration_minutes(form)
         temperature_f = optional_float(form.get("temperature_f"))
         wind_mph = optional_float(form.get("wind_mph"))
         avg_heart_rate = optional_int(form.get("avg_heart_rate"))
@@ -1090,6 +1109,13 @@ def parse_run_form(form):
         cadence = optional_int(form.get("cadence"))
     except (TypeError, ValueError) as error:
         raise ValueError("Use valid numbers for the run details.") from error
+
+    if distance_unit in ("km", "kilometer", "kilometers"):
+        distance = raw_distance / 1.609344
+    elif distance_unit in ("mi", "mile", "miles"):
+        distance = raw_distance
+    else:
+        raise ValueError("Choose miles or kilometers for distance.")
 
     numeric_values = [distance, duration, temperature_f, wind_mph]
     if any(value is not None and not math.isfinite(value) for value in numeric_values):
@@ -1673,6 +1699,7 @@ def dashboard_context(user, agent_question=""):
         "motivation_posts": motivation_posts(),
         "weekly_schedule": weekly_workout_schedule(),
         "next_plan_event": next_plan_event,
+        "today_iso": today.isoformat(),
         "planner_timezone": timezone_name,
         "luna_summary": luna_agent.summary(),
         "luna_cards": luna_agent.cards(),
@@ -1947,6 +1974,13 @@ TRANSLATIONS = {
         "settings": "Settings",
         "coach": "Coach",
         "account": "Account",
+        "distance_unit": "Distance unit",
+        "miles": "Miles",
+        "kilometers": "Kilometers",
+        "duration": "Duration",
+        "hours": "Hours",
+        "minutes": "Minutes",
+        "seconds": "Seconds",
         "import_data": "Import Data",
         "coach_library": "Coach Library",
         "log_out": "Log Out",
@@ -2019,6 +2053,13 @@ TRANSLATIONS = {
         "settings": "Ajustes",
         "coach": "Entrenador",
         "account": "Cuenta",
+        "distance_unit": "Unidad de distancia",
+        "miles": "Millas",
+        "kilometers": "Kilómetros",
+        "duration": "Duración",
+        "hours": "Horas",
+        "minutes": "Minutos",
+        "seconds": "Segundos",
         "import_data": "Importar Datos",
         "coach_library": "Biblioteca de Entrenadores",
         "log_out": "Cerrar Sesión",

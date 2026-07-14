@@ -291,6 +291,11 @@ def test_csv_duplicate_detection_uses_the_same_rounded_values_as_storage(client)
     assert len(runs) == 1
     assert runs[0]["distance"] == 3.1235
     assert runs[0]["duration"] == 30.13
+    assert runs[0]["avg_heart_rate"] == 145
+    assert runs[0]["max_heart_rate"] == 170
+    assert runs[0]["calories"] == 300
+    assert runs[0]["source"] == "Precision Watch"
+    assert runs[0]["imported_from"] == "Apple Health CSV"
     assert "Duplicates" in second.get_data(as_text=True)
 
 
@@ -474,14 +479,14 @@ def test_coach_cards_offer_clickable_advice_bubbles(client):
     login_as(client, user_id)
 
     html = client.get("/").get_data(as_text=True)
-    log_html = client.get("/log-workout").get_data(as_text=True)
+    coach_html = client.get("/coach").get_data(as_text=True)
 
     assert html.count("dashboard-coach-card") == 3
     assert "Rico Runner" in html
     assert "Iggy" in html
     assert "Luna" in html
-    assert 'data-agent="rico"' in log_html
-    assert 'data-agent="iggy"' in log_html
+    assert 'data-agent="rico"' in coach_html
+    assert 'data-coach-choice="iggy"' in coach_html
     assert "app.js?v=dashboard-six-1" in html
 
 
@@ -512,6 +517,84 @@ def test_dashboard_links_to_dedicated_multi_page_sections(client):
     assert 'href="/community"' in html
     assert 'href="/settings"' in html
     assert "gentle chime" not in html
+
+
+def test_manual_log_form_is_minimal_and_keeps_advanced_fields_out_of_manual_entry(client):
+    user_id = create_user("minimal-log-form@example.test")
+    login_as(client, user_id)
+
+    html = client.get("/log-workout").get_data(as_text=True)
+
+    assert 'name="run_date"' in html
+    assert 'name="duration_hours"' in html
+    assert 'name="duration_minutes"' in html
+    assert 'name="duration_seconds"' in html
+    assert 'name="distance"' in html
+    assert 'name="distance_unit"' in html
+    assert 'name="avg_heart_rate"' in html
+    for removed in [
+        'name="mood"',
+        'name="weather_summary"',
+        'name="route_type"',
+        'name="route_notes"',
+        'name="steps"',
+        'name="cadence"',
+    ]:
+        assert removed not in html
+    assert "Average pace" in html
+
+
+def test_minimal_manual_log_calculates_pace_and_optional_heart_rate(client):
+    user_id = create_user("minimal-log-save@example.test")
+    login_as(client, user_id)
+
+    response = client.post(
+        "/log-workout",
+        data={
+            "run_date": "2026-07-14",
+            "duration_hours": "0",
+            "duration_minutes": "24",
+            "duration_seconds": "30",
+            "distance": "2",
+            "distance_unit": "mi",
+            "avg_heart_rate": "142",
+        },
+    )
+
+    assert response.status_code == 302
+    runs = runcoach.get_all_runs(user_id)
+    assert len(runs) == 1
+    run = runs[0]
+    assert run["duration"] == 24.5
+    assert run["distance"] == 2
+    assert run["pace"] == 12.25
+    assert run["mood"] == "Good"
+    assert run["avg_heart_rate"] == 142
+    assert run["steps"] is None
+    assert run["cadence"] is None
+    assert run["source"] == "Manual"
+
+
+def test_manual_log_accepts_kilometers_and_empty_heart_rate(client):
+    user_id = create_user("minimal-log-km@example.test")
+    login_as(client, user_id)
+
+    response = client.post(
+        "/log-workout",
+        data={
+            "run_date": "2026-07-14",
+            "duration_minutes": "30",
+            "distance": "5",
+            "distance_unit": "km",
+            "avg_heart_rate": "",
+        },
+    )
+
+    assert response.status_code == 302
+    run = runcoach.get_all_runs(user_id)[0]
+    assert run["distance"] == pytest.approx(3.106855, rel=1e-5)
+    assert run["pace"] == pytest.approx(9.656064, rel=1e-5)
+    assert run["avg_heart_rate"] is None
 
 def test_progress_and_previous_runs_render_growth_charts(client):
     user_id = create_user("growth-charts@example.test")

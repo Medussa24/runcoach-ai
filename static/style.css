@@ -5221,6 +5221,35 @@ dd {
     min-height: 92px;
 }
 
+.duration-fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.duration-fieldset legend {
+    color: var(--navy);
+    font-weight: 800;
+    margin-bottom: 8px;
+}
+
+.duration-inputs {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.optional-label {
+    color: var(--muted);
+    font-size: 0.85em;
+    font-weight: 600;
+}
+
+.form-helper {
+    border-left: 3px solid var(--accent);
+    color: var(--muted);
+    margin: 4px 0;
+    padding-left: 12px;
+}
+
 @media (max-width: 980px) {
     .coach-bridge-grid {
         grid-template-columns: 1fr;
@@ -5231,6 +5260,10 @@ dd {
     }
 
     .coach-selector {
+        grid-template-columns: 1fr;
+    }
+
+    .duration-inputs {
         grid-template-columns: 1fr;
     }
 }
