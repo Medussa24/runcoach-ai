@@ -652,6 +652,10 @@ def test_progress_and_previous_runs_render_growth_charts(client):
 
     html = client.get("/progress").get_data(as_text=True)
 
+    assert 'id="progress-overview"' in html
+    assert 'id="previous-runs"' in html
+    assert 'id="progress-visuals"' in html
+    assert 'id="progress-goals"' in html
     assert html.count("data-run-chart=") >= 5
     assert "Distance over time" in html
     assert "Pace over time" in html
@@ -660,8 +664,24 @@ def test_progress_and_previous_runs_render_growth_charts(client):
     assert "Walking and recovery activity" in html
     assert "Your training story" in html
     assert "Previous Runs" in html
+    assert "Workout count" in html
+    assert "Avg HR" in html
+    assert "Source" in html
+    assert "Goals" in html
     assert 'class="run-history-notes"' in html
     assert 'id="runChartData"' in html
+
+
+def test_empty_progress_page_has_clear_ctas_without_fake_metrics(client):
+    user_id = create_user("empty-progress@example.test")
+    login_as(client, user_id)
+
+    html = client.get("/progress").get_data(as_text=True)
+
+    assert "Your saved workouts will appear here." in html
+    assert 'href="/log-workout#log-run"' in html
+    assert "Saved goal tracking is not a separate progress module yet." in html
+    assert 'href="/coach"' in html
 
 
 def test_data_analyst_generates_user_scoped_chart_json(client):
