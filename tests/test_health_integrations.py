@@ -37,6 +37,9 @@ def test_integrations_page_loads_and_has_privacy_notices(client):
     response = client.get("/integrations")
     assert response.status_code == 200
     html = response.get_data(as_text=True)
+    assert 'aria-label="Primary navigation"' in html
+    assert 'href="/settings" aria-current="page"' in html
+    assert 'id="main-content"' in html
     assert "Health Integrations" in html
     assert "Apple Health requires iOS companion app" in html or "iOS App Required" in html
     assert "Google Health Connect requires Android companion app" in html or "Android App Required" in html

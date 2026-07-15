@@ -8,7 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=asset_version|default('phase1-nav-1')) }}">
     {% block head_extra %}{% endblock %}
 </head>
-<body class="{% block body_class %}{% endblock %}" data-celebrate="{{ 'run-saved' if request.args.get('saved') else '' }}" data-welcome="{{ 'race-start' if request.args.get('welcome') else '' }}" data-accessibility-mode="{{ current_accessibility_mode }}">
+<body class="{% block body_class %}{% endblock %}" data-celebrate="{% block celebrate_state %}{{ 'run-saved' if request.args.get('saved') else '' }}{% endblock %}" data-welcome="{{ 'race-start' if request.args.get('welcome') else '' }}" data-accessibility-mode="{{ current_accessibility_mode }}">
     <a class="skip-link" href="#main-content">Skip to main content</a>
     <main class="dashboard-shell">
         {% include "_sidebar.html" %}

@@ -384,6 +384,10 @@ def test_weekly_schedule_and_upload_limit_are_available(client):
     assert b"Generate my week" in planner.data
     assert imports.status_code == 200
     assert b"Maximum upload size: 10 MB." in imports.data
+    import_html = imports.get_data(as_text=True)
+    assert 'aria-label="Primary navigation"' in import_html
+    assert 'href="/settings" aria-current="page"' in import_html
+    assert 'id="main-content"' in import_html
     assert runcoach.app.config["MAX_CONTENT_LENGTH"] == 10 * 1024 * 1024
 
 
