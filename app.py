@@ -1675,6 +1675,17 @@ def dashboard_context(user, agent_question=""):
         (event for event in upcoming_events if not event["is_completed"]),
         None,
     )
+    community_events = get_upcoming_events()
+    next_community_event = community_events[0] if community_events else None
+    dashboard_challenge = None
+    for challenge in get_all_challenges():
+        challenge["joined"] = is_user_joined_challenge(user_id, challenge["id"])
+        challenge["progress"] = calculate_challenge_progress(user_id, challenge)
+        if challenge["joined"]:
+            dashboard_challenge = challenge
+            break
+        if dashboard_challenge is None:
+            dashboard_challenge = challenge
 
     return {
         "runs": runs,
@@ -1699,6 +1710,8 @@ def dashboard_context(user, agent_question=""):
         "motivation_posts": motivation_posts(),
         "weekly_schedule": weekly_workout_schedule(),
         "next_plan_event": next_plan_event,
+        "next_community_event": next_community_event,
+        "dashboard_challenge": dashboard_challenge,
         "today_iso": today.isoformat(),
         "planner_timezone": timezone_name,
         "luna_summary": luna_agent.summary(),

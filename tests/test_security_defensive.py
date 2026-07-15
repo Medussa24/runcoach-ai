@@ -399,7 +399,11 @@ def test_dashboard_renders_compact_action_hub_without_legacy_top_control(client)
     assert 'id="dashboardSearch"' not in html
     assert html.count("dashboard-coach-card") == 3
     assert "Log a workout" in html
-    assert "Training snapshot" in html
+    assert "Recommended next actions" in html
+    assert "Quick log" in html
+    assert "Weekly progress" in html
+    assert "Recent workout" in html
+    assert "Community" in html
     assert 'href="/coach"' in html
     assert 'id="backToTop"' not in html
     assert 'id="quickTipsToggle"' not in html
@@ -535,7 +539,7 @@ def test_coach_cards_offer_clickable_advice_bubbles(client):
     assert "Luna" in html
     assert 'data-agent="rico"' in coach_html
     assert 'data-coach-choice="iggy"' in coach_html
-    assert "app.js?v=dashboard-six-1" in html
+    assert "app.js?v=phase7-dashboard-next-1" in html
 
 
 def test_dashboard_excludes_progress_history_import_and_motivation_sections(client):
@@ -560,10 +564,11 @@ def test_dashboard_links_to_dedicated_multi_page_sections(client):
 
     assert dashboard.status_code == 200
     assert 'href="/progress"' in html
+    assert 'href="/progress#previous-runs"' in html
     assert 'href="/log-workout#log-run"' in html
     assert 'href="/coach"' in html
     assert 'href="/community"' in html
-    assert 'href="/settings"' in html
+    assert 'href="/planner"' in html
     assert "gentle chime" not in html
 
 

@@ -5463,6 +5463,35 @@ dd {
     margin-bottom: 4px;
 }
 
+.dashboard-next-grid,
+.dashboard-secondary-grid {
+    display: grid;
+    gap: 16px;
+    margin-bottom: 22px;
+}
+
+.dashboard-next-grid {
+    grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+}
+
+.dashboard-secondary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-next-card {
+    display: grid;
+    gap: 10px;
+    align-content: start;
+}
+
+.dashboard-next-card h2 {
+    margin: 0;
+}
+
+.dashboard-today-card {
+    border-left: 4px solid var(--accent);
+}
+
 @media (max-width: 980px) {
     .coach-bridge-grid {
         grid-template-columns: 1fr;
@@ -5485,7 +5514,9 @@ dd {
     .settings-data-grid,
     .planner-overview-grid,
     .planner-week-card-main,
-    .progress-overview-grid {
+    .progress-overview-grid,
+    .dashboard-next-grid,
+    .dashboard-secondary-grid {
         grid-template-columns: 1fr;
     }
 

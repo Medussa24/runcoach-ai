@@ -1,32 +1,53 @@
 {% extends "base_app.html" %}
 {% import "_dashboard_macros.html" as cards %}
 {% set active_page = 'dashboard' %}
-{% set asset_version = 'dashboard-six-1' %}
+{% set asset_version = 'phase7-dashboard-next-1' %}
 
 {% block title %}RunCoach AI Dashboard{% endblock %}
-{% block main_class %}dashboard-six-page{% endblock %}
+{% block main_class %}dashboard-six-page dashboard-next-page{% endblock %}
 
 {% block content %}
 <header class="dashboard-welcome" aria-labelledby="dashboard-title">
     <div>
         <p class="eyebrow">RunCoach AI</p>
         <h1 id="dashboard-title">{{ _('dashboard') }}</h1>
-        <p>Ready for your next move? Log today&apos;s activity or choose a coach for focused guidance.</p>
+        <p>What should you do next? Start with today&apos;s plan, log a workout, or choose the coach that matches how you feel.</p>
     </div>
-    <a class="button dashboard-primary-action" href="{{ url_for('log_workout') }}#log-run">Log a workout</a>
+    <a class="button dashboard-primary-action" href="{{ url_for('coach_page') }}">Open Coach</a>
 </header>
 
-<section class="dashboard-snapshot" aria-label="Training snapshot">
-    <article><span>This week</span><strong>{{ "%.1f"|format(analyst_summary["weekly_mileage"]) }} mi</strong></article>
-    <article><span>Workouts logged</span><strong>{{ runs|length }}</strong></article>
-    <article><span>Up next</span><strong>{% if next_plan_event %}{{ next_plan_event["title"] }}{% else %}Choose a workout{% endif %}</strong></article>
-    <a href="{{ url_for('progress_page') }}">View progress <span aria-hidden="true">&rarr;</span></a>
+<section class="dashboard-next-grid" aria-label="Recommended next actions">
+    <article class="panel dashboard-next-card dashboard-today-card">
+        <p class="eyebrow">Today</p>
+        {% if next_plan_event %}
+            <h2>{{ next_plan_event["title"] }}</h2>
+            <p>{{ next_plan_event["duration_minutes"] }} minutes with {{ next_plan_event["coach"] or "your coach" }} at {{ next_plan_event["start_time"] }}.</p>
+            <div class="planner-card-actions">
+                <a class="button" href="{{ url_for('coach_page') }}">Start or adjust</a>
+                <a class="primary-link" href="{{ url_for('planner.planner') }}">Open plan</a>
+            </div>
+        {% else %}
+            <h2>No workout planned yet</h2>
+            <p>Generate a simple week or ask a coach what fits today.</p>
+            <div class="planner-card-actions">
+                <a class="button" href="{{ url_for('planner.planner') }}">Generate week</a>
+                <a class="primary-link" href="{{ url_for('coach_page') }}">Ask a coach</a>
+            </div>
+        {% endif %}
+    </article>
+
+    <article class="panel dashboard-next-card">
+        <p class="eyebrow">Quick log</p>
+        <h2>Finished moving?</h2>
+        <p>Save only the essentials. Pace and progress update automatically.</p>
+        <a class="button" href="{{ url_for('log_workout') }}#log-run">Log a workout</a>
+    </article>
 </section>
 
 <section class="dashboard-coaches" aria-labelledby="dashboard-coaches-title">
     <div class="section-heading">
-        <p class="eyebrow">Your coaching team</p>
-        <h2 id="dashboard-coaches-title">What do you need today?</h2>
+        <p class="eyebrow">Choose your coach</p>
+        <h2 id="dashboard-coaches-title">What kind of support do you need?</h2>
     </div>
     <div class="dashboard-coach-grid">
         {{ cards.coach_card(
@@ -64,9 +85,46 @@
         ) }}
     </div>
 </section>
+
+<section class="dashboard-secondary-grid" aria-label="Progress and community summary">
+    <article class="panel dashboard-next-card">
+        <p class="eyebrow">Weekly progress</p>
+        <h2>{{ "%.1f"|format(analyst_summary["weekly_mileage"]) }} mi this week</h2>
+        <p>{{ runs|length }} saved workout{{ '' if runs|length == 1 else 's' }}. Average pace: {{ analyst_summary["average_pace_label"] or "--" }}.</p>
+        <a class="primary-link" href="{{ url_for('progress_page') }}">Open Progress</a>
+    </article>
+
+    <article class="panel dashboard-next-card">
+        <p class="eyebrow">Recent workout</p>
+        {% if runs %}
+            {% set latest = runs[0] %}
+            <h2>{{ latest["run_date"] }}</h2>
+            <p>{{ "%.2f"|format(latest["distance"]) }} mi / {{ "%.1f"|format(latest["duration"]) }} min · {{ format_pace(latest["pace"]) }}</p>
+        {% else %}
+            <h2>No workouts yet</h2>
+            <p>Your first logged walk or run will appear here.</p>
+        {% endif %}
+        <a class="primary-link" href="{{ url_for('progress_page') }}#previous-runs">View history</a>
+    </article>
+
+    <article class="panel dashboard-next-card">
+        <p class="eyebrow">Community</p>
+        {% if next_community_event %}
+            <h2>{{ next_community_event["title"] }}</h2>
+            <p>{{ next_community_event["event_date"] }} at {{ next_community_event["event_time"] }} · {{ next_community_event["location"] }}</p>
+        {% elif dashboard_challenge %}
+            <h2>{{ dashboard_challenge["title"] }}</h2>
+            <p>Challenge progress: {{ dashboard_challenge["progress"]["percent"] }}%.</p>
+        {% else %}
+            <h2>Find support</h2>
+            <p>Events and challenges will appear as the community grows.</p>
+        {% endif %}
+        <a class="primary-link" href="{{ url_for('community_page') }}">Open Community</a>
+    </article>
+</section>
 {% endblock %}
 
 {% block body_extra %}
 <div class="fireworks" id="fireworks" aria-hidden="true"></div>
-<script src="{{ url_for('static', filename='app.js', v='dashboard-six-1') }}"></script>
+<script src="{{ url_for('static', filename='app.js', v='phase7-dashboard-next-1') }}"></script>
 {% endblock %}
