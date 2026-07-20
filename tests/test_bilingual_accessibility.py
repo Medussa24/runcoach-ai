@@ -76,7 +76,16 @@ def test_create_and_rsvp_community_event(client):
     assert event["event_type"] == "run"
     assert event["location"] == "Piedmont Park"
 
-    # Detail page access (public, works without session user too)
+    with client.session_transaction() as session:
+        session.clear()
+    anonymous_detail = client.get(f"/event/{event['id']}")
+    assert anonymous_detail.status_code == 302
+    assert "/login" in anonymous_detail.headers["Location"]
+
+    with client.session_transaction() as session:
+        session["user_id"] = demo_user["id"]
+
+    # Detail page access requires authentication.
     detail_resp = client.get(f"/event/{event['id']}")
     assert detail_resp.status_code == 200
     html = detail_resp.get_data(as_text=True)

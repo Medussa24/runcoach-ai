@@ -22,6 +22,7 @@ def challenges_page():
 
 
 @challenges_bp.route("/challenge/<int:challenge_id>")
+@login_required
 def challenge_detail(challenge_id):
     challenge = get_challenge_by_id(challenge_id)
     if not challenge:
