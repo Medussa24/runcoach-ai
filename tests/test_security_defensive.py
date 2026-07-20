@@ -28,6 +28,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(runcoach, "SCREENSHOT_UPLOAD_DIR", tmp_path / "screenshots")
     runcoach.app.config.update(
         TESTING=True,
+        DEMO_MODE=True,
         SECRET_KEY="test-secret",
         WTF_CSRF_ENABLED=False,
     )
@@ -77,6 +78,44 @@ def add_run(client, **overrides):
     }
     data.update(overrides)
     return client.post("/", data=data, follow_redirects=True)
+
+
+def test_development_allows_local_secret_fallback(monkeypatch):
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    temporary_app = runcoach.Flask("development-secret-test")
+    temporary_app.config["APP_ENV"] = "development"
+
+    assert runcoach.configure_secret_key(temporary_app) == runcoach.DEVELOPMENT_SECRET_KEY
+
+
+def test_production_requires_secret_key(monkeypatch):
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    temporary_app = runcoach.Flask("production-secret-test")
+    temporary_app.config["APP_ENV"] = "production"
+
+    with pytest.raises(RuntimeError, match="SECRET_KEY is required"):
+        runcoach.configure_secret_key(temporary_app)
+
+
+def test_production_accepts_configured_secret_key(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "configured-production-secret")
+    temporary_app = runcoach.Flask("production-secret-present-test")
+    temporary_app.config["APP_ENV"] = "production"
+
+    assert runcoach.configure_secret_key(temporary_app) == "configured-production-secret"
+
+
+def test_demo_mode_defaults_off_in_production(monkeypatch):
+    monkeypatch.delenv("DEMO_MODE", raising=False)
+    config = {"APP_ENV": "production"}
+
+    assert runcoach.default_demo_mode(config) is False
+
+
+def test_configured_demo_password_is_respected(monkeypatch):
+    monkeypatch.setenv("DEMO_PASSWORD", "custom-demo-pass")
+
+    assert runcoach.configured_demo_password() == "custom-demo-pass"
 
 
 @pytest.mark.parametrize(
@@ -790,6 +829,19 @@ def test_try_demo_creates_authenticated_demo_session(client):
         assert 'id="dashboard-title">Dashboard</h1>' in dashboard.get_data(as_text=True)
     finally:
         runcoach.app.config["WTF_CSRF_ENABLED"] = False
+
+
+def test_demo_login_returns_404_when_demo_mode_disabled(client):
+    runcoach.app.config.update(DEMO_MODE=False, WTF_CSRF_ENABLED=False)
+    try:
+        response = client.post("/demo-login")
+        login_page = client.get("/login").get_data(as_text=True)
+
+        assert response.status_code == 404
+        assert "Try Demo" not in login_page
+        assert runcoach.DEMO_PASSWORD not in login_page
+    finally:
+        runcoach.app.config.update(DEMO_MODE=True, WTF_CSRF_ENABLED=False)
 
 
 def test_demo_login_is_not_interrupted_by_sentinel_scheduler(client, monkeypatch):

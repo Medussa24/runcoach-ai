@@ -51,8 +51,69 @@ from sentinel_qa import SentinelQA
 # `python app.py`, expose this module under its import name to avoid reloading it.
 sys.modules.setdefault("app", sys.modules[__name__])
 
+DEVELOPMENT_SECRET_KEY = "runcoach-ai-local-dev-secret"
+TRUTHY_ENV_VALUES = {"1", "true", "yes", "on"}
+FALSEY_ENV_VALUES = {"0", "false", "no", "off"}
+
+
+def is_production_environment(config=None):
+    """Return whether explicit app configuration selects production mode."""
+    config = config or {}
+    environment_name = (
+        config.get("APP_ENV")
+        or os.environ.get("APP_ENV")
+        or os.environ.get("FLASK_ENV")
+        or "development"
+    )
+    return str(environment_name).strip().lower() in {"production", "prod"}
+
+
+def parse_env_flag(value, default=False):
+    """Parse an environment-style boolean without treating typos as enabled."""
+    if value is None:
+        return default
+    normalized = str(value).strip().lower()
+    if normalized in TRUTHY_ENV_VALUES:
+        return True
+    if normalized in FALSEY_ENV_VALUES:
+        return False
+    return default
+
+
+def configure_secret_key(flask_app):
+    """Require an explicit SECRET_KEY in production and use a local fallback otherwise."""
+    secret_key = os.environ.get("SECRET_KEY")
+    if is_production_environment(flask_app.config) and not secret_key:
+        raise RuntimeError("SECRET_KEY is required when APP_ENV or FLASK_ENV is production.")
+    flask_app.secret_key = secret_key or DEVELOPMENT_SECRET_KEY
+    flask_app.config["SECRET_KEY"] = flask_app.secret_key
+    return flask_app.secret_key
+
+
+def default_demo_mode(config=None):
+    """Enable demo mode locally unless DEMO_MODE explicitly overrides it."""
+    return parse_env_flag(
+        os.environ.get("DEMO_MODE"),
+        default=not is_production_environment(config),
+    )
+
+
+def configured_demo_password():
+    """Return the configured demo password or the local capstone fallback."""
+    return os.environ.get("DEMO_PASSWORD", "demo123")
+
+
+def is_demo_mode_enabled(flask_app=None):
+    """Return whether demo login and demo credentials should be visible."""
+    if flask_app is not None and "DEMO_MODE" in flask_app.config:
+        return bool(flask_app.config["DEMO_MODE"])
+    return default_demo_mode(flask_app.config if flask_app else None)
+
+
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "runcoach-ai-local-dev-secret")
+app.config["APP_ENV"] = os.environ.get("APP_ENV") or os.environ.get("FLASK_ENV") or "development"
+configure_secret_key(app)
+app.config["DEMO_MODE"] = default_demo_mode(app.config)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 app.config["SENTINEL_INTERVAL_SECONDS"] = 15 * 60
 app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -70,7 +131,7 @@ sentinel_qa = SentinelQA(
     interval_seconds=app.config["SENTINEL_INTERVAL_SECONDS"],
 )
 DEMO_EMAIL = "demo@runcoach.test"
-DEMO_PASSWORD = "demo123"
+DEMO_PASSWORD = configured_demo_password()
 AGENT_RICO = "rico"
 AGENT_IGGY = "iggy"
 AGENT_LUNA = "luna"

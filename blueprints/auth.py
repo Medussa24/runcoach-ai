@@ -1,9 +1,9 @@
 import sqlite3
-from flask import Blueprint, render_template, redirect, url_for, request, session
+from flask import Blueprint, abort, render_template, redirect, url_for, request, session
 from app import (
     seed_demo_user, create_user, establish_user_session,
     DEMO_EMAIL, DEMO_PASSWORD, seed_demo_data, get_user_by_email,
-    check_password_hash, reset_demo_account
+    check_password_hash, is_demo_mode_enabled, reset_demo_account, app
 )
 
 auth_bp = Blueprint("auth", __name__)
@@ -36,7 +36,8 @@ def signup():
         mode="signup",
         error=error,
         demo_email=DEMO_EMAIL,
-        demo_password=DEMO_PASSWORD,
+        demo_password=DEMO_PASSWORD if is_demo_mode_enabled(app) else None,
+        demo_mode=is_demo_mode_enabled(app),
     )
 
 
@@ -62,13 +63,16 @@ def login():
         mode="login",
         error=error,
         demo_email=DEMO_EMAIL,
-        demo_password=DEMO_PASSWORD,
+        demo_password=DEMO_PASSWORD if is_demo_mode_enabled(app) else None,
+        demo_mode=is_demo_mode_enabled(app),
     )
 
 
 @auth_bp.route("/demo-login", methods=["POST"])
 def demo_login():
     """Log evaluators into the privacy-safe demo account in one click."""
+    if not is_demo_mode_enabled(app):
+        abort(404)
     demo_user_id = reset_demo_account()
     establish_user_session(demo_user_id, is_demo=True)
     return redirect(url_for("index", welcome=1))
