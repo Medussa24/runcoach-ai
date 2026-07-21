@@ -1,0 +1,6 @@
+{% macro nav_item(endpoint, label, icon, active_page, page_key) -%}
+    <a class="app-nav-item {{ 'is-active' if active_page == page_key else '' }}" href="{{ url_for(endpoint) }}" {% if active_page == page_key %}aria-current="page"{% endif %}>
+        <span class="app-nav-icon" aria-hidden="true">{{ icon }}</span>
+        <span class="app-nav-label">{{ label }}</span>
+    </a>
+{%- endmacro %}

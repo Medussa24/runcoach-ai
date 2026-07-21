@@ -56,6 +56,7 @@ def events_list():
 
 
 @events_bp.route("/event/<int:event_id>")
+@login_required
 def event_detail(event_id):
     event = get_event_by_id(event_id)
     if not event:

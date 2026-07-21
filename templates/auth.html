@@ -53,7 +53,7 @@
                     <p class="error-message">{{ error }}</p>
                 {% endif %}
  
-                {% if mode != "signup" %}
+                {% if mode != "signup" and demo_mode %}
                     <div class="demo-callout">
                         <p class="notes">{{ 'Demo mode uses fake workout data for privacy-safe testing.' if current_lang == 'en' else 'El modo de demostración utiliza datos de entrenamiento simulados para pruebas seguras de privacidad.' }}</p>
                         <button class="demo-button" type="submit" form="demoLoginForm">{{ 'Try Demo' if current_lang == 'en' else 'Probar Demo' }}</button>
@@ -75,6 +75,7 @@
                 {% endif %}
             </form>
 
+            {% if demo_mode %}
             <section class="panel auth-panel">
                 <h2>Demo User</h2>
                 <p class="notes">For Capstone testing, use this sample account or click Try Demo. It has fake demo data only.</p>
@@ -90,8 +91,9 @@
                 </dl>
                 <p class="notes">Real Apple Health exports should stay local and private.</p>
             </section>
+            {% endif %}
         </section>
-        {% if mode != "signup" %}
+        {% if mode != "signup" and demo_mode %}
             <form id="demoLoginForm" method="post" action="{{ url_for('auth.demo_login') }}">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             </form>

@@ -1,107 +1,84 @@
-<!doctype html>
-<html lang="{{ current_lang }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ _('log_workout') }} - RunCoach AI</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='multipage-1') }}">
-</head>
-<body data-celebrate="{{ 'run-saved' if request.args.get('saved') else '' }}" data-accessibility-mode="{{ current_accessibility_mode }}">
-    <main class="dashboard-shell">
-        {% set active_page = 'log' %}
-        {% include "_sidebar.html" %}
-        <section class="dashboard-main clean-page">
-            <header class="page-hero">
-                <p class="eyebrow">{{ _('log_workout') }}</p>
-                <h1>Record today&apos;s movement.</h1>
-                <p>Use the same protected form and coaching agents, now on a focused page.</p>
-            </header>
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% for category, message in messages %}
-                    <p class="planner-notice planner-notice-{{ category }}" role="status">{{ message }}</p>
-                {% endfor %}
-            {% endwith %}
-            <section class="layout log-page-layout">
-                <section class="panel run-form compact-section" id="log-run">
-                    <p class="eyebrow">{{ _('log_a_run') }}</p>
-                    <h2>Log Run or Walk</h2>
-                    <form method="post" action="{{ url_for('log_workout') }}">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <label for="run_date">{{ _('run_date') }}</label>
-                        <input id="run_date" name="run_date" type="date" required>
-                        <label for="distance">{{ _('distance_miles') }}</label>
-                        <input id="distance" name="distance" type="number" step="0.01" min="0.01" required>
-                        <label for="duration">{{ _('duration_minutes') }}</label>
-                        <input id="duration" name="duration" type="number" step="0.01" min="0.01" required>
-                        <label for="mood">{{ _('mood') }}</label>
-                        <select id="mood" name="mood" required>
-                            {% for mood in ["Great", "Good", "Okay", "Tired", "Bad", "Sore", "Stressed", "Low"] %}
-                                <option value="{{ mood }}">{{ mood }}</option>
-                            {% endfor %}
-                        </select>
-                        <label for="notes">{{ _('notes') }}</label>
-                        <textarea id="notes" name="notes" rows="4" placeholder="How did it feel?"></textarea>
-                        <div class="form-row-split">
-                            <div>
-                                <label for="weather_summary">{{ _('weather_summary') }}</label>
-                                <input id="weather_summary" name="weather_summary" type="text" placeholder="Clear, humid, rainy">
-                            </div>
-                            <div>
-                                <label for="route_type">{{ _('route_type') }}</label>
-                                <select id="route_type" name="route_type">
-                                    <option value="">Choose route type</option>
-                                    <option>Road</option><option>Trail</option><option>Track</option><option>Treadmill</option><option>Hilly</option>
-                                </select>
-                            </div>
-                        </div>
-                        <div class="form-row-split">
-                            <div><label for="temperature_f">{{ _('temperature_f') }}</label><input id="temperature_f" name="temperature_f" type="number" step="1"></div>
-                            <div><label for="wind_mph">{{ _('wind_mph') }}</label><input id="wind_mph" name="wind_mph" type="number" step="1"></div>
-                        </div>
-                        <label for="route_notes">{{ _('route_notes') }}</label>
-                        <textarea id="route_notes" name="route_notes" rows="3"></textarea>
-                        <div class="form-row-split">
-                            <div><label for="avg_heart_rate">{{ _('avg_heart_rate') }}</label><input id="avg_heart_rate" name="avg_heart_rate" type="number" min="1"></div>
-                            <div><label for="cadence">{{ _('cadence') }}</label><input id="cadence" name="cadence" type="number" min="1"></div>
-                        </div>
-                        <label for="steps">{{ _('steps') }}</label>
-                        <input id="steps" name="steps" type="number" min="1">
-                        <button type="submit">{{ _('save_run') }}</button>
-                    </form>
-                </section>
-                <section class="log-support-stack">
-                    <form class="panel agent-panel" id="agentChatForm" method="post" action="{{ url_for('ask_agent') }}" data-agent="rico" data-avatar="{{ url_for('static', filename='coqui-coach.svg') }}" data-waiting="Let me check your training notes...">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="agent" value="rico">
-                        <h2>Rico Runner</h2>
-                        <div class="chat-thread" id="chatMessages" aria-live="polite"></div>
-                        <textarea id="question" name="question" rows="3" placeholder="What should my next workout be?">{{ agent_question or "" }}</textarea>
-                        <button type="submit">Ask Rico</button>
-                    </form>
-                    <form class="panel agent-panel iggy-panel" id="iggyChatForm" method="post" action="{{ url_for('ask_agent') }}" data-agent="iggy" data-avatar="{{ url_for('static', filename='iggy-coach.svg') }}" data-waiting="Iggy is checking your walk checklist...">
-                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                        <input type="hidden" name="agent" value="iggy">
-                        <h2>Iggy</h2>
-                        <div class="chat-thread" id="iggyMessages" aria-live="polite"></div>
-                        <textarea id="iggyQuestion" name="question" rows="3" placeholder="Create my walking routine"></textarea>
-                        <button type="submit">Ask Iggy</button>
-                    </form>
-                    <section class="panel luna-panel" id="luna-recovery">
-                        <h2>Luna Recovery</h2>
-                        <p>{{ luna_summary }}</p>
-                        <div class="luna-alert-grid">
-                            {% for card in luna_cards[:4] %}
-                                <article class="luna-alert-card"><strong>{{ card["title"] }}</strong><p>{{ card["message"] }}</p></article>
-                            {% endfor %}
-                        </div>
-                    </section>
-                </section>
-            </section>
+{% extends "base_app.html" %}
+{% set active_page = 'coach' %}
+{% set asset_version = 'phase3-log-1' %}
+
+{% block title %}{{ _('log_workout') }} - RunCoach AI{% endblock %}
+
+{% block body_class %}log-workout-page{% endblock %}
+
+{% block content %}
+<header class="page-hero">
+    <p class="eyebrow">{{ _('log_workout') }}</p>
+    <h1>Record the essentials.</h1>
+    <p>Manual entry stays quick: date, duration, distance, and optional average heart rate. Detailed device fields belong to imports.</p>
+</header>
+
+<section class="layout log-page-layout">
+    <section class="panel run-form compact-section" id="log-run">
+        <p class="eyebrow">{{ _('log_a_run') }}</p>
+        <h2>Log Run or Walk</h2>
+        <form method="post" action="{{ url_for('log_workout') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+            <label for="run_date">{{ _('run_date') }}</label>
+            <input id="run_date" name="run_date" type="date" value="{{ today_iso }}" required>
+
+            <fieldset class="duration-fieldset">
+                <legend>{{ _('duration') }}</legend>
+                <div class="form-row-split duration-inputs">
+                    <div>
+                        <label for="duration_hours">{{ _('hours') }}</label>
+                        <input id="duration_hours" name="duration_hours" type="number" min="0" step="1" inputmode="numeric" value="0">
+                    </div>
+                    <div>
+                        <label for="duration_minutes">{{ _('minutes') }}</label>
+                        <input id="duration_minutes" name="duration_minutes" type="number" min="0" step="1" inputmode="numeric" required>
+                    </div>
+                    <div>
+                        <label for="duration_seconds">{{ _('seconds') }}</label>
+                        <input id="duration_seconds" name="duration_seconds" type="number" min="0" max="59" step="1" inputmode="numeric" value="0">
+                    </div>
+                </div>
+            </fieldset>
+
+            <div class="form-row-split">
+                <div>
+                    <label for="distance">{{ _('distance_miles') }}</label>
+                    <input id="distance" name="distance" type="number" step="0.01" min="0.01" required>
+                </div>
+                <div>
+                    <label for="distance_unit">{{ _('distance_unit') }}</label>
+                    <select id="distance_unit" name="distance_unit">
+                        <option value="mi">{{ _('miles') }}</option>
+                        <option value="km">{{ _('kilometers') }}</option>
+                    </select>
+                </div>
+            </div>
+
+            <label for="avg_heart_rate">{{ _('avg_heart_rate') }} <span class="optional-label">optional</span></label>
+            <input id="avg_heart_rate" name="avg_heart_rate" type="number" min="1" inputmode="numeric">
+
+            <p class="form-helper">Average pace, workout count, weekly distance, challenge progress, and progress summaries are calculated automatically after saving.</p>
+            <button type="submit">{{ _('save_run') }}</button>
+        </form>
+    </section>
+
+    <aside class="log-support-stack">
+        <section class="panel">
+            <h2>Need help choosing the effort?</h2>
+            <p class="notes">Ask Rico, Iggy, or Luna before you log. Their advice uses your saved workout history.</p>
+            <a class="primary-link" href="{{ url_for('coach_page') }}">Open Coach</a>
         </section>
-    </main>
-    <div class="fireworks" id="fireworks" aria-hidden="true"></div>
-    <script id="runChartData" type="application/json">{{ chart_data|tojson }}</script>
-    <script src="{{ url_for('static', filename='app.js', v='intro-chime-coqui-1') }}"></script>
-</body>
-</html>
+        <section class="panel">
+            <h2>Have detailed workout data?</h2>
+            <p class="notes">Calories, cadence, steps, weather, route notes, and device source are preserved through CSV, Apple Health XML, and mock device imports.</p>
+            <a class="primary-link" href="{{ url_for('import_workouts') }}">Import workouts</a>
+        </section>
+    </aside>
+</section>
+{% endblock %}
+
+{% block body_extra %}
+<div class="fireworks" id="fireworks" aria-hidden="true"></div>
+<script src="{{ url_for('static', filename='app.js', v='phase3-log-1') }}"></script>
+{% endblock %}

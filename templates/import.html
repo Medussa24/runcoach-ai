@@ -1,17 +1,13 @@
-<!doctype html>
-<html lang="{{ current_lang }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Import Workouts - RunCoach AI</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body data-celebrate="{{ 'import-success' if result and result['imported'] > 0 else '' }}" data-accessibility-mode="{{ current_accessibility_mode }}">
-    <main class="dashboard-shell">
-        {% set active_page = 'import' %}
-        {% include "_sidebar.html" %}
-        <section class="dashboard-main clean-page">
+{% extends "base_app.html" %}
+{% set active_page = 'settings' %}
+{% set asset_version = 'phase8-data-devices-1' %}
+
+{% block title %}Import Workouts - RunCoach AI{% endblock %}
+
+{% block body_class %}{% if result and result['imported'] > 0 %}import-success-page{% endif %}{% endblock %}
+{% block celebrate_state %}{{ 'import-success' if result and result['imported'] > 0 else '' }}{% endblock %}
+
+{% block content %}
             <header class="page-hero">
                 <p class="eyebrow">RunCoach AI</p>
                 <h1>{{ _('import_workouts') }}</h1>
@@ -104,9 +100,9 @@
                     {% endif %}
                 </section>
             {% endif %}
-        </section>
-    </main>
+{% endblock %}
+
+{% block body_extra %}
     <div class="fireworks" id="fireworks" aria-hidden="true"></div>
     <script src="{{ url_for('static', filename='app.js') }}"></script>
-</body>
-</html>
+{% endblock %}

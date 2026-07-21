@@ -1,0 +1,160 @@
+{% extends "base_app.html" %}
+{% set active_page = 'coach' %}
+{% set asset_version = 'phase2-coach-1' %}
+
+{% set selected_coach = request.args.get('coach', 'rico') %}
+{% if selected_coach not in ['rico', 'iggy', 'luna'] %}
+    {% set selected_coach = 'rico' %}
+{% endif %}
+
+{% set coach_profiles = {
+    'rico': {
+        'name': 'Rico Runner',
+        'role': 'Running coach',
+        'avatar': 'coqui-coach.svg',
+        'greeting': 'Let us keep your next run steady, useful, and repeatable.',
+        'focus': 'Pacing, consistency, progression, and race preparation.',
+        'prompts': ['Plan today', 'Review my last run', 'Explain my pace']
+    },
+    'iggy': {
+        'name': 'Iggy',
+        'role': 'Beginner walking coach',
+        'avatar': 'iggy-coach.svg',
+        'greeting': 'We can start gently and build confidence one walk at a time.',
+        'focus': 'Walking, breathing, beginner confidence, and habit building.',
+        'prompts': ['Plan a gentle walk', 'I feel nervous starting', 'Give me a breathing task']
+    },
+    'luna': {
+        'name': 'Luna',
+        'role': 'Recovery coach',
+        'avatar': 'luna-recovery.svg',
+        'greeting': 'Tell me what feels tight, tired, or heavy, and we will choose a calmer next step.',
+        'focus': 'Recovery, soreness, mobility, hydration, rest, and returning after fatigue.',
+        'prompts': ['I feel sore', 'Adjust my workout', 'Help me recover today']
+    }
+} %}
+
+{% block title %}{{ _('coach') }} - RunCoach AI{% endblock %}
+
+{% block content %}
+<header class="page-hero coach-workspace-header">
+    <p class="eyebrow">{{ _('coach') }}</p>
+    <h1>Choose your coach.</h1>
+    <p>Rico, Iggy, and Luna share your workout history and context. Switching coaches changes the tone and recommendations, not the underlying data.</p>
+</header>
+
+<section
+    class="coach-workspace"
+    data-coach-workspace
+    data-selected-coach="{{ selected_coach }}"
+    aria-labelledby="coach-workspace-title"
+>
+    <div class="coach-selector" role="radiogroup" aria-labelledby="coach-workspace-title">
+        <h2 id="coach-workspace-title" class="sr-only">Choose your coach</h2>
+        {% for coach_id, coach in coach_profiles.items() %}
+            <button
+                class="coach-choice {{ 'is-selected' if coach_id == selected_coach else '' }}"
+                type="button"
+                role="radio"
+                aria-checked="{{ 'true' if coach_id == selected_coach else 'false' }}"
+                data-coach-choice="{{ coach_id }}"
+                data-coach-name="{{ coach.name }}"
+                data-coach-role="{{ coach.role }}"
+                data-coach-avatar="{{ url_for('static', filename=coach.avatar) }}"
+                data-coach-greeting="{{ coach.greeting }}"
+            >
+                <img src="{{ url_for('static', filename=coach.avatar) }}" alt="">
+                <span>
+                    <strong>{{ coach.name }}</strong>
+                    <small>{{ coach.role }}</small>
+                </span>
+            </button>
+        {% endfor %}
+    </div>
+
+    <section class="coach-workspace-grid">
+        <section class="panel coach-chat-panel" aria-labelledby="coach-chat-title">
+            <div class="coach-chat-heading">
+                <img id="coachAvatar" src="{{ url_for('static', filename=coach_profiles[selected_coach].avatar) }}" alt="">
+                <div>
+                    <p class="eyebrow" id="coachRole">{{ coach_profiles[selected_coach].role }}</p>
+                    <h2 id="coachChatTitle">{{ coach_profiles[selected_coach].name }}</h2>
+                    <p id="coachGreeting">{{ coach_profiles[selected_coach].greeting }}</p>
+                </div>
+            </div>
+
+            <div class="coach-chat-thread" id="coachWorkspaceMessages" aria-live="polite" aria-label="Coach conversation">
+                {% for coach_id, messages in coach_messages.items() %}
+                    <div class="coach-message-set {{ '' if coach_id == selected_coach else 'is-hidden' }}" data-coach-messages="{{ coach_id }}">
+                        {% if messages %}
+                            {% for message in messages %}
+                                <div class="chat-message {{ 'user-message' if message.sender == 'user' else coach_id ~ '-message' }}">
+                                    {% if message.sender != 'user' %}
+                                        <img src="{{ url_for('static', filename=coach_profiles[coach_id].avatar) }}" alt="">
+                                    {% endif %}
+                                    <p>{{ message.message }}</p>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="chat-message {{ coach_id }}-message">
+                                <img src="{{ url_for('static', filename=coach_profiles[coach_id].avatar) }}" alt="">
+                                <p>{{ coach_profiles[coach_id].greeting }}</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div class="prompt-chips coach-workspace-prompts" aria-label="Suggested coaching prompts">
+                {% for coach_id, coach in coach_profiles.items() %}
+                    <div class="coach-prompt-set {{ '' if coach_id == selected_coach else 'is-hidden' }}" data-coach-prompts="{{ coach_id }}">
+                        {% for prompt in coach.prompts %}
+                            <button type="button" data-coach-prompt="{{ prompt }}">{{ prompt }}</button>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <form class="coach-workspace-form" id="coachWorkspaceForm" data-agent="{{ selected_coach }}">
+                <input type="hidden" name="agent" value="{{ selected_coach }}">
+                <label for="coachWorkspaceQuestion">Message your coach</label>
+                <textarea id="coachWorkspaceQuestion" name="question" rows="3" placeholder="Ask about today, your last workout, soreness, pace, or confidence."></textarea>
+                <button type="submit">Send</button>
+            </form>
+        </section>
+
+        <aside class="coach-today-panel" aria-label="Workout and plan summary">
+            <section class="panel">
+                <h2>Today</h2>
+                {% if next_plan_event %}
+                    <p><strong>{{ next_plan_event["title"] }}</strong></p>
+                    <p class="notes">{{ next_plan_event["event_date"] }} at {{ next_plan_event["start_time"] }}</p>
+                    <p class="notes">{{ next_plan_event["purpose"] or "Keep the effort beginner-friendly and repeatable." }}</p>
+                    <a class="primary-link" href="{{ url_for('planner.planner') }}">Adjust plan</a>
+                {% else %}
+                    <p class="empty-state">No workout is planned for today yet.</p>
+                    <a class="primary-link" href="{{ url_for('planner.planner') }}">Generate this week</a>
+                {% endif %}
+                <a class="primary-link" href="{{ url_for('log_workout') }}#log-run">Log a workout</a>
+            </section>
+
+            <section class="panel">
+                <h2>This week</h2>
+                <p class="notes">{{ "%.1f"|format(analyst_summary["weekly_mileage"]) }} miles logged across {{ runs|length }} saved workout{{ '' if runs|length == 1 else 's' }}.</p>
+                <a class="primary-link" href="{{ url_for('planner.planner') }}">Open weekly plan</a>
+                <a class="primary-link" href="{{ url_for('progress_page') }}">View progress</a>
+            </section>
+
+            <section class="panel">
+                <h2>Quick log workout</h2>
+                <p class="notes">Save a run or walk after your coach helps you choose the effort.</p>
+                <a class="button" href="{{ url_for('log_workout') }}#log-run">Log workout</a>
+            </section>
+        </aside>
+    </section>
+</section>
+{% endblock %}
+
+{% block body_extra %}
+<script src="{{ url_for('static', filename='app.js', v='phase2-coach-1') }}"></script>
+{% endblock %}

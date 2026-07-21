@@ -51,8 +51,69 @@ from sentinel_qa import SentinelQA
 # `python app.py`, expose this module under its import name to avoid reloading it.
 sys.modules.setdefault("app", sys.modules[__name__])
 
+DEVELOPMENT_SECRET_KEY = "runcoach-ai-local-dev-secret"
+TRUTHY_ENV_VALUES = {"1", "true", "yes", "on"}
+FALSEY_ENV_VALUES = {"0", "false", "no", "off"}
+
+
+def is_production_environment(config=None):
+    """Return whether explicit app configuration selects production mode."""
+    config = config or {}
+    environment_name = (
+        config.get("APP_ENV")
+        or os.environ.get("APP_ENV")
+        or os.environ.get("FLASK_ENV")
+        or "development"
+    )
+    return str(environment_name).strip().lower() in {"production", "prod"}
+
+
+def parse_env_flag(value, default=False):
+    """Parse an environment-style boolean without treating typos as enabled."""
+    if value is None:
+        return default
+    normalized = str(value).strip().lower()
+    if normalized in TRUTHY_ENV_VALUES:
+        return True
+    if normalized in FALSEY_ENV_VALUES:
+        return False
+    return default
+
+
+def configure_secret_key(flask_app):
+    """Require an explicit SECRET_KEY in production and use a local fallback otherwise."""
+    secret_key = os.environ.get("SECRET_KEY")
+    if is_production_environment(flask_app.config) and not secret_key:
+        raise RuntimeError("SECRET_KEY is required when APP_ENV or FLASK_ENV is production.")
+    flask_app.secret_key = secret_key or DEVELOPMENT_SECRET_KEY
+    flask_app.config["SECRET_KEY"] = flask_app.secret_key
+    return flask_app.secret_key
+
+
+def default_demo_mode(config=None):
+    """Enable demo mode locally unless DEMO_MODE explicitly overrides it."""
+    return parse_env_flag(
+        os.environ.get("DEMO_MODE"),
+        default=not is_production_environment(config),
+    )
+
+
+def configured_demo_password():
+    """Return the configured demo password or the local capstone fallback."""
+    return os.environ.get("DEMO_PASSWORD", "demo123")
+
+
+def is_demo_mode_enabled(flask_app=None):
+    """Return whether demo login and demo credentials should be visible."""
+    if flask_app is not None and "DEMO_MODE" in flask_app.config:
+        return bool(flask_app.config["DEMO_MODE"])
+    return default_demo_mode(flask_app.config if flask_app else None)
+
+
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "runcoach-ai-local-dev-secret")
+app.config["APP_ENV"] = os.environ.get("APP_ENV") or os.environ.get("FLASK_ENV") or "development"
+configure_secret_key(app)
+app.config["DEMO_MODE"] = default_demo_mode(app.config)
 app.config["MAX_CONTENT_LENGTH"] = 10 * 1024 * 1024
 app.config["SENTINEL_INTERVAL_SECONDS"] = 15 * 60
 app.config["SESSION_COOKIE_HTTPONLY"] = True
@@ -70,7 +131,7 @@ sentinel_qa = SentinelQA(
     interval_seconds=app.config["SENTINEL_INTERVAL_SECONDS"],
 )
 DEMO_EMAIL = "demo@runcoach.test"
-DEMO_PASSWORD = "demo123"
+DEMO_PASSWORD = configured_demo_password()
 AGENT_RICO = "rico"
 AGENT_IGGY = "iggy"
 AGENT_LUNA = "luna"
@@ -1070,10 +1131,29 @@ def optional_int(value):
     return int(value)
 
 
+def parse_manual_duration_minutes(form):
+    """Accept either legacy duration minutes or hour/minute/second inputs."""
+    duration_parts = [
+        form.get("duration_hours"),
+        form.get("duration_minutes"),
+        form.get("duration_seconds"),
+    ]
+    if any(empty_to_none(value) is not None for value in duration_parts):
+        hours = optional_float(form.get("duration_hours")) or 0
+        minutes = optional_float(form.get("duration_minutes")) or 0
+        seconds = optional_float(form.get("duration_seconds")) or 0
+        if any(value < 0 for value in (hours, minutes, seconds)):
+            raise ValueError("Distance and duration must be greater than zero.")
+        return round((hours * 60) + minutes + (seconds / 60), 4)
+
+    return float(form.get("duration", ""))
+
+
 def parse_run_form(form):
     """Validate and normalize a manually entered run."""
     run_date = (form.get("run_date") or "").strip()
-    mood = (form.get("mood") or "").strip()
+    mood = (form.get("mood") or "Good").strip()
+    distance_unit = (form.get("distance_unit") or "mi").strip().lower()
 
     try:
         date.fromisoformat(run_date)
@@ -1081,8 +1161,8 @@ def parse_run_form(form):
         raise ValueError("Choose a valid run date.") from error
 
     try:
-        distance = float(form.get("distance", ""))
-        duration = float(form.get("duration", ""))
+        raw_distance = float(form.get("distance", ""))
+        duration = parse_manual_duration_minutes(form)
         temperature_f = optional_float(form.get("temperature_f"))
         wind_mph = optional_float(form.get("wind_mph"))
         avg_heart_rate = optional_int(form.get("avg_heart_rate"))
@@ -1090,6 +1170,13 @@ def parse_run_form(form):
         cadence = optional_int(form.get("cadence"))
     except (TypeError, ValueError) as error:
         raise ValueError("Use valid numbers for the run details.") from error
+
+    if distance_unit in ("km", "kilometer", "kilometers"):
+        distance = raw_distance / 1.609344
+    elif distance_unit in ("mi", "mile", "miles"):
+        distance = raw_distance
+    else:
+        raise ValueError("Choose miles or kilometers for distance.")
 
     numeric_values = [distance, duration, temperature_f, wind_mph]
     if any(value is not None and not math.isfinite(value) for value in numeric_values):
@@ -1649,6 +1736,17 @@ def dashboard_context(user, agent_question=""):
         (event for event in upcoming_events if not event["is_completed"]),
         None,
     )
+    community_events = get_upcoming_events()
+    next_community_event = community_events[0] if community_events else None
+    dashboard_challenge = None
+    for challenge in get_all_challenges():
+        challenge["joined"] = is_user_joined_challenge(user_id, challenge["id"])
+        challenge["progress"] = calculate_challenge_progress(user_id, challenge)
+        if challenge["joined"]:
+            dashboard_challenge = challenge
+            break
+        if dashboard_challenge is None:
+            dashboard_challenge = challenge
 
     return {
         "runs": runs,
@@ -1658,6 +1756,11 @@ def dashboard_context(user, agent_question=""):
         "current_user": user,
         "chat_messages": get_agent_messages(user_id, AGENT_RICO),
         "iggy_chat_messages": get_agent_messages(user_id, AGENT_IGGY),
+        "coach_messages": {
+            AGENT_RICO: get_agent_messages(user_id, AGENT_RICO),
+            AGENT_IGGY: get_agent_messages(user_id, AGENT_IGGY),
+            AGENT_LUNA: get_agent_messages(user_id, AGENT_LUNA),
+        },
         "walk_tasks": get_walk_tasks(user_id),
         "visuals": build_dashboard_visuals(runs),
         "chart_data": chart_data,
@@ -1668,6 +1771,9 @@ def dashboard_context(user, agent_question=""):
         "motivation_posts": motivation_posts(),
         "weekly_schedule": weekly_workout_schedule(),
         "next_plan_event": next_plan_event,
+        "next_community_event": next_community_event,
+        "dashboard_challenge": dashboard_challenge,
+        "today_iso": today.isoformat(),
         "planner_timezone": timezone_name,
         "luna_summary": luna_agent.summary(),
         "luna_cards": luna_agent.cards(),
@@ -1751,6 +1857,12 @@ def progress_page():
     return render_template("progress.html", **dashboard_context(current_user()))
 
 
+@app.route("/coach")
+@login_required
+def coach_page():
+    return render_template("coach.html", **dashboard_context(current_user()))
+
+
 @app.route("/log-workout", methods=["GET", "POST"])
 @login_required
 def log_workout():
@@ -1781,15 +1893,25 @@ def community_page():
     return render_template(
         "community.html",
         current_user=user,
-        events=events[:3],
-        challenges=challenges[:3],
+        events=events,
+        challenges=challenges,
     )
 
 
 @app.route("/settings")
 @login_required
 def settings_page():
-    return render_template("settings.html", current_user=current_user())
+    user = current_user()
+    user_id = user["id"]
+    connections = get_health_connections(user_id)
+    connections_map = {conn["provider"]: conn for conn in connections}
+    imported_activities = get_imported_activities(user_id)
+    return render_template(
+        "settings.html",
+        current_user=user,
+        connections=connections_map,
+        imported_activities=imported_activities,
+    )
 
 
 @app.route("/analyze-screenshot", methods=["POST"])
@@ -1934,6 +2056,15 @@ TRANSLATIONS = {
         "health_integrations": "Health Integrations",
         "community": "Community",
         "settings": "Settings",
+        "coach": "Coach",
+        "account": "Account",
+        "distance_unit": "Distance unit",
+        "miles": "Miles",
+        "kilometers": "Kilometers",
+        "duration": "Duration",
+        "hours": "Hours",
+        "minutes": "Minutes",
+        "seconds": "Seconds",
         "import_data": "Import Data",
         "coach_library": "Coach Library",
         "log_out": "Log Out",
@@ -2004,6 +2135,15 @@ TRANSLATIONS = {
         "health_integrations": "Integraciones de Salud",
         "community": "Comunidad",
         "settings": "Ajustes",
+        "coach": "Entrenador",
+        "account": "Cuenta",
+        "distance_unit": "Unidad de distancia",
+        "miles": "Millas",
+        "kilometers": "Kilómetros",
+        "duration": "Duración",
+        "hours": "Horas",
+        "minutes": "Minutos",
+        "seconds": "Segundos",
         "import_data": "Importar Datos",
         "coach_library": "Biblioteca de Entrenadores",
         "log_out": "Cerrar Sesión",

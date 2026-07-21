@@ -1,46 +1,106 @@
-<!doctype html>
-<html lang="{{ current_lang }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ _('settings') }} - RunCoach AI</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v='multipage-1') }}">
-</head>
-<body data-accessibility-mode="{{ current_accessibility_mode }}">
-    <main class="dashboard-shell">
-        {% set active_page = 'settings' %}
-        {% include "_sidebar.html" %}
-        <section class="dashboard-main clean-page">
-            <header class="page-hero">
-                <p class="eyebrow">{{ _('settings') }}</p>
-                <h1>Preferences</h1>
-                <p>Language and accessibility settings supported by the current backend.</p>
-            </header>
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% for category, message in messages %}
-                    <p class="planner-notice planner-notice-{{ category }}" role="status">{{ message }}</p>
-                {% endfor %}
-            {% endwith %}
-            <section class="panel run-form compact-section">
-                <h2>{{ _('accessibility_settings') }}</h2>
-                <form method="post" action="{{ url_for('update_settings') }}">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <label for="settingsLanguage">{{ _('language') }}</label>
-                    <select id="settingsLanguage" name="language">
-                        <option value="en" {% if current_lang == 'en' %}selected{% endif %}>{{ _('english') }}</option>
-                        <option value="es" {% if current_lang == 'es' %}selected{% endif %}>{{ _('spanish') }}</option>
-                    </select>
-                    <label for="settingsAccessibility">{{ _('accessibility_settings') }}</label>
-                    <select id="settingsAccessibility" name="accessibility_mode">
-                        <option value="standard" {% if current_accessibility_mode == 'standard' %}selected{% endif %}>{{ _('standard_mode') }}</option>
-                        <option value="deaf_hoh" {% if current_accessibility_mode == 'deaf_hoh' %}selected{% endif %}>{{ _('deaf_hoh_mode') }}</option>
-                        <option value="visual_coaching" {% if current_accessibility_mode == 'visual_coaching' %}selected{% endif %}>{{ _('visual_coaching_mode') }}</option>
-                    </select>
-                    <button type="submit">{{ _('save_settings') }}</button>
-                </form>
-            </section>
-        </section>
-    </main>
-</body>
-</html>
+{% extends "base_app.html" %}
+{% set active_page = 'settings' %}
+{% set asset_version = 'phase4-community-settings-1' %}
+
+{% block title %}{{ _('settings') }} - RunCoach AI{% endblock %}
+
+{% block content %}
+<header class="page-hero">
+    <p class="eyebrow">{{ _('settings') }}</p>
+    <h1>Settings</h1>
+    <p>Profile, preferences, accessibility, data imports, demo device connections, and account controls in one place.</p>
+</header>
+
+<nav class="section-tabs" aria-label="Settings sections">
+    <a href="#settings-profile">Profile</a>
+    <a href="#settings-preferences">Preferences</a>
+    <a href="#settings-accessibility">Accessibility</a>
+    <a href="#settings-data-devices">Data &amp; Devices</a>
+    <a href="#settings-account">Account</a>
+</nav>
+
+<section class="settings-grid">
+    <article class="panel settings-section" id="settings-profile">
+        <p class="eyebrow">Profile</p>
+        <h2>Profile</h2>
+        <dl class="compact-details">
+            <div><dt>Email</dt><dd>{{ current_user["email"] }}</dd></div>
+            <div><dt>Member mode</dt><dd>{{ 'Demo account' if session.get('is_demo') else 'Standard account' }}</dd></div>
+        </dl>
+    </article>
+
+    <article class="panel settings-section" id="settings-preferences">
+        <p class="eyebrow">Preferences</p>
+        <h2>Language and distance</h2>
+        <form method="post" action="{{ url_for('update_settings') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label for="settingsLanguage">{{ _('language') }}</label>
+            <select id="settingsLanguage" name="language">
+                <option value="en" {% if current_lang == 'en' %}selected{% endif %}>{{ _('english') }}</option>
+                <option value="es" {% if current_lang == 'es' %}selected{% endif %}>{{ _('spanish') }}</option>
+            </select>
+            <input type="hidden" name="accessibility_mode" value="{{ current_accessibility_mode }}">
+            <p class="notes">Distance unit is selected when logging a workout. A saved default can be added after the profile schema supports it.</p>
+            <button type="submit">{{ _('save_settings') }}</button>
+        </form>
+    </article>
+
+    <article class="panel settings-section" id="settings-accessibility">
+        <p class="eyebrow">Accessibility</p>
+        <h2>{{ _('accessibility_settings') }}</h2>
+        <form method="post" action="{{ url_for('update_settings') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="language" value="{{ current_lang }}">
+            <label for="settingsAccessibility">{{ _('accessibility_settings') }}</label>
+            <select id="settingsAccessibility" name="accessibility_mode">
+                <option value="standard" {% if current_accessibility_mode == 'standard' %}selected{% endif %}>{{ _('standard_mode') }}</option>
+                <option value="deaf_hoh" {% if current_accessibility_mode == 'deaf_hoh' %}selected{% endif %}>{{ _('deaf_hoh_mode') }}</option>
+                <option value="visual_coaching" {% if current_accessibility_mode == 'visual_coaching' %}selected{% endif %}>{{ _('visual_coaching_mode') }}</option>
+            </select>
+            <button type="submit">{{ _('save_settings') }}</button>
+        </form>
+    </article>
+</section>
+
+<section class="panel settings-section" id="settings-data-devices">
+    <p class="eyebrow">Data &amp; Devices</p>
+    <h2>Imports and demo connections</h2>
+    <p class="notes">Manual entry is intentionally minimal. CSV, Apple Health XML, and demo integrations preserve detailed workout data such as calories, cadence, steps, source, and heart-rate fields.</p>
+
+    <div class="settings-data-grid">
+        <form class="settings-import-form" method="post" action="{{ url_for('import_workouts') }}" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <h3>Apple Health XML</h3>
+            <label for="settingsHealthXml">Apple Health export.xml</label>
+            <input id="settingsHealthXml" name="health_xml" type="file" accept=".xml,text/xml">
+            <button type="submit">Import XML</button>
+        </form>
+
+        <form class="settings-import-form" method="post" action="{{ url_for('import_workouts') }}" enctype="multipart/form-data">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <h3>CSV workouts</h3>
+            <label for="settingsWorkoutCsv">Workout CSV</label>
+            <input id="settingsWorkoutCsv" name="workouts_csv" type="file" accept=".csv,text/csv">
+            <button type="submit">Import CSV</button>
+        </form>
+
+        <article class="settings-import-form">
+            <h3>Connected services</h3>
+            <p class="notes">{{ connections|length }} demo connection{{ '' if connections|length == 1 else 's' }} active. {{ imported_activities|length }} imported activit{{ 'y' if imported_activities|length == 1 else 'ies' }} waiting or reviewed.</p>
+            <ul class="status-list">
+                <li><span class="status-badge">Demo connection</span> Strava, Fitbit, and Garmin use mock sync only.</li>
+                <li><span class="status-badge">Requires mobile app</span> Apple Health and Health Connect direct sync are planned.</li>
+                <li><span class="status-badge">Privacy</span> Imported activities require approval before entering workout history.</li>
+            </ul>
+            <a class="primary-link" href="{{ url_for('integrations.integrations_page') }}">Manage demo integrations</a>
+        </article>
+    </div>
+</section>
+
+<section class="panel settings-section" id="settings-account">
+    <p class="eyebrow">{{ _('account') }}</p>
+    <h2>Account</h2>
+    <p class="notes">Signed in as {{ current_user["email"] }}.</p>
+    <a class="button-secondary" href="{{ url_for('auth.logout') }}">{{ _('log_out') }}</a>
+</section>
+{% endblock %}

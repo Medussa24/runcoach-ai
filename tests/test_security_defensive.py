@@ -28,6 +28,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(runcoach, "SCREENSHOT_UPLOAD_DIR", tmp_path / "screenshots")
     runcoach.app.config.update(
         TESTING=True,
+        DEMO_MODE=True,
         SECRET_KEY="test-secret",
         WTF_CSRF_ENABLED=False,
     )
@@ -77,6 +78,44 @@ def add_run(client, **overrides):
     }
     data.update(overrides)
     return client.post("/", data=data, follow_redirects=True)
+
+
+def test_development_allows_local_secret_fallback(monkeypatch):
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    temporary_app = runcoach.Flask("development-secret-test")
+    temporary_app.config["APP_ENV"] = "development"
+
+    assert runcoach.configure_secret_key(temporary_app) == runcoach.DEVELOPMENT_SECRET_KEY
+
+
+def test_production_requires_secret_key(monkeypatch):
+    monkeypatch.delenv("SECRET_KEY", raising=False)
+    temporary_app = runcoach.Flask("production-secret-test")
+    temporary_app.config["APP_ENV"] = "production"
+
+    with pytest.raises(RuntimeError, match="SECRET_KEY is required"):
+        runcoach.configure_secret_key(temporary_app)
+
+
+def test_production_accepts_configured_secret_key(monkeypatch):
+    monkeypatch.setenv("SECRET_KEY", "configured-production-secret")
+    temporary_app = runcoach.Flask("production-secret-present-test")
+    temporary_app.config["APP_ENV"] = "production"
+
+    assert runcoach.configure_secret_key(temporary_app) == "configured-production-secret"
+
+
+def test_demo_mode_defaults_off_in_production(monkeypatch):
+    monkeypatch.delenv("DEMO_MODE", raising=False)
+    config = {"APP_ENV": "production"}
+
+    assert runcoach.default_demo_mode(config) is False
+
+
+def test_configured_demo_password_is_respected(monkeypatch):
+    monkeypatch.setenv("DEMO_PASSWORD", "custom-demo-pass")
+
+    assert runcoach.configured_demo_password() == "custom-demo-pass"
 
 
 @pytest.mark.parametrize(
@@ -291,6 +330,11 @@ def test_csv_duplicate_detection_uses_the_same_rounded_values_as_storage(client)
     assert len(runs) == 1
     assert runs[0]["distance"] == 3.1235
     assert runs[0]["duration"] == 30.13
+    assert runs[0]["avg_heart_rate"] == 145
+    assert runs[0]["max_heart_rate"] == 170
+    assert runs[0]["calories"] == 300
+    assert runs[0]["source"] == "Precision Watch"
+    assert runs[0]["imported_from"] == "Apple Health CSV"
     assert "Duplicates" in second.get_data(as_text=True)
 
 
@@ -379,6 +423,10 @@ def test_weekly_schedule_and_upload_limit_are_available(client):
     assert b"Generate my week" in planner.data
     assert imports.status_code == 200
     assert b"Maximum upload size: 10 MB." in imports.data
+    import_html = imports.get_data(as_text=True)
+    assert 'aria-label="Primary navigation"' in import_html
+    assert 'href="/settings" aria-current="page"' in import_html
+    assert 'id="main-content"' in import_html
     assert runcoach.app.config["MAX_CONTENT_LENGTH"] == 10 * 1024 * 1024
 
 
@@ -394,10 +442,131 @@ def test_dashboard_renders_compact_action_hub_without_legacy_top_control(client)
     assert 'id="dashboardSearch"' not in html
     assert html.count("dashboard-coach-card") == 3
     assert "Log a workout" in html
-    assert "Training snapshot" in html
+    assert "Recommended next actions" in html
+    assert "Quick log" in html
+    assert "Weekly progress" in html
+    assert "Recent workout" in html
+    assert "Community" in html
+    assert 'href="/coach"' in html
     assert 'id="backToTop"' not in html
     assert 'id="quickTipsToggle"' not in html
     assert "Quick Demo Tutorial" not in html
+
+
+def test_primary_navigation_has_five_clean_sections(client):
+    user_id = create_user("five-nav@example.test")
+    login_as(client, user_id)
+
+    html = client.get("/").get_data(as_text=True)
+
+    assert 'aria-label="Primary navigation"' in html
+    assert html.count("app-nav-item") == 5
+    assert "HomeDashboard" not in html
+    assert "StatsMy Progress" not in html
+    assert "PlanMy Plan" not in html
+    assert "ShopShop" not in html
+    for label in ["Dashboard", "Coach", "Progress", "Community", "Settings"]:
+        assert f">{label}</span>" in html
+    for removed in [
+        "My Plan",
+        "Import Workouts",
+        "Health Integrations",
+        "Events & Community",
+        "Challenges",
+        "Shop",
+    ]:
+        assert f"app-nav-label\">{removed}</span>" not in html
+
+
+def test_unified_coach_workspace_renders_and_old_urls_remain_available(client):
+    user_id = create_user("coach-workspace@example.test")
+    login_as(client, user_id)
+
+    coach = client.get("/coach")
+    coach_html = coach.get_data(as_text=True)
+
+    assert coach.status_code == 200
+    assert "Choose your coach" in coach_html
+    assert 'data-coach-workspace' in coach_html
+    assert coach_html.count('data-coach-choice=') == 3
+    assert 'id="coachWorkspaceForm"' in coach_html
+    assert 'name="agent" value="rico"' in coach_html
+    assert "Rico Runner" in coach_html
+    assert "Iggy" in coach_html
+    assert "Luna" in coach_html
+    assert 'aria-current="page"' in coach_html
+    assert 'href="/log-workout#log-run"' in coach_html
+    assert 'href="/planner"' in coach_html
+
+    for old_url in ["/planner", "/log-workout", "/import", "/integrations", "/events", "/challenges", "/shop"]:
+        response = client.get(old_url)
+        assert response.status_code == 200
+
+
+def test_coach_workspace_preserves_selected_coach_from_dashboard_links(client):
+    user_id = create_user("selected-coach@example.test")
+    login_as(client, user_id)
+
+    dashboard_html = client.get("/").get_data(as_text=True)
+    assert 'href="/coach?coach=rico"' in dashboard_html
+    assert 'href="/coach?coach=iggy"' in dashboard_html
+    assert 'href="/coach?coach=luna"' in dashboard_html
+
+    luna_html = client.get("/coach?coach=luna").get_data(as_text=True)
+
+    assert 'data-selected-coach="luna"' in luna_html
+    assert 'name="agent" value="luna"' in luna_html
+    assert 'data-coach-prompts="luna"' in luna_html
+    assert "I feel sore" in luna_html
+    assert luna_html.count('id="coachWorkspaceForm"') == 1
+
+
+def test_community_combines_challenges_events_and_groups(client):
+    user_id = create_user("community-tabs@example.test")
+    login_as(client, user_id)
+
+    html = client.get("/community").get_data(as_text=True)
+
+    assert 'id="community-challenges"' in html
+    assert 'id="community-events"' in html
+    assert 'id="community-groups"' in html
+    assert "Groups are planned" in html
+    assert "Open full challenge" in html
+    assert "Challenges" in html
+    assert "Events" in html
+    assert "Groups" in html
+    assert "Shop" not in html
+
+
+def test_settings_combines_preferences_accessibility_data_devices_and_account(client):
+    user_id = create_user("settings-tabs@example.test")
+    login_as(client, user_id)
+
+    html = client.get("/settings").get_data(as_text=True)
+
+    for section_id in [
+        "settings-profile",
+        "settings-preferences",
+        "settings-accessibility",
+        "settings-data-devices",
+        "settings-account",
+    ]:
+        assert f'id="{section_id}"' in html
+    assert 'name="health_xml"' in html
+    assert 'name="workouts_csv"' in html
+    assert "Demo connection" in html
+    assert "Requires mobile app" in html
+    assert "Manage demo integrations" in html
+    assert "Log Out" in html
+
+
+def test_old_community_and_data_routes_remain_available_after_consolidation(client):
+    user_id = create_user("old-routes-phase4@example.test")
+    login_as(client, user_id)
+
+    for old_url in ["/events", "/challenges", "/import", "/integrations", "/shop"]:
+        response = client.get(old_url)
+        assert response.status_code == 200
 
 
 def test_coach_cards_offer_clickable_advice_bubbles(client):
@@ -405,15 +574,15 @@ def test_coach_cards_offer_clickable_advice_bubbles(client):
     login_as(client, user_id)
 
     html = client.get("/").get_data(as_text=True)
-    log_html = client.get("/log-workout").get_data(as_text=True)
+    coach_html = client.get("/coach").get_data(as_text=True)
 
     assert html.count("dashboard-coach-card") == 3
     assert "Rico Runner" in html
     assert "Iggy" in html
     assert "Luna" in html
-    assert 'data-agent="rico"' in log_html
-    assert 'data-agent="iggy"' in log_html
-    assert "app.js?v=dashboard-six-1" in html
+    assert 'data-agent="rico"' in coach_html
+    assert 'data-coach-choice="iggy"' in coach_html
+    assert "app.js?v=phase7-dashboard-next-1" in html
 
 
 def test_dashboard_excludes_progress_history_import_and_motivation_sections(client):
@@ -438,11 +607,90 @@ def test_dashboard_links_to_dedicated_multi_page_sections(client):
 
     assert dashboard.status_code == 200
     assert 'href="/progress"' in html
-    assert 'href="/planner"' in html
+    assert 'href="/progress#previous-runs"' in html
     assert 'href="/log-workout#log-run"' in html
-    assert 'href="/import"' in html
-    assert 'href="/integrations"' in html
+    assert 'href="/coach"' in html
+    assert 'href="/community"' in html
+    assert 'href="/planner"' in html
     assert "gentle chime" not in html
+
+
+def test_manual_log_form_is_minimal_and_keeps_advanced_fields_out_of_manual_entry(client):
+    user_id = create_user("minimal-log-form@example.test")
+    login_as(client, user_id)
+
+    html = client.get("/log-workout").get_data(as_text=True)
+
+    assert 'name="run_date"' in html
+    assert 'name="duration_hours"' in html
+    assert 'name="duration_minutes"' in html
+    assert 'name="duration_seconds"' in html
+    assert 'name="distance"' in html
+    assert 'name="distance_unit"' in html
+    assert 'name="avg_heart_rate"' in html
+    for removed in [
+        'name="mood"',
+        'name="weather_summary"',
+        'name="route_type"',
+        'name="route_notes"',
+        'name="steps"',
+        'name="cadence"',
+    ]:
+        assert removed not in html
+    assert "Average pace" in html
+
+
+def test_minimal_manual_log_calculates_pace_and_optional_heart_rate(client):
+    user_id = create_user("minimal-log-save@example.test")
+    login_as(client, user_id)
+
+    response = client.post(
+        "/log-workout",
+        data={
+            "run_date": "2026-07-14",
+            "duration_hours": "0",
+            "duration_minutes": "24",
+            "duration_seconds": "30",
+            "distance": "2",
+            "distance_unit": "mi",
+            "avg_heart_rate": "142",
+        },
+    )
+
+    assert response.status_code == 302
+    runs = runcoach.get_all_runs(user_id)
+    assert len(runs) == 1
+    run = runs[0]
+    assert run["duration"] == 24.5
+    assert run["distance"] == 2
+    assert run["pace"] == 12.25
+    assert run["mood"] == "Good"
+    assert run["avg_heart_rate"] == 142
+    assert run["steps"] is None
+    assert run["cadence"] is None
+    assert run["source"] == "Manual"
+
+
+def test_manual_log_accepts_kilometers_and_empty_heart_rate(client):
+    user_id = create_user("minimal-log-km@example.test")
+    login_as(client, user_id)
+
+    response = client.post(
+        "/log-workout",
+        data={
+            "run_date": "2026-07-14",
+            "duration_minutes": "30",
+            "distance": "5",
+            "distance_unit": "km",
+            "avg_heart_rate": "",
+        },
+    )
+
+    assert response.status_code == 302
+    run = runcoach.get_all_runs(user_id)[0]
+    assert run["distance"] == pytest.approx(3.106855, rel=1e-5)
+    assert run["pace"] == pytest.approx(9.656064, rel=1e-5)
+    assert run["avg_heart_rate"] is None
 
 def test_progress_and_previous_runs_render_growth_charts(client):
     user_id = create_user("growth-charts@example.test")
@@ -452,6 +700,10 @@ def test_progress_and_previous_runs_render_growth_charts(client):
 
     html = client.get("/progress").get_data(as_text=True)
 
+    assert 'id="progress-overview"' in html
+    assert 'id="previous-runs"' in html
+    assert 'id="progress-visuals"' in html
+    assert 'id="progress-goals"' in html
     assert html.count("data-run-chart=") >= 5
     assert "Distance over time" in html
     assert "Pace over time" in html
@@ -460,8 +712,24 @@ def test_progress_and_previous_runs_render_growth_charts(client):
     assert "Walking and recovery activity" in html
     assert "Your training story" in html
     assert "Previous Runs" in html
+    assert "Workout count" in html
+    assert "Avg HR" in html
+    assert "Source" in html
+    assert "Goals" in html
     assert 'class="run-history-notes"' in html
     assert 'id="runChartData"' in html
+
+
+def test_empty_progress_page_has_clear_ctas_without_fake_metrics(client):
+    user_id = create_user("empty-progress@example.test")
+    login_as(client, user_id)
+
+    html = client.get("/progress").get_data(as_text=True)
+
+    assert "Your saved workouts will appear here." in html
+    assert 'href="/log-workout#log-run"' in html
+    assert "Saved goal tracking is not a separate progress module yet." in html
+    assert 'href="/coach"' in html
 
 
 def test_data_analyst_generates_user_scoped_chart_json(client):
@@ -561,6 +829,19 @@ def test_try_demo_creates_authenticated_demo_session(client):
         assert 'id="dashboard-title">Dashboard</h1>' in dashboard.get_data(as_text=True)
     finally:
         runcoach.app.config["WTF_CSRF_ENABLED"] = False
+
+
+def test_demo_login_returns_404_when_demo_mode_disabled(client):
+    runcoach.app.config.update(DEMO_MODE=False, WTF_CSRF_ENABLED=False)
+    try:
+        response = client.post("/demo-login")
+        login_page = client.get("/login").get_data(as_text=True)
+
+        assert response.status_code == 404
+        assert "Try Demo" not in login_page
+        assert runcoach.DEMO_PASSWORD not in login_page
+    finally:
+        runcoach.app.config.update(DEMO_MODE=True, WTF_CSRF_ENABLED=False)
 
 
 def test_demo_login_is_not_interrupted_by_sentinel_scheduler(client, monkeypatch):

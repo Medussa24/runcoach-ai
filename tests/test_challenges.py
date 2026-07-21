@@ -189,6 +189,15 @@ def test_privacy_safe_details_and_leaderboard(client):
         conn.close()
         
     client.post(f"/challenge/{challenge['id']}/join")
+
+    with client.session_transaction() as session:
+        session.clear()
+    anonymous_resp = client.get(f"/challenge/{challenge['id']}")
+    assert anonymous_resp.status_code == 302
+    assert "/login" in anonymous_resp.headers["Location"]
+
+    with client.session_transaction() as session:
+        session["user_id"] = demo_user["id"]
     
     resp = client.get(f"/challenge/{challenge['id']}")
     assert resp.status_code == 200

@@ -1,23 +1,18 @@
-<aside class="dashboard-nav" aria-label="Dashboard navigation">
+{% import "_nav_macros.html" as nav %}
+<aside class="dashboard-nav" aria-label="Primary navigation">
     <img class="nav-logo" src="{{ url_for('static', filename='runcoach-logo.png') }}" alt="RunCoach AI">
-    <nav>
-        <a class="{{ 'is-active' if active_page == 'dashboard' else '' }}" href="{{ url_for('index') }}"><span>Home</span>{{ _('dashboard') }}</a>
-        <a class="{{ 'is-active' if active_page == 'progress' else '' }}" href="{{ url_for('progress_page') }}"><span>Stats</span>{{ _('my_progress') }}</a>
-        <a class="{{ 'is-active' if active_page == 'planner' else '' }}" href="{{ url_for('planner.planner') }}"><span>Plan</span>{{ _('my_plan') }}</a>
-        <a class="{{ 'is-active' if active_page == 'log' else '' }}" href="{{ url_for('log_workout') }}"><span>Log</span>{{ _('log_workout') }}</a>
-        <a class="{{ 'is-active' if active_page == 'import' else '' }}" href="{{ url_for('import_workouts') }}"><span>Import</span>{{ _('import_workouts') }}</a>
-        <a class="{{ 'is-active' if active_page == 'integrations' else '' }}" href="{{ url_for('integrations.integrations_page') }}"><span>Sync</span>{{ _('health_integrations') }}</a>
-        <a class="{{ 'is-active' if active_page == 'events' else '' }}" href="{{ url_for('events.events_list') }}"><span>Events</span>{{ _('events_community') }}</a>
-        <a class="{{ 'is-active' if active_page == 'community' else '' }}" href="{{ url_for('community_page') }}"><span>Group</span>{{ _('community') }}</a>
-        <a class="{{ 'is-active' if active_page == 'challenges' else '' }}" href="{{ url_for('challenges.challenges_page') }}"><span>Goals</span>{{ _('challenges') }}</a>
-        <a class="{{ 'is-active' if active_page == 'shop' else '' }}" href="{{ url_for('shop.shop_page') }}"><span>Shop</span>{{ _('shop') }}</a>
-        <a class="{{ 'is-active' if active_page == 'settings' else '' }}" href="{{ url_for('settings_page') }}"><span>Prefs</span>{{ _('settings') }}</a>
-        <a href="{{ url_for('auth.logout') }}"><span>Out</span>{{ _('log_out') }}</a>
+    <nav class="app-primary-nav">
+        {{ nav.nav_item('index', _('dashboard'), '⌂', active_page, 'dashboard') }}
+        {{ nav.nav_item('coach_page', _('coach'), '✦', active_page, 'coach') }}
+        {{ nav.nav_item('progress_page', _('progress'), '↗', active_page, 'progress') }}
+        {{ nav.nav_item('community_page', _('community'), '◌', active_page, 'community') }}
+        {{ nav.nav_item('settings_page', _('settings'), '⚙', active_page, 'settings') }}
     </nav>
     {% if current_user %}
-        <section class="nav-card">
-            <p class="eyebrow">{{ _('dashboard') }}</p>
+        <section class="nav-card account-menu" aria-label="Account">
+            <p class="eyebrow">{{ _('account') }}</p>
             <p class="notes">Signed in</p>
+            <a class="account-logout" href="{{ url_for('auth.logout') }}">{{ _('log_out') }}</a>
         </section>
     {% endif %}
 </aside>

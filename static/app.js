@@ -363,6 +363,134 @@
     setupAgentChat("#agentChatForm", "#chatMessages", setCoachTip, "Send me a question about your pace, progress, recovery, or next workout.");
     setupAgentChat("#iggyChatForm", "#iggyMessages", setIggyTip, "Send Iggy a question about walking, breathing, stretches, or nature-count tasks.");
 
+    function setupCoachWorkspace() {
+        const workspace = document.querySelector("[data-coach-workspace]");
+        if (!workspace) {
+            return;
+        }
+
+        const choices = Array.from(workspace.querySelectorAll("[data-coach-choice]"));
+        const form = workspace.querySelector("#coachWorkspaceForm");
+        const questionBox = workspace.querySelector("#coachWorkspaceQuestion");
+        const hiddenAgent = form ? form.querySelector("input[name='agent']") : null;
+        const avatar = workspace.querySelector("#coachAvatar");
+        const role = workspace.querySelector("#coachRole");
+        const title = workspace.querySelector("#coachChatTitle");
+        const greeting = workspace.querySelector("#coachGreeting");
+        let selectedCoach = workspace.dataset.selectedCoach || "rico";
+
+        function currentMessageSet() {
+            return workspace.querySelector(`[data-coach-messages="${selectedCoach}"]`);
+        }
+
+        function coachClass(agentName) {
+            if (agentName === "iggy") return "iggy-message";
+            if (agentName === "luna") return "luna-message";
+            return "rico-message";
+        }
+
+        function selectedChoice() {
+            return choices.find((choice) => choice.dataset.coachChoice === selectedCoach) || choices[0];
+        }
+
+        function updateCoachUrl(agentName) {
+            const url = new URL(window.location.href);
+            url.searchParams.set("coach", agentName);
+            window.history.replaceState({}, "", url);
+        }
+
+        function selectCoach(agentName, options = {}) {
+            selectedCoach = agentName || "rico";
+            workspace.dataset.selectedCoach = selectedCoach;
+            const choice = selectedChoice();
+
+            choices.forEach((button) => {
+                const isSelected = button.dataset.coachChoice === selectedCoach;
+                button.classList.toggle("is-selected", isSelected);
+                button.setAttribute("aria-checked", isSelected ? "true" : "false");
+            });
+
+            workspace.querySelectorAll("[data-coach-messages]").forEach((set) => {
+                set.classList.toggle("is-hidden", set.dataset.coachMessages !== selectedCoach);
+            });
+
+            workspace.querySelectorAll("[data-coach-prompts]").forEach((set) => {
+                set.classList.toggle("is-hidden", set.dataset.coachPrompts !== selectedCoach);
+            });
+
+            if (form) form.dataset.agent = selectedCoach;
+            if (hiddenAgent) hiddenAgent.value = selectedCoach;
+            if (avatar) avatar.src = choice.dataset.coachAvatar;
+            if (role) role.textContent = choice.dataset.coachRole;
+            if (title) title.textContent = choice.dataset.coachName;
+            if (greeting) greeting.textContent = choice.dataset.coachGreeting;
+            currentMessageSet()?.scrollTo(0, currentMessageSet().scrollHeight);
+
+            if (!options.skipUrl) {
+                updateCoachUrl(selectedCoach);
+            }
+        }
+
+        choices.forEach((button, index) => {
+            button.addEventListener("click", () => selectCoach(button.dataset.coachChoice));
+            button.addEventListener("keydown", (event) => {
+                const direction = event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : 0;
+                if (!direction) return;
+                event.preventDefault();
+                const nextIndex = (index + direction + choices.length) % choices.length;
+                choices[nextIndex].focus();
+                selectCoach(choices[nextIndex].dataset.coachChoice);
+            });
+        });
+
+        workspace.querySelectorAll("[data-coach-prompt]").forEach((button) => {
+            button.addEventListener("click", () => {
+                if (!questionBox || !form) return;
+                questionBox.value = button.dataset.coachPrompt;
+                questionBox.focus();
+                form.requestSubmit();
+            });
+        });
+
+        if (form && questionBox) {
+            form.addEventListener("submit", async (event) => {
+                event.preventDefault();
+                const question = questionBox.value.trim();
+                if (!question) {
+                    questionBox.focus();
+                    return;
+                }
+
+                const choice = selectedChoice();
+                const messageSet = currentMessageSet();
+                appendMessage(messageSet, question, "user", choice.dataset.coachAvatar, coachClass(selectedCoach));
+                questionBox.value = "";
+                questionBox.disabled = true;
+                appendMessage(messageSet, "Checking your recent training context...", selectedCoach, choice.dataset.coachAvatar, coachClass(selectedCoach));
+
+                try {
+                    const data = await askAgent(question, selectedCoach);
+                    const waitingMessage = messageSet?.querySelector(".chat-message:last-child p");
+                    if (waitingMessage && waitingMessage.textContent === "Checking your recent training context...") {
+                        waitingMessage.textContent = data.answer;
+                    } else {
+                        appendMessage(messageSet, data.answer, selectedCoach, choice.dataset.coachAvatar, coachClass(selectedCoach));
+                    }
+                    showAvatarPopup(selectedCoach, choice.dataset.coachAvatar, data.answer);
+                } catch (_error) {
+                    appendMessage(messageSet, "I could not answer right now. Try again after checking that you are logged in.", selectedCoach, choice.dataset.coachAvatar, coachClass(selectedCoach));
+                } finally {
+                    questionBox.disabled = false;
+                    questionBox.focus();
+                }
+            });
+        }
+
+        selectCoach(selectedCoach, { skipUrl: true });
+    }
+
+    setupCoachWorkspace();
+
     const dashboardSearch = document.querySelector("#dashboardSearch");
     const clearDashboardSearch = document.querySelector("#clearDashboardSearch");
     const dashboardSearchStatus = document.querySelector("#dashboardSearchStatus");

@@ -1,18 +1,11 @@
-<!doctype html>
-<html lang="{{ current_lang }}">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }} - RunCoach AI</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body data-accessibility-mode="{{ current_accessibility_mode }}">
-    <main class="dashboard-shell">
-        {% set active_page = 'integrations' %}
-        {% include "_sidebar.html" %}
+{% extends "base_app.html" %}
+{% set active_page = 'settings' %}
+{% set asset_version = 'phase8-data-devices-1' %}
 
-        <section class="dashboard-main">
+{% block title %}{{ 'Health Integrations' if current_lang == 'en' else 'Integraciones de Salud' }} - RunCoach AI{% endblock %}
+{% block main_class %}clean-page{% endblock %}
+
+{% block content %}
             <!-- Header section inside dashboard main -->
             <section class="intro" style="margin-bottom: 24px;">
                 <div class="intro-copy">
@@ -278,7 +271,4 @@
                     <p style="color: var(--muted); margin: 0;">{{ 'No health workouts imported yet.' if current_lang == 'en' else 'Aún no se han importado entrenamientos de salud.' }}</p>
                 {% endif %}
             </section>
-        </section>
-    </main>
-</body>
-</html>
+{% endblock %}

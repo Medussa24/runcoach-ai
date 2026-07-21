@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="{{ current_lang }}">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% block title %}RunCoach AI{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=asset_version|default('phase1-nav-1')) }}">
+    {% block head_extra %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}" data-celebrate="{% block celebrate_state %}{{ 'run-saved' if request.args.get('saved') else '' }}{% endblock %}" data-welcome="{{ 'race-start' if request.args.get('welcome') else '' }}" data-accessibility-mode="{{ current_accessibility_mode }}">
+    <a class="skip-link" href="#main-content">Skip to main content</a>
+    <main class="dashboard-shell">
+        {% include "_sidebar.html" %}
+        <section class="dashboard-main {% block main_class %}clean-page{% endblock %}" id="main-content" tabindex="-1">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <section class="flash-stack" aria-label="Status messages">
+                        {% for category, message in messages %}
+                            <p class="planner-notice planner-notice-{{ category }}" role="status">{{ message }}</p>
+                        {% endfor %}
+                    </section>
+                {% endif %}
+            {% endwith %}
+            {% block content %}{% endblock %}
+        </section>
+    </main>
+    {% block body_extra %}{% endblock %}
+</body>
+</html>

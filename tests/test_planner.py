@@ -188,6 +188,50 @@ def test_planner_page_generation_completion_and_user_separation(
     assert runcoach.get_planner_events(user_one)[0]["is_completed"] == 1
 
 
+def test_planner_page_uses_simplified_coach_workspace_sections(
+    planner_client,
+):
+    client = planner_client
+    create_and_login(client, "planner-ui@example.test")
+
+    generated = client.post(
+        "/planner/generate",
+        data={
+            "week_start": "2026-06-29",
+            "preferred_time": "07:00",
+            "goal": "build consistency",
+        },
+        follow_redirects=True,
+    )
+    html = generated.get_data(as_text=True)
+
+    assert generated.status_code == 200
+    assert 'id="planner-today"' in html
+    assert 'id="planner-this-week"' in html
+    assert 'id="planner-calendar"' in html
+    assert 'id="planner-settings"' in html
+    assert "Generate my week" in html
+    assert "Add calendar event" in html
+    assert "Workout cards" in html
+    assert "Workout instructions" in html
+    assert "Download .ics" in html
+    assert "Coach</a>" in html
+    assert html.count("workout-outline") >= 3
+
+
+def test_planner_empty_week_has_clear_empty_state(planner_client):
+    client = planner_client
+    create_and_login(client, "planner-empty@example.test")
+
+    response = client.get("/planner?week_start=2026-06-29")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert "No workout is planned for today yet." in html
+    assert "Generate a week or add a calendar event to fill this plan." in html
+    assert "Add calendar event" in html
+
+
 def test_personal_event_and_calendar_export(planner_client):
     client = planner_client
     user_id = create_and_login(client, "calendar@example.test")
