@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import date, timedelta
 from flask import Blueprint, render_template, redirect, url_for, flash, request, Response
 from app import (
     login_required, current_user, current_user_id,
@@ -6,6 +6,7 @@ from app import (
     SUPPORTED_TIMEZONES, build_private_agent_summary, get_all_runs,
     WeeklyPlannerAgent, save_generated_plan, add_personal_planner_event,
     update_user_timezone, get_planner_events, build_calendar_ics,
+    get_daily_recommendation,
     PlanEmailService, planner_store
 )
 
@@ -18,6 +19,17 @@ def planner():
     timezone_name = get_user_timezone(user["id"])
     week_start = parse_week_start(request.args.get("week_start"), timezone_name)
     week_end = week_start + timedelta(days=6)
+    calendar_days = planner_calendar_days(
+        user["id"],
+        week_start,
+        timezone_name,
+    )
+    today_plan_events = [
+        event
+        for day in calendar_days
+        if day["is_today"]
+        for event in day["events"]
+    ]
     return render_template(
         "planner.html",
         current_user=user,
@@ -28,13 +40,14 @@ def planner():
         ),
         previous_week=(week_start - timedelta(days=7)).isoformat(),
         next_week=(week_start + timedelta(days=7)).isoformat(),
-        calendar_days=planner_calendar_days(
-            user["id"],
-            week_start,
-            timezone_name,
-        ),
+        calendar_days=calendar_days,
         timezone_name=timezone_name,
         supported_timezones=SUPPORTED_TIMEZONES,
+        daily_recommendation=get_daily_recommendation(
+            user["id"],
+            date.today(),
+            planned_events=today_plan_events,
+        ),
     )
 
 

@@ -51,6 +51,33 @@ def get_all_runs(user_id):
         connection.close()
 
 
+def list_recent_workouts(user_id, target_date=None, limit=10):
+    """Return recent workouts for one user, optionally ending on a target date."""
+    safe_limit = max(1, min(int(limit), 50))
+    parameters = [user_id]
+    date_filter = ""
+    if target_date is not None:
+        date_filter = "AND date(run_date) <= date(?)"
+        parameters.append(target_date.isoformat())
+    parameters.append(safe_limit)
+
+    connection = _connect()
+    try:
+        rows = connection.execute(
+            f"""
+            SELECT * FROM runs
+            WHERE user_id = ?
+            {date_filter}
+            ORDER BY run_date DESC, id DESC
+            LIMIT ?
+            """,
+            parameters,
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        connection.close()
+
+
 def get_workout(user_id, workout_id):
     """Return one workout only when it belongs to the requested user."""
     connection = _connect()

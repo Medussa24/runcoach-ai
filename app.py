@@ -44,6 +44,11 @@ from runcoach_services import (
     motivation_videos,
     weekly_workout_schedule,
 )
+from services.coaching_service import (
+    format_daily_recommendation_response,
+    get_daily_recommendation,
+    should_answer_with_daily_recommendation,
+)
 from sentinel_qa import SentinelQA
 from stores import coach_message_store
 from stores import user_store
@@ -161,6 +166,7 @@ user_store.configure(get_database_connection)
 coach_message_store.configure(get_database_connection)
 get_previous_run = workout_store.get_previous_run
 get_all_runs = workout_store.get_all_runs
+list_recent_workouts = workout_store.list_recent_workouts
 get_workout = workout_store.get_workout
 update_workout = workout_store.update_workout
 delete_workout = workout_store.delete_workout
@@ -1573,6 +1579,24 @@ def respond_with_memory(user_id, agent_name, question):
     runs = get_all_runs(user_id)
     remember_pace_improvement(user_id, runs)
 
+    if should_answer_with_daily_recommendation(question):
+        today = date.today()
+        answer = format_daily_recommendation_response(
+            get_daily_recommendation(
+                user_id,
+                today,
+                planned_events=get_planner_events(user_id, today, today),
+            )
+        )
+        save_agent_message(user_id, agent_name, answer, agent_name)
+        upsert_user_memory(
+            user_id,
+            "previous_advice",
+            answer[:500],
+            agent_name=agent_name,
+        )
+        return answer
+
     if agent_name == AGENT_IGGY:
         agent = build_iggy_agent(user_id, runs)
     elif agent_name == AGENT_LUNA:
@@ -1612,6 +1636,16 @@ def dashboard_context(user, agent_question=""):
         (event for event in upcoming_events if not event["is_completed"]),
         None,
     )
+    today_plan_events = [
+        event
+        for event in upcoming_events
+        if event["event_date"] == today.isoformat() and not event["is_completed"]
+    ]
+    daily_recommendation = get_daily_recommendation(
+        user_id,
+        today,
+        planned_events=today_plan_events,
+    )
     community_events = get_upcoming_events()
     next_community_event = community_events[0] if community_events else None
     dashboard_challenge = None
@@ -1647,6 +1681,7 @@ def dashboard_context(user, agent_question=""):
         "motivation_posts": motivation_posts(),
         "weekly_schedule": weekly_workout_schedule(),
         "next_plan_event": next_plan_event,
+        "daily_recommendation": daily_recommendation,
         "next_community_event": next_community_event,
         "dashboard_challenge": dashboard_challenge,
         "today_iso": today.isoformat(),

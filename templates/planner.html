@@ -71,7 +71,7 @@
                 {% endfor %}
             </div>
         {% else %}
-            <p class="empty-state">No workout is planned for today yet.</p>
+            <p class="empty-state">{{ daily_recommendation.title }}. {{ daily_recommendation.reason }}</p>
             <a class="button" href="#planner-generate">Generate my week</a>
         {% endif %}
     </section>
