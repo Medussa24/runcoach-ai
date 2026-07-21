@@ -45,6 +45,7 @@ from runcoach_services import (
     weekly_workout_schedule,
 )
 from sentinel_qa import SentinelQA
+from stores import workout_store
 
 
 # Blueprints import shared helpers from this module. When launched with
@@ -152,6 +153,14 @@ def get_database_connection():
     connection.row_factory = sqlite3.Row
     return connection
 
+
+workout_store.configure(get_database_connection)
+get_previous_run = workout_store.get_previous_run
+get_all_runs = workout_store.get_all_runs
+get_workout = workout_store.get_workout
+update_workout = workout_store.update_workout
+delete_workout = workout_store.delete_workout
+insert_manual_workout = workout_store.insert_manual_workout
 
 planner_store = PlannerStore(get_database_connection)
 get_planner_events = planner_store.get_events
@@ -798,40 +807,6 @@ def log_sentinel_report(report):
         report["checks_total"],
         report["warnings_count"],
     )
-
-
-def get_previous_run(user_id):
-    """Return the most recent run before a new run is saved."""
-    connection = get_database_connection()
-    try:
-        return connection.execute(
-            """
-            SELECT * FROM runs
-            WHERE user_id = ?
-            ORDER BY run_date DESC, id DESC
-            LIMIT 1
-            """,
-            (user_id,),
-        ).fetchone()
-    finally:
-        connection.close()
-
-
-def get_all_runs(user_id):
-    """Return all saved runs, newest first."""
-    connection = get_database_connection()
-    try:
-        rows = connection.execute(
-            """
-            SELECT * FROM runs
-            WHERE user_id = ?
-            ORDER BY run_date DESC, id DESC
-            """,
-            (user_id,),
-        ).fetchall()
-        return [dict(row) for row in rows]
-    finally:
-        connection.close()
 
 
 def get_analyst_uploads(user_id, limit=10):
@@ -1794,43 +1769,7 @@ def save_manual_workout(user_id, form):
         previous_run,
     )
 
-    connection = get_database_connection()
-    try:
-        connection.execute(
-            """
-            INSERT INTO runs (
-                run_date, distance, duration, pace, mood, notes, feedback,
-                weather_summary, temperature_f, wind_mph, route_type,
-                route_notes, avg_heart_rate, steps, cadence, source,
-                workout_type, imported_from, user_id
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                run["run_date"],
-                run["distance"],
-                run["duration"],
-                pace,
-                run["mood"],
-                run["notes"],
-                feedback,
-                run["weather_summary"],
-                run["temperature_f"],
-                run["wind_mph"],
-                run["route_type"],
-                run["route_notes"],
-                run["avg_heart_rate"],
-                run["steps"],
-                run["cadence"],
-                "Manual",
-                "Running",
-                None,
-                user_id,
-            ),
-        )
-        connection.commit()
-    finally:
-        connection.close()
+    insert_manual_workout(user_id, run, pace, feedback)
 
 
 @app.route("/", methods=["GET", "POST"])
