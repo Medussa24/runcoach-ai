@@ -33,7 +33,7 @@ class DailyRecommendation:
     confidence: str
 
 
-def get_daily_recommendation(user_id, target_date, planned_events=None):
+def get_daily_recommendation(user_id: int, target_date: date, planned_events=None):
     """Return the one daily coaching recommendation for the requested user."""
     planned_event = _first_open_workout_event(planned_events or [])
     if planned_event:
@@ -139,10 +139,20 @@ def should_answer_with_daily_recommendation(question):
     return any(term in normalized for term in decision_terms)
 
 
-def format_daily_recommendation_response(recommendation):
+def recommendation_target_date(question, current_date):
+    """Resolve a chat recommendation request to the intended calendar date."""
+    normalized = (question or "").lower()
+    if "tomorrow" in normalized:
+        return current_date + timedelta(days=1)
+    return current_date
+
+
+def format_daily_recommendation_response(recommendation, current_date=None):
     """Format a daily recommendation for coach chat without changing the decision."""
+    current_date = current_date or date.today()
+    label = _recommendation_date_label(recommendation.target_date, current_date)
     answer = (
-        f"Today: {recommendation.title}. Keep it {recommendation.intensity}. "
+        f"{label}: {recommendation.title}. Keep it {recommendation.intensity}. "
         f"{recommendation.reason}"
     )
     if recommendation.warnings:
@@ -180,6 +190,14 @@ def _workout_date(workout):
         return date.fromisoformat(value)
     except ValueError:
         return None
+
+
+def _recommendation_date_label(target_date, current_date):
+    if target_date == current_date:
+        return "Today"
+    if target_date == current_date + timedelta(days=1):
+        return "Tomorrow"
+    return target_date.strftime("%b %d")
 
 
 def _looks_demanding(workout):

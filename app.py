@@ -47,6 +47,7 @@ from runcoach_services import (
 from services.coaching_service import (
     format_daily_recommendation_response,
     get_daily_recommendation,
+    recommendation_target_date,
     should_answer_with_daily_recommendation,
 )
 from sentinel_qa import SentinelQA
@@ -1581,12 +1582,14 @@ def respond_with_memory(user_id, agent_name, question):
 
     if should_answer_with_daily_recommendation(question):
         today = date.today()
+        target_date = recommendation_target_date(question, today)
         answer = format_daily_recommendation_response(
             get_daily_recommendation(
                 user_id,
-                today,
-                planned_events=get_planner_events(user_id, today, today),
-            )
+                target_date,
+                planned_events=get_planner_events(user_id, target_date, target_date),
+            ),
+            current_date=today,
         )
         save_agent_message(user_id, agent_name, answer, agent_name)
         upsert_user_memory(

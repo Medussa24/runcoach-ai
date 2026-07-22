@@ -6,6 +6,7 @@ import app as runcoach
 from services.coaching_service import (
     format_daily_recommendation_response,
     get_daily_recommendation,
+    recommendation_target_date,
 )
 
 
@@ -100,6 +101,23 @@ def test_daily_recommendation_protects_recovery_after_demanding_yesterday(
     assert recommendation.warnings
 
 
+def test_demanding_workout_takes_priority_over_distance_jump(coaching_client):
+    user_id = create_and_login(coaching_client, "priority@example.test")
+    save_workout(user_id, run_date="2026-07-18", distance="1.5")
+    save_workout(
+        user_id,
+        run_date="2026-07-20",
+        distance="3.0",
+        mood="Sore",
+        notes="Hard finish.",
+    )
+
+    recommendation = get_daily_recommendation(user_id, date(2026, 7, 21))
+
+    assert recommendation.action_type == "recovery"
+    assert recommendation.title == "20-minute recovery walk"
+
+
 def test_daily_recommendation_adjusts_after_distance_jump(coaching_client):
     user_id = create_and_login(coaching_client, "jump@example.test")
     save_workout(user_id, run_date="2026-07-18", distance="1.5")
@@ -110,6 +128,18 @@ def test_daily_recommendation_adjusts_after_distance_jump(coaching_client):
     assert recommendation.title == "20-minute easy run"
     assert "distance jumped" in recommendation.reason
     assert recommendation.plan_adjusted is True
+
+
+def test_chat_recommendation_date_label_matches_requested_day():
+    today = date(2026, 7, 21)
+    target_date = recommendation_target_date("What should I do tomorrow?", today)
+    recommendation = get_daily_recommendation(999, target_date)
+
+    answer = format_daily_recommendation_response(recommendation, current_date=today)
+
+    assert target_date == date(2026, 7, 22)
+    assert answer.startswith("Tomorrow:")
+    assert not answer.startswith("Today:")
 
 
 def test_dashboard_planner_and_chat_share_daily_recommendation(coaching_client):
