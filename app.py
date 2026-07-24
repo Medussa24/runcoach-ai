@@ -44,7 +44,16 @@ from runcoach_services import (
     motivation_videos,
     weekly_workout_schedule,
 )
+from services.coaching_service import (
+    format_daily_recommendation_response,
+    get_daily_recommendation,
+    recommendation_target_date,
+    should_answer_with_daily_recommendation,
+)
 from sentinel_qa import SentinelQA
+from stores import coach_message_store
+from stores import user_store
+from stores import workout_store
 
 
 # Blueprints import shared helpers from this module. When launched with
@@ -152,6 +161,21 @@ def get_database_connection():
     connection.row_factory = sqlite3.Row
     return connection
 
+
+workout_store.configure(get_database_connection)
+user_store.configure(get_database_connection)
+coach_message_store.configure(get_database_connection)
+get_previous_run = workout_store.get_previous_run
+get_all_runs = workout_store.get_all_runs
+list_recent_workouts = workout_store.list_recent_workouts
+get_workout = workout_store.get_workout
+update_workout = workout_store.update_workout
+delete_workout = workout_store.delete_workout
+insert_manual_workout = workout_store.insert_manual_workout
+get_user_by_email = user_store.get_user_by_email
+get_user_by_id = user_store.get_user
+get_agent_messages = coach_message_store.get_agent_messages
+get_user_memories = coach_message_store.get_user_memories
 
 planner_store = PlannerStore(get_database_connection)
 get_planner_events = planner_store.get_events
@@ -491,30 +515,6 @@ def ensure_agent_message_columns(connection):
         )
 
 
-def get_user_by_email(email):
-    """Find one user by email address."""
-    connection = get_database_connection()
-    try:
-        return connection.execute(
-            "SELECT * FROM users WHERE email = ?",
-            (email.lower().strip(),),
-        ).fetchone()
-    finally:
-        connection.close()
-
-
-def get_user_by_id(user_id):
-    """Find one user by id."""
-    connection = get_database_connection()
-    try:
-        return connection.execute(
-            "SELECT * FROM users WHERE id = ?",
-            (user_id,),
-        ).fetchone()
-    finally:
-        connection.close()
-
-
 def get_user_timezone(user_id):
     """Return a supported display timezone for one user."""
     user = get_user_by_id(user_id)
@@ -524,33 +524,13 @@ def get_user_timezone(user_id):
 def update_user_timezone(user_id, timezone_name):
     """Persist one user's planner timezone."""
     timezone_name = normalize_timezone(timezone_name)
-    connection = get_database_connection()
-    try:
-        connection.execute(
-            "UPDATE users SET timezone = ? WHERE id = ?",
-            (timezone_name, user_id),
-        )
-        connection.commit()
-    finally:
-        connection.close()
+    user_store.update_user(user_id, timezone=timezone_name)
     return timezone_name
 
 
 def create_user(email, password):
     """Create a user with a hashed password."""
-    connection = get_database_connection()
-    try:
-        cursor = connection.execute(
-            """
-            INSERT INTO users (email, password_hash)
-            VALUES (?, ?)
-            """,
-            (email.lower().strip(), generate_password_hash(password)),
-        )
-        connection.commit()
-        return cursor.lastrowid
-    finally:
-        connection.close()
+    return user_store.create_user(email, generate_password_hash(password))
 
 
 def get_or_create_demo_user(connection):
@@ -800,40 +780,6 @@ def log_sentinel_report(report):
     )
 
 
-def get_previous_run(user_id):
-    """Return the most recent run before a new run is saved."""
-    connection = get_database_connection()
-    try:
-        return connection.execute(
-            """
-            SELECT * FROM runs
-            WHERE user_id = ?
-            ORDER BY run_date DESC, id DESC
-            LIMIT 1
-            """,
-            (user_id,),
-        ).fetchone()
-    finally:
-        connection.close()
-
-
-def get_all_runs(user_id):
-    """Return all saved runs, newest first."""
-    connection = get_database_connection()
-    try:
-        rows = connection.execute(
-            """
-            SELECT * FROM runs
-            WHERE user_id = ?
-            ORDER BY run_date DESC, id DESC
-            """,
-            (user_id,),
-        ).fetchall()
-        return [dict(row) for row in rows]
-    finally:
-        connection.close()
-
-
 def get_analyst_uploads(user_id, limit=10):
     """Return screenshot-analysis records for one user."""
     connection = get_database_connection()
@@ -911,27 +857,6 @@ def get_coach_library_items():
         connection.close()
 
 
-def get_agent_messages(user_id, agent_name=AGENT_RICO, limit=30):
-    """Return recent chat messages for one user and one coach."""
-    connection = get_database_connection()
-    try:
-        rows = connection.execute(
-            """
-            SELECT sender, message, created_at
-            FROM agent_messages
-            WHERE user_id = ?
-              AND (agent_name = ? OR (? = 'rico' AND agent_name IS NULL))
-            ORDER BY id DESC
-            LIMIT ?
-            """,
-            (user_id, agent_name, agent_name, limit),
-        ).fetchall()
-    finally:
-        connection.close()
-
-    return [dict(row) for row in reversed(rows)]
-
-
 def save_agent_message(user_id, sender, message, agent_name=AGENT_RICO):
     """Save one chat message for the logged-in user."""
     message = (message or "").strip()
@@ -939,18 +864,7 @@ def save_agent_message(user_id, sender, message, agent_name=AGENT_RICO):
     if not message:
         return
 
-    connection = get_database_connection()
-    try:
-        connection.execute(
-            """
-            INSERT INTO agent_messages (user_id, agent_name, sender, message)
-            VALUES (?, ?, ?, ?)
-            """,
-            (user_id, agent_name, sender, message),
-        )
-        connection.commit()
-    finally:
-        connection.close()
+    coach_message_store.insert_agent_message(user_id, sender, message, agent_name)
 
 
 def upsert_user_memory(user_id, memory_key, memory_value, agent_name="shared"):
@@ -958,49 +872,18 @@ def upsert_user_memory(user_id, memory_key, memory_value, agent_name="shared"):
     if not memory_value:
         return
 
-    connection = get_database_connection()
-    try:
-        connection.execute(
-            """
-            INSERT INTO user_memories (
-                user_id, agent_name, memory_key, memory_value
-            )
-            VALUES (?, ?, ?, ?)
-            ON CONFLICT(user_id, agent_name, memory_key)
-            DO UPDATE SET
-                memory_value = excluded.memory_value,
-                updated_at = CURRENT_TIMESTAMP
-            """,
-            (user_id, agent_name, memory_key, memory_value),
-        )
-        connection.commit()
-    finally:
-        connection.close()
+    coach_message_store.upsert_user_memory(
+        user_id,
+        memory_key,
+        memory_value,
+        agent_name=agent_name,
+    )
 
 
 def remember_user_message(user_id, message):
     """Extract and save stable facts from a user message."""
     for memory_key, memory_value in extract_memory_facts(message).items():
         upsert_user_memory(user_id, memory_key, memory_value)
-
-
-def get_user_memories(user_id, agent_name):
-    """Return shared and agent-specific memory for one user only."""
-    connection = get_database_connection()
-    try:
-        rows = connection.execute(
-            """
-            SELECT memory_key, memory_value
-            FROM user_memories
-            WHERE user_id = ? AND agent_name IN ('shared', ?)
-            ORDER BY updated_at, id
-            """,
-            (user_id, agent_name),
-        ).fetchall()
-    finally:
-        connection.close()
-
-    return {row["memory_key"]: row["memory_value"] for row in rows}
 
 
 def remember_pace_improvement(user_id, runs):
@@ -1697,6 +1580,26 @@ def respond_with_memory(user_id, agent_name, question):
     runs = get_all_runs(user_id)
     remember_pace_improvement(user_id, runs)
 
+    if should_answer_with_daily_recommendation(question):
+        today = date.today()
+        target_date = recommendation_target_date(question, today)
+        answer = format_daily_recommendation_response(
+            get_daily_recommendation(
+                user_id,
+                target_date,
+                planned_events=get_planner_events(user_id, target_date, target_date),
+            ),
+            current_date=today,
+        )
+        save_agent_message(user_id, agent_name, answer, agent_name)
+        upsert_user_memory(
+            user_id,
+            "previous_advice",
+            answer[:500],
+            agent_name=agent_name,
+        )
+        return answer
+
     if agent_name == AGENT_IGGY:
         agent = build_iggy_agent(user_id, runs)
     elif agent_name == AGENT_LUNA:
@@ -1736,6 +1639,16 @@ def dashboard_context(user, agent_question=""):
         (event for event in upcoming_events if not event["is_completed"]),
         None,
     )
+    today_plan_events = [
+        event
+        for event in upcoming_events
+        if event["event_date"] == today.isoformat() and not event["is_completed"]
+    ]
+    daily_recommendation = get_daily_recommendation(
+        user_id,
+        today,
+        planned_events=today_plan_events,
+    )
     community_events = get_upcoming_events()
     next_community_event = community_events[0] if community_events else None
     dashboard_challenge = None
@@ -1771,6 +1684,7 @@ def dashboard_context(user, agent_question=""):
         "motivation_posts": motivation_posts(),
         "weekly_schedule": weekly_workout_schedule(),
         "next_plan_event": next_plan_event,
+        "daily_recommendation": daily_recommendation,
         "next_community_event": next_community_event,
         "dashboard_challenge": dashboard_challenge,
         "today_iso": today.isoformat(),
@@ -1794,43 +1708,7 @@ def save_manual_workout(user_id, form):
         previous_run,
     )
 
-    connection = get_database_connection()
-    try:
-        connection.execute(
-            """
-            INSERT INTO runs (
-                run_date, distance, duration, pace, mood, notes, feedback,
-                weather_summary, temperature_f, wind_mph, route_type,
-                route_notes, avg_heart_rate, steps, cadence, source,
-                workout_type, imported_from, user_id
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                run["run_date"],
-                run["distance"],
-                run["duration"],
-                pace,
-                run["mood"],
-                run["notes"],
-                feedback,
-                run["weather_summary"],
-                run["temperature_f"],
-                run["wind_mph"],
-                run["route_type"],
-                run["route_notes"],
-                run["avg_heart_rate"],
-                run["steps"],
-                run["cadence"],
-                "Manual",
-                "Running",
-                None,
-                user_id,
-            ),
-        )
-        connection.commit()
-    finally:
-        connection.close()
+    insert_manual_workout(user_id, run, pace, feedback)
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -2372,15 +2250,11 @@ def toggle_event_rsvp(user_id, event_id):
         connection.close()
 
 def update_user_settings(user_id, language, accessibility_mode):
-    connection = get_database_connection()
-    try:
-        connection.execute(
-            "UPDATE users SET language = ?, accessibility_mode = ? WHERE id = ?",
-            (language, accessibility_mode, user_id)
-        )
-        connection.commit()
-    finally:
-        connection.close()
+    user_store.update_user(
+        user_id,
+        language=language,
+        accessibility_mode=accessibility_mode,
+    )
 
 
 @app.route("/set-language", methods=["POST"])
@@ -2392,12 +2266,7 @@ def set_language():
     
     user_id = current_user_id()
     if user_id:
-        connection = get_database_connection()
-        try:
-            connection.execute("UPDATE users SET language = ? WHERE id = ?", (lang, user_id))
-            connection.commit()
-        finally:
-            connection.close()
+        user_store.update_user(user_id, language=lang)
             
     return redirect(request.referrer or url_for("index"))
 

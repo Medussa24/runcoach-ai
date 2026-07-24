@@ -19,7 +19,20 @@
 <section class="dashboard-next-grid" aria-label="Recommended next actions">
     <article class="panel dashboard-next-card dashboard-today-card">
         <p class="eyebrow">Today</p>
-        {% if next_plan_event %}
+        {% if daily_recommendation %}
+            <h2>{{ daily_recommendation.title }}</h2>
+            <p>{{ daily_recommendation.reason }}</p>
+            <p class="notes">
+                {{ daily_recommendation.intensity|title }}
+                {% if daily_recommendation.duration_minutes %} &middot; {{ daily_recommendation.duration_minutes }} minutes{% endif %}
+                {% if daily_recommendation.plan_adjusted %} &middot; adjusted today{% endif %}
+            </p>
+            <div class="planner-card-actions">
+                <a class="button" href="{{ url_for('log_workout') }}#log-run">Start workout</a>
+                <a class="primary-link" href="{{ url_for('coach_page', coach='rico') }}">Ask Rico</a>
+                <a class="primary-link" href="{{ url_for('planner.planner') }}">Open plan</a>
+            </div>
+        {% elif next_plan_event %}
             <h2>{{ next_plan_event["title"] }}</h2>
             <p>{{ next_plan_event["duration_minutes"] }} minutes with {{ next_plan_event["coach"] or "your coach" }} at {{ next_plan_event["start_time"] }}.</p>
             <div class="planner-card-actions">
