@@ -22,9 +22,9 @@ from planner_store import (
     DEFAULT_TIMEZONE,
     SUPPORTED_TIMEZONES,
     PlannerStore,
+    current_date_in_timezone,
     normalize_timezone,
     parse_week_start,
-    safe_zoneinfo,
 )
 from runcoach_agent import (
     DataAnalystAgent,
@@ -1629,7 +1629,7 @@ def dashboard_context(user, agent_question=""):
     analyst_summary = build_analyst_summary(runs, analyst_uploads)
     analyst_summary.update(data_summary)
     timezone_name = get_user_timezone(user_id)
-    today = datetime.now(safe_zoneinfo(timezone_name)).date()
+    today = current_date_in_timezone(timezone_name)
     upcoming_events = get_planner_events(
         user_id,
         today,

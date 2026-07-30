@@ -142,7 +142,13 @@ class PlannerStore:
         finally:
             connection.close()
 
-    def calendar_days(self, user_id, week_start, timezone_name=DEFAULT_TIMEZONE):
+    def calendar_days(
+        self,
+        user_id,
+        week_start,
+        timezone_name=DEFAULT_TIMEZONE,
+        current_date=None,
+    ):
         events = self.get_events(
             user_id,
             week_start,
@@ -151,7 +157,7 @@ class PlannerStore:
         by_date = {}
         for event in events:
             by_date.setdefault(event["event_date"], []).append(event)
-        today = datetime.now(safe_zoneinfo(timezone_name)).date()
+        today = current_date or current_date_in_timezone(timezone_name)
         return [
             {
                 "date": day.isoformat(),
@@ -172,8 +178,18 @@ def parse_week_start(value=None, timezone_name=DEFAULT_TIMEZONE):
             return date.fromisoformat(value)
         except ValueError:
             pass
-    today = datetime.now(safe_zoneinfo(timezone_name)).date()
+    today = current_date_in_timezone(timezone_name)
     return today - timedelta(days=today.weekday())
+
+
+def current_date_in_timezone(timezone_name=DEFAULT_TIMEZONE, now=None):
+    """Return the calendar date at one instant in a supported user timezone."""
+    zone = safe_zoneinfo(timezone_name)
+    if now is None:
+        return datetime.now(zone).date()
+    if now.tzinfo is None:
+        raise ValueError("now must be timezone-aware")
+    return now.astimezone(zone).date()
 
 
 def normalize_timezone(value):

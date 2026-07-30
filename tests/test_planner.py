@@ -1,11 +1,13 @@
 import smtplib
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
 import app as runcoach
+import planner_store
 from notification_service import PlanEmailService, build_calendar_ics
 from planner_agent import WeeklyPlannerAgent
+from planner_store import current_date_in_timezone
 
 
 class RecordingService:
@@ -66,6 +68,105 @@ def create_and_login(client, email):
     with client.session_transaction() as session:
         session["user_id"] = user_id
     return user_id
+
+
+def test_current_date_uses_user_timezone_at_utc_midnight_boundary(monkeypatch):
+    instant = datetime(2026, 7, 30, 3, 30, tzinfo=timezone.utc)
+    offsets = {
+        "UTC": timezone.utc,
+        "America/New_York": timezone(timedelta(hours=-4)),
+        "Pacific/Honolulu": timezone(timedelta(hours=-10)),
+    }
+    monkeypatch.setattr(
+        planner_store,
+        "safe_zoneinfo",
+        lambda timezone_name: offsets[timezone_name],
+    )
+
+    assert current_date_in_timezone("UTC", instant) == date(2026, 7, 30)
+    assert current_date_in_timezone(
+        "America/New_York",
+        instant,
+    ) == date(2026, 7, 29)
+    assert current_date_in_timezone(
+        "Pacific/Honolulu",
+        instant,
+    ) == date(2026, 7, 29)
+
+
+def test_planner_uses_one_date_across_midnight_boundary(
+    planner_client,
+    monkeypatch,
+):
+    client = planner_client
+    user_id = create_and_login(client, "planner-midnight@example.test")
+    runcoach.update_user_timezone(user_id, "America/Los_Angeles")
+    for event_date, title in (
+        ("2026-07-29", "Before midnight workout"),
+        ("2026-07-30", "After midnight workout"),
+    ):
+        runcoach.add_personal_planner_event(
+            user_id,
+            {
+                "title": title,
+                "event_date": event_date,
+                "start_time": "07:00",
+                "duration_minutes": "30",
+                "details": "Boundary regression event.",
+            },
+        )
+    planner_blueprint = __import__(
+        "blueprints.planner",
+        fromlist=["planner"],
+    )
+    captured = {}
+    date_reads = []
+
+    def initial_date(timezone_name):
+        date_reads.append(timezone_name)
+        return date(2026, 7, 29)
+
+    def record_date(request_user_id, target_date, planned_events=None):
+        captured["user_id"] = request_user_id
+        captured["target_date"] = target_date
+        captured["planned_events"] = planned_events
+        return {"title": "Captured recommendation"}
+
+    def capture_template(template_name, **context):
+        captured["template_name"] = template_name
+        captured["calendar_days"] = context["calendar_days"]
+        return "Captured planner"
+
+    class AfterMidnightDateTime:
+        @classmethod
+        def now(cls, timezone_value):
+            return datetime(2026, 7, 30, 0, 1, tzinfo=timezone_value)
+
+    monkeypatch.setattr(
+        planner_blueprint,
+        "current_date_in_timezone",
+        initial_date,
+    )
+    monkeypatch.setattr(
+        planner_blueprint,
+        "get_daily_recommendation",
+        record_date,
+    )
+    monkeypatch.setattr(planner_blueprint, "render_template", capture_template)
+    monkeypatch.setattr(planner_store, "datetime", AfterMidnightDateTime)
+
+    response = client.get("/planner?week_start=2026-07-27")
+
+    assert response.status_code == 200
+    assert date_reads == ["America/Los_Angeles"]
+    assert captured["user_id"] == user_id
+    assert captured["target_date"] == date(2026, 7, 29)
+    assert [
+        event["title"] for event in captured["planned_events"]
+    ] == ["Before midnight workout"]
+    assert [
+        day["date"] for day in captured["calendar_days"] if day["is_today"]
+    ] == ["2026-07-29"]
 
 
 def test_fallback_week_has_complete_workout_outline():
