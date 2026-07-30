@@ -16,6 +16,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from agent_memory import extract_memory_facts, pace_improvement_memory
 from coach_data import STARTER_COACH_ITEMS
 from data_analyst import build_analyst_summary, save_demo_screenshot
+from gemini_service import approve_user_scoped_tool
 from notification_service import PlanEmailService, build_calendar_ics
 from planner_agent import WeeklyPlannerAgent
 from planner_store import (
@@ -1504,13 +1505,16 @@ def build_user_scoped_agent_tools(user_id, agent_name):
         )[:20]
 
     return [
-        get_user_profile_for_logged_in_user,
-        get_recent_chat_for_this_agent,
-        get_recent_workouts_for_logged_in_user,
-        get_walk_context_for_logged_in_user,
-        get_recovery_context_for_logged_in_user,
-        get_import_summary_for_logged_in_user,
-        get_upcoming_plan_for_logged_in_user,
+        approve_user_scoped_tool(tool)
+        for tool in [
+            get_user_profile_for_logged_in_user,
+            get_recent_chat_for_this_agent,
+            get_recent_workouts_for_logged_in_user,
+            get_walk_context_for_logged_in_user,
+            get_recovery_context_for_logged_in_user,
+            get_import_summary_for_logged_in_user,
+            get_upcoming_plan_for_logged_in_user,
+        ]
     ]
 
 

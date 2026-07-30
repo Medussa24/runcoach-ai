@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import inspect
 import json
 import logging
 import os
+from typing import get_type_hints
 
 try:
     from google import genai
@@ -15,6 +17,8 @@ except ImportError:  # The local fallback remains usable without the optional SD
 
 
 GEMINI_MODEL = "gemini-2.5-flash"
+MAX_TOOL_ITERATIONS = 5
+USER_SCOPED_TOOL_MARKER = "_runcoach_user_scoped_tool"
 LOGGER = logging.getLogger(__name__)
 SHARED_SAFETY_INSTRUCTIONS = """
 Safety and privacy rules:
@@ -27,6 +31,12 @@ Safety and privacy rules:
 - Encourage professional or emergency help when a user describes urgent danger.
 - Be honest when context is missing; do not invent workouts, measurements, or history.
 """.strip()
+
+
+def approve_user_scoped_tool(tool):
+    """Mark a server-created, authenticated-user closure as executable."""
+    setattr(tool, USER_SCOPED_TOOL_MARKER, True)
+    return tool
 
 
 class GeminiService:
@@ -77,8 +87,9 @@ class GeminiService:
         max_output_tokens=500,
         response_mime_type=None,
         thinking_budget=None,
+        max_tool_iterations=MAX_TOOL_ITERATIONS,
     ):
-        """Return Gemini text or ``None`` so the caller can use its local fallback."""
+        """Run bounded Gemini/tool turns, or return ``None`` for local fallback."""
         if not self.is_configured:
             return None
 
@@ -92,13 +103,22 @@ class GeminiService:
                 ensure_ascii=False,
                 default=str,
             )
+            approved_tools = {
+                tool.__name__: tool
+                for tool in tools or []
+                if callable(tool)
+                and getattr(tool, USER_SCOPED_TOOL_MARKER, False)
+            }
             config_options = {
                 "system_instruction": (
                     f"{system_prompt}\n\n{SHARED_SAFETY_INSTRUCTIONS}"
                 ),
                 "temperature": 0.5,
                 "max_output_tokens": max_output_tokens,
-                "tools": list(tools or []),
+                "tools": list(approved_tools.values()),
+                "automatic_function_calling": types.AutomaticFunctionCallingConfig(
+                    disable=True
+                ),
             }
             if response_mime_type:
                 config_options["response_mime_type"] = response_mime_type
@@ -109,13 +129,36 @@ class GeminiService:
             config = types.GenerateContentConfig(
                 **config_options
             )
-            response = client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=config,
-            )
-            text = (getattr(response, "text", None) or "").strip()
-            return text or None
+            contents = prompt
+            for iteration in range(max_tool_iterations + 1):
+                response = client.models.generate_content(
+                    model=self.model,
+                    contents=contents,
+                    config=config,
+                )
+                function_calls = list(
+                    getattr(response, "function_calls", None) or []
+                )
+                if not function_calls:
+                    text = (getattr(response, "text", None) or "").strip()
+                    return text or None
+                if iteration == max_tool_iterations:
+                    LOGGER.warning(
+                        "Gemini tool iteration limit reached; using scripted fallback."
+                    )
+                    return None
+
+                response_parts = [
+                    self._execute_function_call(call, approved_tools)
+                    for call in function_calls
+                ]
+                model_content = self._model_content(response)
+                contents = self._append_tool_turn(
+                    contents,
+                    model_content,
+                    response_parts,
+                )
+            return None
         except Exception as error:
             # Provider errors must not take down login, demo, or coaching flows.
             LOGGER.warning(
@@ -123,3 +166,83 @@ class GeminiService:
                 type(error).__name__,
             )
             return None
+
+    @staticmethod
+    def _model_content(response):
+        candidates = getattr(response, "candidates", None) or []
+        if not candidates or not getattr(candidates[0], "content", None):
+            raise ValueError("Gemini tool response did not include model content")
+        return candidates[0].content
+
+    @staticmethod
+    def _append_tool_turn(contents, model_content, response_parts):
+        history = list(contents) if isinstance(contents, list) else [contents]
+        history.append(model_content)
+        history.append(types.Content(role="user", parts=response_parts))
+        return history
+
+    def _execute_function_call(self, call, approved_tools):
+        name = getattr(call, "name", None) or ""
+        arguments = getattr(call, "args", None) or {}
+        tool = approved_tools.get(name)
+        if tool is None:
+            payload = {
+                "error": {
+                    "code": "unknown_tool",
+                    "message": "The requested tool is not approved.",
+                }
+            }
+        else:
+            try:
+                validated = self._validate_tool_arguments(tool, arguments)
+            except (TypeError, ValueError) as error:
+                payload = {
+                    "error": {
+                        "code": "invalid_arguments",
+                        "message": str(error),
+                    }
+                }
+            else:
+                try:
+                    payload = {"result": tool(**validated)}
+                except Exception as error:
+                    LOGGER.warning(
+                        "Approved Gemini tool failed (%s: %s).",
+                        name,
+                        type(error).__name__,
+                    )
+                    payload = {
+                        "error": {
+                            "code": "tool_failure",
+                            "message": "The approved tool could not complete.",
+                        }
+                    }
+        function_response = types.FunctionResponse(
+            id=getattr(call, "id", None),
+            name=name,
+            response=payload,
+        )
+        return types.Part(function_response=function_response)
+
+    @staticmethod
+    def _validate_tool_arguments(tool, arguments):
+        if not isinstance(arguments, dict):
+            raise TypeError("Tool arguments must be an object.")
+        signature = inspect.signature(tool)
+        try:
+            bound = signature.bind(**arguments)
+        except TypeError as error:
+            raise TypeError(
+                f"Arguments do not match the approved tool: {error}"
+            ) from error
+        hints = get_type_hints(tool)
+        for name, value in bound.arguments.items():
+            expected = hints.get(name)
+            if expected in (str, int, float, bool, list, dict):
+                if not isinstance(value, expected) or (
+                    expected is int and isinstance(value, bool)
+                ):
+                    raise TypeError(
+                        f"Argument '{name}' must be {expected.__name__}."
+                    )
+        return dict(bound.arguments)
