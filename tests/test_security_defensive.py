@@ -440,14 +440,14 @@ def test_dashboard_renders_compact_action_hub_without_legacy_top_control(client)
     assert dashboard.status_code == 200
     assert 'id="dashboard-title">Dashboard</h1>' in html
     assert 'id="dashboardSearch"' not in html
-    assert html.count("dashboard-coach-card") == 3
-    assert "Log a workout" in html
-    assert "Recommended next actions" in html
-    assert "Quick log" in html
-    assert "Weekly progress" in html
-    assert "Recent workout" in html
+    assert html.count("dashboard-coach-card") == 6
+    assert "Log Workout" in html
+    assert "Recommended next actions" not in html
+    assert "Quick log" not in html
+    assert "Weekly progress" not in html
+    assert "Recent workout" not in html
     assert "Community" in html
-    assert 'href="/coach"' in html
+    assert 'href="/coach?coach=rico"' in html
     assert 'id="backToTop"' not in html
     assert 'id="quickTipsToggle"' not in html
     assert "Quick Demo Tutorial" not in html
@@ -576,13 +576,13 @@ def test_coach_cards_offer_clickable_advice_bubbles(client):
     html = client.get("/").get_data(as_text=True)
     coach_html = client.get("/coach").get_data(as_text=True)
 
-    assert html.count("dashboard-coach-card") == 3
+    assert html.count("dashboard-coach-card") == 6
     assert "Rico Runner" in html
     assert "Iggy" in html
     assert "Luna" in html
     assert 'data-agent="rico"' in coach_html
     assert 'data-coach-choice="iggy"' in coach_html
-    assert "app.js?v=phase7-dashboard-next-1" in html
+    assert "app.js?v=coach-alive-1" in html
 
 
 def test_dashboard_excludes_progress_history_import_and_motivation_sections(client):
@@ -606,12 +606,16 @@ def test_dashboard_links_to_dedicated_multi_page_sections(client):
     html = dashboard.get_data(as_text=True)
 
     assert dashboard.status_code == 200
-    assert 'href="/progress"' in html
-    assert 'href="/progress#previous-runs"' in html
-    assert 'href="/log-workout#log-run"' in html
-    assert 'href="/coach"' in html
+    assert 'id="dashboard-rico"' in html
+    assert 'id="dashboard-luna"' in html
+    assert 'id="dashboard-iggy"' in html
+    assert 'id="dashboard-events"' in html
+    assert 'id="dashboard-community"' in html
+    assert 'id="dashboard-log"' in html
+    assert 'href="/log-workout"' in html
+    assert 'href="/coach?coach=rico"' in html
     assert 'href="/community"' in html
-    assert 'href="/planner"' in html
+    assert 'href="/events"' in html
     assert "gentle chime" not in html
 
 

@@ -4682,6 +4682,32 @@ dd {
     gap: 16px;
 }
 
+.dashboard-six-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.dashboard-action-card {
+    min-height: 13rem;
+}
+
+.dashboard-action-card > div {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.dashboard-action-card .text-link {
+    margin-top: auto;
+}
+
+.coach-conversation-only {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.coach-conversation-actions {
+    margin-top: 1rem;
+}
+
 .dashboard-coach-card {
     display: grid;
     grid-template-columns: 76px minmax(0, 1fr);

@@ -142,7 +142,7 @@ def test_chat_recommendation_date_label_matches_requested_day():
     assert not answer.startswith("Today:")
 
 
-def test_dashboard_planner_and_chat_share_daily_recommendation(coaching_client):
+def test_recommendation_lives_in_chat_not_dashboard_or_planner(coaching_client):
     user_id = create_and_login(coaching_client, "surface@example.test")
     recommendation = get_daily_recommendation(user_id, date.today())
 
@@ -154,6 +154,52 @@ def test_dashboard_planner_and_chat_share_daily_recommendation(coaching_client):
         "What should I do today?",
     )
 
-    assert recommendation.title in dashboard_html
-    assert recommendation.title in planner_html
+    assert recommendation.title not in dashboard_html
+    assert recommendation.title not in planner_html
+    assert "Ask Rico for today&apos;s recommendation" in planner_html
     assert format_daily_recommendation_response(recommendation) == chat_answer
+
+
+def test_log_saved_workout_coach_response_and_planner_update_end_to_end(
+    coaching_client,
+):
+    user_id = create_and_login(coaching_client, "coach-alive-e2e@example.test")
+    today = date.today().isoformat()
+
+    before_planner = coaching_client.get("/planner").get_data(as_text=True)
+    assert 'data-planner-workout-count="0"' in before_planner
+
+    saved = coaching_client.post(
+        "/log-workout",
+        data={
+            "run_date": today,
+            "duration_minutes": "28",
+            "distance": "2.25",
+            "distance_unit": "mi",
+            "avg_heart_rate": "146",
+        },
+    )
+
+    assert saved.status_code == 302
+    assert saved.headers["Location"].endswith("/log-workout?saved=1")
+    workout = runcoach.get_all_runs(user_id)[0]
+    assert workout["run_date"] == today
+    assert workout["duration"] == 28
+    assert workout["distance"] == 2.25
+    assert workout["avg_heart_rate"] == 146
+
+    coach = coaching_client.post(
+        "/agent",
+        json={
+            "agent": "rico",
+            "question": "What do you recommend for me today?",
+        },
+    )
+    assert coach.status_code == 200
+    assert "25-minute easy run" in coach.get_json()["answer"]
+    assert "recent history" in coach.get_json()["answer"]
+
+    after_planner = coaching_client.get("/planner").get_data(as_text=True)
+    assert 'data-planner-workout-count="1"' in after_planner
+    assert "Planner synced with 1 saved workout." in after_planner
+    assert "25-minute easy run" not in after_planner

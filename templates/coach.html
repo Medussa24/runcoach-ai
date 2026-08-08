@@ -3,6 +3,7 @@
 {% set asset_version = 'phase2-coach-1' %}
 
 {% set selected_coach = request.args.get('coach', 'rico') %}
+{% set initial_prompt = request.args.get('prompt', '') %}
 {% if selected_coach not in ['rico', 'iggy', 'luna'] %}
     {% set selected_coach = 'rico' %}
 {% endif %}
@@ -14,7 +15,7 @@
         'avatar': 'coqui-coach.svg',
         'greeting': 'Let us keep your next run steady, useful, and repeatable.',
         'focus': 'Pacing, consistency, progression, and race preparation.',
-        'prompts': ['Plan today', 'Review my last run', 'Explain my pace']
+        'prompts': ["What do you recommend for me today?", 'Review my last workout', 'Give me a training tip', 'How should I recover?']
     },
     'iggy': {
         'name': 'Iggy',
@@ -39,8 +40,8 @@
 {% block content %}
 <header class="page-hero coach-workspace-header">
     <p class="eyebrow">{{ _('coach') }}</p>
-    <h1>Choose your coach.</h1>
-    <p>Rico, Iggy, and Luna share your workout history and context. Switching coaches changes the tone and recommendations, not the underlying data.</p>
+    <h1>Your coach comes alive here.</h1>
+    <p>Ask for today&apos;s recommendation, a useful tip, or recovery guidance. Your coach answers from your saved workout history and plan.</p>
 </header>
 
 <section
@@ -72,7 +73,7 @@
         {% endfor %}
     </div>
 
-    <section class="coach-workspace-grid">
+    <section class="coach-workspace-grid coach-conversation-only">
         <section class="panel coach-chat-panel" aria-labelledby="coach-chat-title">
             <div class="coach-chat-heading">
                 <img id="coachAvatar" src="{{ url_for('static', filename=coach_profiles[selected_coach].avatar) }}" alt="">
@@ -118,39 +119,14 @@
             <form class="coach-workspace-form" id="coachWorkspaceForm" data-agent="{{ selected_coach }}">
                 <input type="hidden" name="agent" value="{{ selected_coach }}">
                 <label for="coachWorkspaceQuestion">Message your coach</label>
-                <textarea id="coachWorkspaceQuestion" name="question" rows="3" placeholder="Ask about today, your last workout, soreness, pace, or confidence."></textarea>
+                <textarea id="coachWorkspaceQuestion" name="question" rows="3" placeholder="Ask about today, your last workout, soreness, pace, or confidence.">{{ initial_prompt }}</textarea>
                 <button type="submit">Send</button>
             </form>
+            <nav class="planner-actions coach-conversation-actions" aria-label="Coaching actions">
+                <a href="{{ url_for('log_workout') }}#log-run">Log workout</a>
+                <a href="{{ url_for('planner.planner') }}">Open Planner</a>
+            </nav>
         </section>
-
-        <aside class="coach-today-panel" aria-label="Workout and plan summary">
-            <section class="panel">
-                <h2>Today</h2>
-                {% if next_plan_event %}
-                    <p><strong>{{ next_plan_event["title"] }}</strong></p>
-                    <p class="notes">{{ next_plan_event["event_date"] }} at {{ next_plan_event["start_time"] }}</p>
-                    <p class="notes">{{ next_plan_event["purpose"] or "Keep the effort beginner-friendly and repeatable." }}</p>
-                    <a class="primary-link" href="{{ url_for('planner.planner') }}">Adjust plan</a>
-                {% else %}
-                    <p class="empty-state">No workout is planned for today yet.</p>
-                    <a class="primary-link" href="{{ url_for('planner.planner') }}">Generate this week</a>
-                {% endif %}
-                <a class="primary-link" href="{{ url_for('log_workout') }}#log-run">Log a workout</a>
-            </section>
-
-            <section class="panel">
-                <h2>This week</h2>
-                <p class="notes">{{ "%.1f"|format(analyst_summary["weekly_mileage"]) }} miles logged across {{ runs|length }} saved workout{{ '' if runs|length == 1 else 's' }}.</p>
-                <a class="primary-link" href="{{ url_for('planner.planner') }}">Open weekly plan</a>
-                <a class="primary-link" href="{{ url_for('progress_page') }}">View progress</a>
-            </section>
-
-            <section class="panel">
-                <h2>Quick log workout</h2>
-                <p class="notes">Save a run or walk after your coach helps you choose the effort.</p>
-                <a class="button" href="{{ url_for('log_workout') }}#log-run">Log workout</a>
-            </section>
-        </aside>
     </section>
 </section>
 {% endblock %}

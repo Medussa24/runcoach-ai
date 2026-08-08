@@ -16,6 +16,7 @@ planner_bp = Blueprint("planner", __name__)
 @login_required
 def planner():
     user = current_user()
+    saved_workouts = get_all_runs(user["id"])
     timezone_name = get_user_timezone(user["id"])
     today = current_date_in_timezone(timezone_name)
     week_start = parse_week_start(request.args.get("week_start"), timezone_name)
@@ -50,6 +51,7 @@ def planner():
             today,
             planned_events=today_plan_events,
         ),
+        saved_workout_count=len(saved_workouts),
     )
 
 

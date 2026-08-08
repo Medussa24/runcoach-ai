@@ -29,6 +29,9 @@
         <a href="{{ url_for('planner.planner_calendar', week_start=week_start) }}">Download calendar</a>
     </nav>
 </header>
+<p class="notes" data-planner-workout-count="{{ saved_workout_count }}">
+    Planner synced with {{ saved_workout_count }} saved workout{{ '' if saved_workout_count == 1 else 's' }}.
+</p>
 
 <nav class="section-tabs" aria-label="Planner sections">
     <a href="#planner-today">Today</a>
@@ -71,8 +74,9 @@
                 {% endfor %}
             </div>
         {% else %}
-            <p class="empty-state">{{ daily_recommendation.title }}. {{ daily_recommendation.reason }}</p>
-            <a class="button" href="#planner-generate">Generate my week</a>
+            <p class="empty-state">No workout is planned for today.</p>
+            <a class="button" href="{{ url_for('coach_page', coach='rico', prompt='What do you recommend for me today?') }}">Ask Rico for today&apos;s recommendation</a>
+            <a class="primary-link" href="#planner-generate">Generate my week</a>
         {% endif %}
     </section>
 

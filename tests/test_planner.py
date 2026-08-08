@@ -328,7 +328,8 @@ def test_planner_empty_week_has_clear_empty_state(planner_client):
     html = response.get_data(as_text=True)
 
     assert response.status_code == 200
-    assert "20-minute walk-run starter" in html
+    assert "Ask Rico for today&apos;s recommendation" in html
+    assert "20-minute walk-run starter" not in html
     assert "Generate a week or add a calendar event to fill this plan." in html
     assert "Add calendar event" in html
 
