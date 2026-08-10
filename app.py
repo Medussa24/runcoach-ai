@@ -53,6 +53,7 @@ from services.coaching_service import (
 )
 from sentinel_qa import SentinelQA
 from stores import coach_message_store
+from stores import community_message_store
 from stores import user_store
 from stores import workout_store
 
@@ -158,6 +159,7 @@ def upload_too_large(_error):
 def get_database_connection():
     """Open a connection to the SQLite database."""
     connection = sqlite3.connect(DATABASE, timeout=10)
+    connection.execute("PRAGMA foreign_keys = ON;")
     connection.execute("PRAGMA journal_mode=WAL;")
     connection.row_factory = sqlite3.Row
     return connection
@@ -166,6 +168,7 @@ def get_database_connection():
 workout_store.configure(get_database_connection)
 user_store.configure(get_database_connection)
 coach_message_store.configure(get_database_connection)
+community_message_store.configure(get_database_connection)
 get_previous_run = workout_store.get_previous_run
 get_all_runs = workout_store.get_all_runs
 list_recent_workouts = workout_store.list_recent_workouts
@@ -431,6 +434,64 @@ def setup_database():
             """
         )
         connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS message_conversations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_low_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                user_high_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CHECK(user_low_id < user_high_id),
+                UNIQUE(user_low_id, user_high_id)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS message_participants (
+                conversation_id INTEGER NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                last_read_message_id INTEGER REFERENCES community_messages(id),
+                joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY(conversation_id, user_id)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS community_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                conversation_id INTEGER NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
+                sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                body TEXT NOT NULL CHECK(length(body) BETWEEN 1 AND 2000),
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_blocks (
+                blocker_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                blocked_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                CHECK(blocker_id != blocked_id),
+                PRIMARY KEY(blocker_id, blocked_id)
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS message_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                message_id INTEGER NOT NULL REFERENCES community_messages(id) ON DELETE CASCADE,
+                reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                reason TEXT NOT NULL CHECK(reason IN ('harassment', 'spam', 'unsafe', 'other')),
+                status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'reviewed', 'closed')),
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(message_id, reporter_id)
+            )
+            """
+        )
+        connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_runs_user_date ON runs(user_id, run_date)"
         )
         connection.execute(
@@ -441,6 +502,21 @@ def setup_database():
         )
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_monthly_challenges_dates ON monthly_challenges(start_date, end_date)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_message_participants_user ON message_participants(user_id, conversation_id)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_community_messages_conversation ON community_messages(conversation_id, id)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_community_messages_sender ON community_messages(sender_id, id)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked ON user_blocks(blocked_id, blocker_id)"
+        )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_message_reports_status ON message_reports(status, created_at)"
         )
         seed_monthly_challenges(connection)
         connection.commit()
