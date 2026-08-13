@@ -1,103 +1,32 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{ current_lang }}">
 <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>{% if mode == "signup" %}Sign Up{% else %}Log In{% endif %} - RunCoach AI</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="csrf-token" content="{{ csrf_token() }}">
+    <title>{% if mode == 'signup' %}Create account{% else %}Welcome back{% endif %} - RunCoach AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='design-system.css', v='auth-rico-2') }}">
 </head>
-<body>
-    <main class="page auth-page">
-        <section class="intro">
-            <div class="intro-copy">
-                <p class="eyebrow">RunCoach AI</p>
-                <img class="brand-logo brand-logo-photo" src="{{ url_for('static', filename='runcoach-logo.png') }}" alt="RunCoach AI - Move Improve Thrive">
-                <h1 class="sr-only">RunCoach AI</h1>
-                <p class="hero-description">Personalized movement coaching with Rico Runner and Iggy.</p>
-            </div>
-            <div class="hero-gallery auth-gallery" aria-label="RunCoach AI coaches">
-                <div class="hero-card hero-card-rico">
-                    <img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico Runner">
-                    <span>Rico</span>
-                </div>
-                <div class="hero-card hero-card-iggy">
-                    <img src="{{ url_for('static', filename='iggy-coach.svg') }}" alt="Iggy">
-                    <span>Iggy</span>
-                </div>
-                <div class="hero-card hero-card-luna">
-                    <img src="{{ url_for('static', filename='luna-recovery.svg') }}" alt="Luna Recovery">
-                    <span>Luna</span>
-                </div>
-            </div>
-        </section>
-
-        <section class="auth-layout">
-            <form class="panel auth-panel" method="post">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                
-                <div class="lang-selector-auth" style="margin-bottom: 20px; text-align: right;">
-                    <select name="auth_language" onchange="const f = document.createElement('form'); f.method='POST'; f.action='{{ url_for('set_language') }}'; const i = document.createElement('input'); i.type='hidden'; i.name='language'; i.value=this.value; const c = document.createElement('input'); c.type='hidden'; c.name='csrf_token'; c.value='{{ csrf_token() }}'; f.appendChild(i); f.appendChild(c); document.body.appendChild(f); f.submit();" style="padding: 5px; border-radius: 4px; background: var(--bg-card); color: var(--text-color); border: 1px solid var(--border-color);">
-                        <option value="en" {% if current_lang == 'en' %}selected{% endif %}>English</option>
-                        <option value="es" {% if current_lang == 'es' %}selected{% endif %}>Español</option>
-                    </select>
-                </div>
-
-                {% if mode == "signup" %}
-                    <h2>{{ 'Sign Up' if current_lang == 'en' else 'Registrarse' }}</h2>
-                {% else %}
-                    <h2>{{ 'Log In' if current_lang == 'en' else 'Iniciar Sesión' }}</h2>
-                {% endif %}
- 
-                {% if error %}
-                    <p class="error-message">{{ error }}</p>
-                {% endif %}
- 
-                {% if mode != "signup" and demo_mode %}
-                    <div class="demo-callout">
-                        <p class="notes">{{ 'Demo mode uses fake workout data for privacy-safe testing.' if current_lang == 'en' else 'El modo de demostración utiliza datos de entrenamiento simulados para pruebas seguras de privacidad.' }}</p>
-                        <button class="demo-button" type="submit" form="demoLoginForm">{{ 'Try Demo' if current_lang == 'en' else 'Probar Demo' }}</button>
-                    </div>
-                {% endif %}
- 
-                <label for="email">{{ 'Email' if current_lang == 'en' else 'Correo electrónico' }}</label>
-                <input id="email" name="email" type="email" autocomplete="email" required>
- 
-                <label for="password">{{ 'Password' if current_lang == 'en' else 'Contraseña' }}</label>
-                <input id="password" name="password" type="password" autocomplete="{% if mode == 'signup' %}new-password{% else %}current-password{% endif %}" required>
- 
-                <button type="submit">{% if mode == "signup" %}{{ 'Create Account' if current_lang == 'en' else 'Crear cuenta' }}{% else %}{{ 'Log In' if current_lang == 'en' else 'Iniciar Sesión' }}{% endif %}</button>
- 
-                {% if mode == "signup" %}
-                    <p class="notes">{{ 'Already have an account?' if current_lang == 'en' else '¿Ya tienes una cuenta?' }} <a href="{{ url_for('auth.login') }}">{{ 'Log in' if current_lang == 'en' else 'Iniciar sesión' }}</a>.</p>
-                {% else %}
-                    <p class="notes">{{ 'Need an account?' if current_lang == 'en' else '¿Necesitas una cuenta?' }} <a href="{{ url_for('auth.signup') }}">{{ 'Sign up' if current_lang == 'en' else 'Registrarse' }}</a>.</p>
-                {% endif %}
+<body class="auth-world">
+<main class="auth-shell">
+    <section class="auth-hero" aria-labelledby="auth-brand-title">
+        <div class="auth-sun" aria-hidden="true"></div><div class="auth-island" aria-hidden="true"></div>
+        <a class="auth-logo-link" href="{{ url_for('auth.login') }}" aria-label="RunCoach AI home"><img src="{{ url_for('static', filename='runcoach-logo.png') }}" alt="RunCoach AI"></a>
+        <div class="auth-hero-copy"><p class="eyebrow">Your next chapter starts here</p><h1 id="auth-brand-title">Run with someone who remembers.</h1><p>Rico turns your real training into honest guidance, steady encouragement, and a story worth returning to.</p></div>
+        <div class="auth-rico-scene"><img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt="Rico, your RunCoach"><div class="auth-rico-greeting"><strong>Hey, I’m Rico.</strong><span>Let’s meet today as it is.</span></div></div>
+    </section>
+    <section class="auth-entry" aria-labelledby="auth-form-title">
+        <div class="auth-card">
+            <header><p class="eyebrow">RunCoach AI</p><h2 id="auth-form-title">{% if mode == 'signup' %}Create your account{% else %}Welcome back{% endif %}</h2><p>{% if mode == 'signup' %}Start building a running story grounded in your data.{% else %}Rico is ready when you are.{% endif %}</p></header>
+            {% if error %}<p class="auth-error" role="alert">{{ error }}</p>{% endif %}
+            <form class="auth-form" method="post" novalidate><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <label for="email">{{ 'Email address' if current_lang == 'en' else 'Correo electrónico' }}</label><input id="email" name="email" type="email" autocomplete="email" inputmode="email" required {% if error %}aria-invalid="true"{% endif %}>
+                <label for="password">{{ 'Password' if current_lang == 'en' else 'Contraseña' }}</label><div class="password-control"><input id="password" data-password-input name="password" type="password" autocomplete="{% if mode == 'signup' %}new-password{% else %}current-password{% endif %}" minlength="6" required {% if error %}aria-invalid="true"{% endif %}><button type="button" data-password-toggle aria-pressed="false" aria-controls="password">Show</button></div>
+                <button class="auth-submit" type="submit">{% if mode == 'signup' %}Create account{% else %}Enter RunCoach{% endif %}</button>
             </form>
-
-            {% if demo_mode %}
-            <section class="panel auth-panel">
-                <h2>Demo User</h2>
-                <p class="notes">For Capstone testing, use this sample account or click Try Demo. It has fake demo data only.</p>
-                <dl class="context-stats">
-                    <div>
-                        <dt>Email</dt>
-                        <dd>{{ demo_email }}</dd>
-                    </div>
-                    <div>
-                        <dt>Password</dt>
-                        <dd>{{ demo_password }}</dd>
-                    </div>
-                </dl>
-                <p class="notes">Real Apple Health exports should stay local and private.</p>
-            </section>
-            {% endif %}
-        </section>
-        {% if mode != "signup" and demo_mode %}
-            <form id="demoLoginForm" method="post" action="{{ url_for('auth.demo_login') }}">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            </form>
-        {% endif %}
-    </main>
-</body>
-</html>
+            <p class="auth-switch">{% if mode == 'signup' %}Already running with us? <a href="{{ url_for('auth.login') }}">Log in</a>{% else %}New to RunCoach? <a href="{{ url_for('auth.signup') }}">Create an account</a>{% endif %}</p>
+            {% if mode != 'signup' and demo_mode %}<details class="auth-demo"><summary>Explore the demo</summary><p>Enter a privacy-safe sample account with fictional workout data.</p><form method="post" action="{{ url_for('auth.demo_login') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Explore Demo</button></form></details>{% endif %}
+            <form class="auth-language" method="post" action="{{ url_for('set_language') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label for="authLanguage" class="sr-only">Language</label><select id="authLanguage" name="language" onchange="this.form.submit()"><option value="en" {% if current_lang == 'en' %}selected{% endif %}>English</option><option value="es" {% if current_lang == 'es' %}selected{% endif %}>Español</option></select></form>
+        </div>
+    </section>
+</main>
+<script src="{{ url_for('static', filename='shell.js', v='auth-rico-2') }}" defer></script>
+</body></html>

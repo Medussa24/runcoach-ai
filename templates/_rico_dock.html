@@ -1,9 +1,19 @@
-<aside class="rico-dock" data-rico-dock aria-label="Rico coaching dock">
-    <button class="rico-dock-toggle" type="button" aria-expanded="false" aria-controls="ricoDockPanel"><img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt=""><span><strong>Rico</strong><small>Ready when you are</small></span><span aria-hidden="true">⌃</span></button>
-    <section class="rico-dock-panel" id="ricoDockPanel" hidden aria-labelledby="ricoDockTitle">
-        <header><div><small>Your running coach</small><h2 id="ricoDockTitle">Talk to Rico</h2></div><button type="button" data-rico-close aria-label="Close Rico chat">×</button></header>
-        <div class="rico-dock-thread" data-rico-thread aria-live="polite"><div class="rico-dock-message">Tell me what is on your mind, or ask what matters for today.</div></div>
-        <div class="rico-dock-prompts"><button type="button" data-rico-prompt="What do you recommend for me today?">Today’s recommendation</button><button type="button" data-rico-prompt="What did you notice about my recent training?">What Rico noticed</button></div>
-        <form data-rico-form><label class="sr-only" for="ricoDockQuestion">Message Rico</label><textarea id="ricoDockQuestion" name="question" rows="2" placeholder="Message Rico…" required></textarea><button type="submit">Send</button></form>
-    </section>
+<aside class="rico-chat" data-rico-dock data-state="collapsed" aria-label="Rico conversation">
+    <header class="rico-chat-header">
+        <button class="rico-chat-identity" type="button" aria-expanded="false" aria-controls="ricoChatConversation">
+            <span class="rico-avatar-wrap"><img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt=""><span class="rico-status" aria-label="Rico is available"></span></span>
+            <span class="rico-chat-title"><strong>Rico</strong><small>Your running coach</small></span>
+            <span class="rico-expand-icon" aria-hidden="true">⌃</span>
+        </button>
+        <button class="rico-chat-close" type="button" data-rico-close aria-label="Collapse Rico conversation">×</button>
+    </header>
+    <div class="rico-chat-conversation" id="ricoChatConversation">
+        <div class="rico-chat-body" data-rico-thread aria-live="polite" aria-label="Conversation with Rico">
+            <div class="rico-message rico-message-coach"><img src="{{ url_for('static', filename='coqui-coach.svg') }}" alt=""><p>Tell me what is on your mind, or ask what matters for today.</p></div>
+        </div>
+        <div class="rico-chat-footer">
+            <div class="rico-suggestions" aria-label="Suggested messages"><button type="button" data-rico-prompt="What do you recommend for me today?">Today’s recommendation</button><button type="button" data-rico-prompt="What did you notice about my recent training?">What Rico noticed</button></div>
+            <form class="rico-composer" data-rico-form><label class="sr-only" for="ricoDockQuestion">Message Rico</label><textarea id="ricoDockQuestion" name="question" rows="1" placeholder="Message Rico…" required></textarea><button class="rico-send" type="submit" aria-label="Send message"><span aria-hidden="true">↑</span></button></form>
+        </div>
+    </div>
 </aside>

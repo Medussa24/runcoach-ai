@@ -231,8 +231,8 @@ class SentinelQA:
             record("login route", login.status_code == 200, "/login did not render.")
             record(
                 "Try Demo",
-                'action="/demo-login"' in login_html and "Try Demo" in login_html,
-                "Try Demo form is missing from the login page.",
+                'action="/demo-login"' in login_html and "Explore Demo" in login_html,
+                "Demo exploration action is missing from the login page.",
             )
 
             csrf_match = re.search(
@@ -292,7 +292,7 @@ class SentinelQA:
             dashboard = client.get("/")
             dashboard_html = dashboard.get_data(as_text=True)
             record("dashboard route", dashboard.status_code == 200, "/ did not render.")
-            record("Rico Runner", "Talk to Rico" in dashboard_html, "Rico dock did not render.")
+            record("Rico Runner", 'aria-label="Rico conversation"' in dashboard_html, "Rico conversation did not render.")
             coach = client.get("/coach")
             coach_html = coach.get_data(as_text=True)
             record("Iggy Walk Agent", "Iggy" in coach_html, "Iggy did not render.")

@@ -509,7 +509,7 @@ def test_coach_workspace_preserves_selected_coach_from_dashboard_links(client):
 
     dashboard_html = client.get("/").get_data(as_text=True)
     assert 'href="/coach?coach=rico"' in dashboard_html
-    assert "Talk to Rico" in dashboard_html
+    assert 'aria-label="Rico conversation"' in dashboard_html
 
     luna_html = client.get("/coach?coach=luna").get_data(as_text=True)
 
