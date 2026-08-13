@@ -9,6 +9,8 @@ from app import (
     current_date_in_timezone, get_daily_recommendation,
     PlanEmailService, planner_store
 )
+from stores import calendar_subscription_store, progression_store
+from services.progression_service import record_planner_completion
 
 planner_bp = Blueprint("planner", __name__)
 
@@ -52,6 +54,7 @@ def planner():
             planned_events=today_plan_events,
         ),
         saved_workout_count=len(saved_workouts),
+        calendar_subscription_active=calendar_subscription_store.has_active(user["id"]),
     )
 
 
@@ -100,8 +103,40 @@ def add_planner_event():
 @planner_bp.route("/planner/event/<int:event_id>/toggle", methods=["POST"])
 @login_required
 def toggle_planner_event(event_id):
-    planner_store.toggle_event(event_id, current_user_id())
+    user_id = current_user_id()
+    completed = planner_store.toggle_event(event_id, user_id)
+    if completed:
+        record_planner_completion(progression_store, user_id, event_id)
     return redirect(request.referrer or url_for("planner.planner"))
+
+
+@planner_bp.route("/planner/calendar/subscribe", methods=["POST"])
+@login_required
+def create_calendar_subscription():
+    token = calendar_subscription_store.issue(current_user_id())
+    feed_url = url_for("planner.calendar_feed", token=token, _external=True)
+    flash(f"Calendar feed ready. Copy this private URL now: {feed_url}", "success")
+    return redirect(url_for("planner.planner"))
+
+
+@planner_bp.route("/planner/calendar/revoke", methods=["POST"])
+@login_required
+def revoke_calendar_subscription():
+    calendar_subscription_store.revoke(current_user_id())
+    flash("Calendar subscription revoked.", "success")
+    return redirect(url_for("planner.planner"))
+
+
+@planner_bp.route("/calendar/feed/<token>.ics")
+def calendar_feed(token):
+    subscription = calendar_subscription_store.resolve(token)
+    if not subscription:
+        return "Calendar feed unavailable.", 404
+    user_id = subscription["user_id"]
+    timezone_name = get_user_timezone(user_id)
+    start = current_date_in_timezone(timezone_name) - timedelta(days=7)
+    events = get_planner_events(user_id, start, start + timedelta(days=120))
+    return Response(build_calendar_ics(events, timezone_name), mimetype="text/calendar")
 
 
 @planner_bp.route("/planner/timezone", methods=["POST"])

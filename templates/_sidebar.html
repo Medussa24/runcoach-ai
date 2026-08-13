@@ -1,18 +1,12 @@
 {% import "_nav_macros.html" as nav %}
 <aside class="dashboard-nav" aria-label="Primary navigation">
-    <img class="nav-logo" src="{{ url_for('static', filename='runcoach-logo.png') }}" alt="RunCoach AI">
+    <a class="nav-brand" href="{{ url_for('planner.planner') }}" aria-label="RunCoach AI Today"><img class="nav-logo" src="{{ url_for('static', filename='runcoach-logo.png') }}" alt=""></a>
     <nav class="app-primary-nav">
-        {{ nav.nav_item('index', _('dashboard'), '⌂', active_page, 'dashboard') }}
+        {{ nav.nav_item('planner.planner', 'Today', '☀', active_page, 'today') }}
         {{ nav.nav_item('coach_page', _('coach'), '✦', active_page, 'coach') }}
         {{ nav.nav_item('progress_page', _('progress'), '↗', active_page, 'progress') }}
         {{ nav.nav_item('community_page', _('community'), '◌', active_page, 'community') }}
         {{ nav.nav_item('settings_page', _('settings'), '⚙', active_page, 'settings') }}
     </nav>
-    {% if current_user %}
-        <section class="nav-card account-menu" aria-label="Account">
-            <p class="eyebrow">{{ _('account') }}</p>
-            <p class="notes">Signed in</p>
-            <a class="account-logout" href="{{ url_for('auth.logout') }}">{{ _('log_out') }}</a>
-        </section>
-    {% endif %}
+    {% if current_user %}<section class="nav-card account-menu" aria-label="Account"><a class="account-logout" href="{{ url_for('settings_page') }}" title="Account"><span aria-hidden="true">●</span><span class="app-nav-label">Account</span></a></section>{% endif %}
 </aside>

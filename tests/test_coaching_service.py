@@ -142,7 +142,7 @@ def test_chat_recommendation_date_label_matches_requested_day():
     assert not answer.startswith("Today:")
 
 
-def test_recommendation_lives_in_chat_not_dashboard_or_planner(coaching_client):
+def test_recommendation_leads_today_and_remains_available_in_chat(coaching_client):
     user_id = create_and_login(coaching_client, "surface@example.test")
     recommendation = get_daily_recommendation(user_id, date.today())
 
@@ -154,8 +154,8 @@ def test_recommendation_lives_in_chat_not_dashboard_or_planner(coaching_client):
         "What should I do today?",
     )
 
-    assert recommendation.title not in dashboard_html
-    assert recommendation.title not in planner_html
+    assert recommendation.title in dashboard_html
+    assert "Today" in planner_html
     assert "Ask Rico for today&apos;s recommendation" in planner_html
     assert format_daily_recommendation_response(recommendation) == chat_answer
 

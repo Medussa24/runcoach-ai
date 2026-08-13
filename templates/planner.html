@@ -1,5 +1,5 @@
 {% extends "base_app.html" %}
-{% set active_page = 'coach' %}
+{% set active_page = 'today' %}
 {% set asset_version = 'phase5-planner-1' %}
 
 {% set today = namespace(day=None, events=[]) %}
@@ -19,9 +19,9 @@
 {% block content %}
 <header class="planner-header">
     <div>
-        <p class="eyebrow">Coach workspace</p>
-        <h1>{{ _('my_plan') }}</h1>
-        <p>Today, this week, and calendar export for your private training plan.</p>
+        <p class="eyebrow">Your schedule</p>
+        <h1>Today</h1>
+        <p>Know the next run, make space for it, and let Rico handle the interpretation.</p>
     </div>
     <nav class="planner-actions" aria-label="Planner actions">
         <a href="{{ url_for('coach_page') }}">Coach</a>
@@ -59,6 +59,7 @@
                             <span>{{ event["duration_minutes"] }} min</span>
                             <span>{{ event["coach"] or "Personal" }}</span>
                         </div>
+                        {% if not event['is_completed'] %}<details class="pre-run-reflection"><summary>Check in with Rico before this run</summary><form method="post" action="{{ url_for('save_reflection') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="stage" value="pre_run"><input type="hidden" name="planner_event_id" value="{{ event['id'] }}"><label>Before we head out, what’s on your mind today?<textarea name="message" maxlength="2000" required></textarea></label><button type="submit">Tell Rico</button></form></details>{% endif %}
                         <h3>{{ event["title"] }}</h3>
                         <p>{{ event["main_workout"] or event["details"] or "Keep this item simple and realistic." }}</p>
                         <div class="planner-card-actions">
@@ -96,6 +97,7 @@
         </form>
         <p class="notes">Times use {{ timezone_name }}.</p>
         <a class="button-secondary" href="{{ url_for('planner.planner_calendar', week_start=week_start) }}">Download .ics</a>
+        {% if calendar_subscription_active %}<form method="post" action="{{ url_for('planner.revoke_calendar_subscription') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="button-secondary" type="submit">Revoke calendar feed</button></form>{% else %}<form method="post" action="{{ url_for('planner.create_calendar_subscription') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button type="submit">Create private calendar feed</button></form>{% endif %}
     </section>
 </section>
 

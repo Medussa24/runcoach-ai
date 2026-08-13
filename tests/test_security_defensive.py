@@ -438,10 +438,10 @@ def test_dashboard_renders_compact_action_hub_without_legacy_top_control(client)
     html = dashboard.get_data(as_text=True)
 
     assert dashboard.status_code == 200
-    assert 'id="dashboard-title">Dashboard</h1>' in html
+    assert "Welcome back." in html
     assert 'id="dashboardSearch"' not in html
-    assert html.count("dashboard-coach-card") == 6
-    assert "Log Workout" in html
+    assert 'aria-label="Today’s training"' in html
+    assert "Log workout" in html
     assert "Recommended next actions" not in html
     assert "Quick log" not in html
     assert "Weekly progress" not in html
@@ -465,7 +465,7 @@ def test_primary_navigation_has_five_clean_sections(client):
     assert "StatsMy Progress" not in html
     assert "PlanMy Plan" not in html
     assert "ShopShop" not in html
-    for label in ["Dashboard", "Coach", "Progress", "Community", "Settings"]:
+    for label in ["Today", "Coach", "Progress", "Community", "Settings"]:
         assert f">{label}</span>" in html
     for removed in [
         "My Plan",
@@ -509,8 +509,7 @@ def test_coach_workspace_preserves_selected_coach_from_dashboard_links(client):
 
     dashboard_html = client.get("/").get_data(as_text=True)
     assert 'href="/coach?coach=rico"' in dashboard_html
-    assert 'href="/coach?coach=iggy"' in dashboard_html
-    assert 'href="/coach?coach=luna"' in dashboard_html
+    assert "Talk to Rico" in dashboard_html
 
     luna_html = client.get("/coach?coach=luna").get_data(as_text=True)
 
@@ -576,13 +575,11 @@ def test_coach_cards_offer_clickable_advice_bubbles(client):
     html = client.get("/").get_data(as_text=True)
     coach_html = client.get("/coach").get_data(as_text=True)
 
-    assert html.count("dashboard-coach-card") == 6
-    assert "Rico Runner" in html
-    assert "Iggy" in html
-    assert "Luna" in html
+    assert "Rico recommends" in html
+    assert "Rico noticed" in html
     assert 'data-agent="rico"' in coach_html
     assert 'data-coach-choice="iggy"' in coach_html
-    assert "app.js?v=coach-alive-1" in html
+    assert "shell.js?v=island-1" in html
 
 
 def test_dashboard_excludes_progress_history_import_and_motivation_sections(client):
@@ -606,16 +603,12 @@ def test_dashboard_links_to_dedicated_multi_page_sections(client):
     html = dashboard.get_data(as_text=True)
 
     assert dashboard.status_code == 200
-    assert 'id="dashboard-rico"' in html
-    assert 'id="dashboard-luna"' in html
-    assert 'id="dashboard-iggy"' in html
-    assert 'id="dashboard-events"' in html
-    assert 'id="dashboard-community"' in html
-    assert 'id="dashboard-log"' in html
+    assert 'aria-label="Today’s training"' in html
+    assert 'data-rico-dock' in html
     assert 'href="/log-workout"' in html
     assert 'href="/coach?coach=rico"' in html
     assert 'href="/community"' in html
-    assert 'href="/events"' in html
+    assert 'href="/planner"' in html
     assert "gentle chime" not in html
 
 
@@ -830,7 +823,7 @@ def test_try_demo_creates_authenticated_demo_session(client):
         assert demo_user["email"] == runcoach.DEMO_EMAIL
         dashboard = client.get("/?welcome=1")
         assert dashboard.status_code == 200
-        assert 'id="dashboard-title">Dashboard</h1>' in dashboard.get_data(as_text=True)
+        assert "Welcome back." in dashboard.get_data(as_text=True)
     finally:
         runcoach.app.config["WTF_CSRF_ENABLED"] = False
 
@@ -870,7 +863,7 @@ def test_demo_login_is_not_interrupted_by_sentinel_scheduler(client, monkeypatch
 
         dashboard = client.get("/?welcome=1")
         assert dashboard.status_code == 200
-        assert 'id="dashboard-title">Dashboard</h1>' in dashboard.get_data(as_text=True)
+        assert "Welcome back." in dashboard.get_data(as_text=True)
         assert scheduled_user_ids == [demo_user_id]
         with client.session_transaction() as browser_session:
             assert browser_session["user_id"] == demo_user_id

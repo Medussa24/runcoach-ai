@@ -130,7 +130,7 @@ class PlannerStore:
     def toggle_event(self, event_id, user_id):
         connection = self.connection_factory()
         try:
-            connection.execute(
+            cursor = connection.execute(
                 """
                 UPDATE planner_events
                 SET is_completed = CASE is_completed WHEN 1 THEN 0 ELSE 1 END
@@ -139,6 +139,10 @@ class PlannerStore:
                 (event_id, user_id),
             )
             connection.commit()
+            if cursor.rowcount == 0:
+                return False
+            row = connection.execute("SELECT is_completed FROM planner_events WHERE id = ? AND user_id = ?", (event_id, user_id)).fetchone()
+            return bool(row and row["is_completed"])
         finally:
             connection.close()
 

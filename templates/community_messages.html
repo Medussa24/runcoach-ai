@@ -1,0 +1,100 @@
+{% extends "base_app.html" %}
+{% set active_page = 'community' %}
+{% set asset_version = 'phase2-messages-1' %}
+
+{% block title %}Messages - RunCoach AI{% endblock %}
+{% block body_class %}community-messages-page{% endblock %}
+{% block main_class %}messages-page clean-page{% endblock %}
+
+{% block content %}
+<header class="messages-header">
+    <div>
+        <p class="eyebrow">Community</p>
+        <h1>Messages</h1>
+        <p>Private conversations with people you know in RunCoach.</p>
+    </div>
+    <a class="button-secondary" href="{{ url_for('community_page') }}">Community home</a>
+</header>
+
+<section class="messages-workspace" aria-label="Private messages">
+    <aside class="messages-inbox" aria-labelledby="messages-inbox-title">
+        <div class="messages-inbox-heading">
+            <div>
+                <p class="eyebrow">Private</p>
+                <h2 id="messages-inbox-title">Conversations</h2>
+            </div>
+            <span class="messages-count" aria-label="{{ conversations|length }} conversations">{{ conversations|length }}</span>
+        </div>
+
+        <form class="message-discovery" method="post" action="{{ url_for('messages.request_conversation') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <label for="messageRecipientEmail">Find someone you know</label>
+            <div>
+                <input id="messageRecipientEmail" name="email" type="email" autocomplete="email" placeholder="Their exact email" required>
+                <button type="submit">Request</button>
+            </div>
+            <p>For privacy, requests never confirm whether an account exists.</p>
+        </form>
+
+        <nav class="conversation-list" aria-label="Conversations">
+            {% for conversation in conversations %}
+                <a class="conversation-preview {{ 'is-active' if active_conversation and active_conversation['id'] == conversation['id'] else '' }}" href="{{ url_for('messages.conversation', conversation_id=conversation['id']) }}" {% if active_conversation and active_conversation['id'] == conversation['id'] %}aria-current="page"{% endif %}>
+                    <span class="message-avatar" aria-hidden="true">{{ conversation["other_user_initial"] }}</span>
+                    <span class="conversation-preview-copy">
+                        <span class="conversation-preview-topline">
+                            <strong>{{ conversation["other_user_label"] }}</strong>
+                            {% if conversation["latest_message"] %}<time datetime="{{ conversation['latest_message']['created_at'] }}">{{ conversation["latest_message"]["created_at"] }}</time>{% endif %}
+                        </span>
+                        <span class="conversation-preview-bottomline">
+                            <span>{{ conversation["latest_message"]["body"] if conversation["latest_message"] else "No messages yet" }}</span>
+                            {% if conversation["unread_count"] %}<span class="unread-badge" aria-label="{{ conversation['unread_count'] }} unread messages">{{ conversation["unread_count"] }}</span>{% endif %}
+                        </span>
+                    </span>
+                </a>
+            {% else %}
+                <div class="messages-empty messages-inbox-empty">
+                    <span class="messages-empty-icon" aria-hidden="true">↗</span>
+                    <h3>Your inbox is ready</h3>
+                    <p>Conversations with people you know will appear here.</p>
+                </div>
+            {% endfor %}
+        </nav>
+    </aside>
+
+    <section class="message-thread" aria-live="polite">
+        {% if active_conversation %}
+            <header class="message-thread-heading">
+                <span class="message-avatar message-avatar-large" aria-hidden="true">{{ active_conversation["other_user_initial"] }}</span>
+                <div>
+                    <h2>{{ active_conversation["other_user_label"] }}</h2>
+                    <p>{{ active_conversation["other_user_email"] }}</p>
+                </div>
+            </header>
+            <div class="message-thread-scroll" aria-label="Conversation with {{ active_conversation['other_user_label'] }}">
+                {% for message in thread_messages %}
+                    <article class="message-bubble {{ 'is-mine' if message['sender_id'] == current_user['id'] else 'is-theirs' }}">
+                        <p>{{ message["body"] }}</p>
+                        <time datetime="{{ message['created_at'] }}">{{ message["created_at"] }}</time>
+                    </article>
+                {% else %}
+                    <div class="messages-empty">
+                        <span class="messages-empty-icon" aria-hidden="true">···</span>
+                        <h3>A quiet conversation</h3>
+                        <p>Messages will appear here when the conversation begins.</p>
+                    </div>
+                {% endfor %}
+            </div>
+            <footer class="message-thread-readonly">
+                <span aria-hidden="true">⌁</span>
+                <p><strong>Private thread</strong> Reply controls will be enabled after this workspace is reviewed.</p>
+            </footer>
+        {% else %}
+            <div class="messages-empty messages-thread-empty">
+                <span class="messages-empty-icon" aria-hidden="true">✦</span>
+                <h2>Select a conversation</h2>
+                <p>Choose a private thread from your inbox to read it here.</p>
+            </div>
+        {% endif %}
+    </section>
+</section>
+{% endblock %}

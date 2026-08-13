@@ -6,6 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}RunCoach AI{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css', v=asset_version|default('phase1-nav-1')) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='design-system.css', v='island-1') }}">
     {% block head_extra %}{% endblock %}
 </head>
 <body class="{% block body_class %}{% endblock %}" data-celebrate="{% block celebrate_state %}{{ 'run-saved' if request.args.get('saved') else '' }}{% endblock %}" data-welcome="{{ 'race-start' if request.args.get('welcome') else '' }}" data-accessibility-mode="{{ current_accessibility_mode }}">
@@ -25,6 +26,8 @@
             {% block content %}{% endblock %}
         </section>
     </main>
+    {% if current_user %}{% include "_rico_dock.html" %}{% endif %}
     {% block body_extra %}{% endblock %}
+    <script src="{{ url_for('static', filename='shell.js', v='island-1') }}" defer></script>
 </body>
 </html>

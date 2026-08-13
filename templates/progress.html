@@ -40,6 +40,7 @@
         <strong>{{ "%.2f"|format(analyst_summary["longest_run"]) }} mi</strong>
     </article>
 </section>
+<section class="island-surface progress-ring-card" aria-label="Runner identity and progression"><div class="progress-ring" style="--progress: {{ (progression.level_xp / progression.next_level_xp * 100)|round }}"><span>Lv {{ progression.level }}</span></div><div><p class="eyebrow">{{ progression.total_xp }} XP · evidence-based identity</p><h2>{{ runner_profile.identity }}</h2><p>Consistency {{ runner_profile.traits.consistency }} · Endurance {{ runner_profile.traits.endurance }} · Resilience {{ runner_profile.traits.resilience }}</p></div></section>
 
 <section class="panel progress-recent" aria-labelledby="progress-recent-title">
     <h2 id="progress-recent-title">Recent activity</h2>

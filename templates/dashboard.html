@@ -1,32 +1,11 @@
 {% extends "base_app.html" %}
-{% import "_dashboard_macros.html" as cards %}
-{% set active_page = 'dashboard' %}
-{% set asset_version = 'coach-alive-1' %}
-
-{% block title %}RunCoach AI Dashboard{% endblock %}
-{% block main_class %}dashboard-six-page dashboard-next-page{% endblock %}
-
+{% set active_page = 'today' %}
+{% block title %}Today - RunCoach AI{% endblock %}
 {% block content %}
-<header class="dashboard-welcome" aria-labelledby="dashboard-title">
-    <div>
-        <p class="eyebrow">RunCoach AI</p>
-        <h1 id="dashboard-title">{{ _('dashboard') }}</h1>
-        <p>Choose where you want to go. Coaching guidance stays with your coach.</p>
-    </div>
-</header>
-
-<section class="dashboard-coaches" aria-label="RunCoach destinations">
-    <div class="dashboard-coach-grid dashboard-six-grid">
-        {{ cards.coach_card("dashboard-rico", "coach-card-rico", "coqui-coach.svg", "Rico Runner", "Run coach", "Rico", "Your coaching conversation for today's run, pacing, and training tips.", url_for('coach_page', coach='rico'), "Talk to Rico") }}
-        {{ cards.coach_card("dashboard-luna", "coach-card-luna", "luna-recovery.svg", "Luna Recovery", "Recovery coach", "Luna", "Talk through soreness, rest, hydration, and returning gently.", url_for('coach_page', coach='luna'), "Talk to Luna") }}
-        {{ cards.coach_card("dashboard-iggy", "coach-card-iggy", "iggy-coach.svg", "Iggy", "Walking coach", "Iggy", "Build confidence with gentle walks, breathing, and beginner steps.", url_for('coach_page', coach='iggy'), "Talk to Iggy") }}
-        {{ cards.action_card("dashboard-events", "Events", "Find an upcoming run, walk, or community meetup.", url_for('events.events_list'), "View events") }}
-        {{ cards.action_card("dashboard-community", "Community", "Join challenges and stay connected with other movers.", url_for('community_page'), "Open community") }}
-        {{ cards.action_card("dashboard-log", "Log Workout", "Save the four details that matter; imports can handle the rest.", url_for('log_workout'), "Log workout") }}
-    </div>
+<header class="today-header"><div><p class="eyebrow">{{ today_iso }}</p><h1>Welcome back.</h1><p>One clear next step, with Rico nearby.</p></div><a class="button" href="{{ url_for('log_workout') }}">Log workout</a></header>
+<section class="today-layout" aria-label="Today’s training">
+  <article class="today-workout island-surface"><div class="today-workout-top"><span class="status-pill">Today</span><span>{{ daily_recommendation.confidence }} confidence</span></div><p class="eyebrow">Rico recommends</p><h2>{{ daily_recommendation.title }}</h2><div class="workout-facts"><span><strong>{{ daily_recommendation.duration_minutes or '—' }}</strong> minutes</span><span><strong>{{ daily_recommendation.intensity|title }}</strong> effort</span></div><p>{{ daily_recommendation.reason }}</p><div class="today-actions"><a class="button" href="{{ url_for('log_workout') }}">Start or log</a><a class="button-secondary" href="{{ url_for('coach_page', coach='rico', prompt='What do you recommend for me today?') }}">Ask Rico why</a></div></article>
+  <aside class="today-side"><article class="island-surface progress-ring-card"><div class="progress-ring" style="--progress: {{ (progression.level_xp / progression.next_level_xp * 100)|round }}"><span>Lv {{ progression.level }}</span></div><div><p class="eyebrow">Runner journey</p><h2>{{ runner_profile.identity }}</h2><p>{{ progression.total_xp }} XP earned</p></div></article><article class="island-surface rico-noticed"><p class="eyebrow">Rico noticed</p><h2>{% if top_running_insight %}{{ top_running_insight.message }}{% else %}Your story starts with the next honest run.{% endif %}</h2><a href="{{ url_for('coach_page', coach='rico') }}">Talk it through →</a></article></aside>
 </section>
-{% endblock %}
-
-{% block body_extra %}
-<script src="{{ url_for('static', filename='app.js', v='coach-alive-1') }}"></script>
+<section class="week-strip island-surface"><div><p class="eyebrow">This week</p><h2>{{ analyst_summary.weekly_mileage|round(1) }} miles</h2></div><a href="{{ url_for('planner.planner') }}">View schedule</a></section>
 {% endblock %}

@@ -56,6 +56,11 @@ from stores import coach_message_store
 from stores import community_message_store
 from stores import user_store
 from stores import workout_store
+from stores import progression_store
+from stores import reflection_store
+from stores import calendar_subscription_store
+from services.insight_service import analyze_workouts
+from services.progression_service import record_workout, runner_profile
 
 
 # Blueprints import shared helpers from this module. When launched with
@@ -166,6 +171,9 @@ def get_database_connection():
 
 
 workout_store.configure(get_database_connection)
+progression_store.configure(get_database_connection)
+reflection_store.configure(get_database_connection)
+calendar_subscription_store.configure(get_database_connection)
 user_store.configure(get_database_connection)
 coach_message_store.configure(get_database_connection)
 community_message_store.configure(get_database_connection)
@@ -492,6 +500,46 @@ def setup_database():
             """
         )
         connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS message_start_attempts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                attempted_at REAL NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS progression_events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                source_type TEXT NOT NULL, source_id TEXT NOT NULL,
+                reason TEXT NOT NULL, xp INTEGER NOT NULL CHECK(xp > 0),
+                rule_version TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE(user_id, source_type, source_id, reason, rule_version)
+            )"""
+        )
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS workout_reflections (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                planner_event_id INTEGER REFERENCES planner_events(id) ON DELETE SET NULL,
+                run_id INTEGER REFERENCES runs(id) ON DELETE SET NULL,
+                stage TEXT NOT NULL CHECK(stage IN ('pre_run', 'post_run')),
+                message TEXT NOT NULL, rico_response TEXT NOT NULL,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )"""
+        )
+        connection.execute(
+            """CREATE TABLE IF NOT EXISTS calendar_subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                token_hash TEXT NOT NULL UNIQUE,
+                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                last_used_at TIMESTAMP, revoked_at TIMESTAMP
+            )"""
+        )
+        connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_runs_user_date ON runs(user_id, run_date)"
         )
         connection.execute(
@@ -518,6 +566,12 @@ def setup_database():
         connection.execute(
             "CREATE INDEX IF NOT EXISTS idx_message_reports_status ON message_reports(status, created_at)"
         )
+        connection.execute(
+            "CREATE INDEX IF NOT EXISTS idx_message_start_attempts_user_time ON message_start_attempts(user_id, attempted_at)"
+        )
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_progression_user_created ON progression_events(user_id, id)")
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_reflections_user_created ON workout_reflections(user_id, id)")
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_calendar_subscriptions_user ON calendar_subscriptions(user_id, revoked_at)")
         seed_monthly_challenges(connection)
         connection.commit()
     finally:
@@ -1510,6 +1564,12 @@ def build_private_agent_summary(user_id, runs):
     """Build imported and training summaries for one logged-in user only."""
     summary = build_analyst_summary(runs, get_analyst_uploads(user_id))
     summary.update(build_data_analyst(user_id, runs).summary())
+    summary["validated_insights"] = analyze_workouts(runs)
+    summary["runner_profile"] = runner_profile(runs)
+    summary["progression"] = {
+        key: value for key, value in progression_store.summary(user_id).items()
+        if key != "events"
+    }
     return summary
 
 
@@ -1741,6 +1801,8 @@ def dashboard_context(user, agent_question=""):
         if dashboard_challenge is None:
             dashboard_challenge = challenge
 
+    running_insights = analyze_workouts(runs, today=today)
+
     return {
         "runs": runs,
         "format_pace": format_pace,
@@ -1772,6 +1834,11 @@ def dashboard_context(user, agent_question=""):
         "luna_summary": luna_agent.summary(),
         "luna_cards": luna_agent.cards(),
         "wellness_disclaimer": LunaRecoveryAgent.disclaimer,
+        "running_insights": running_insights,
+        "top_running_insight": running_insights[0] if running_insights else None,
+        "progression": progression_store.summary(user_id),
+        "runner_profile": runner_profile(runs),
+        "recent_reflections": reflection_store.list_for_user(user_id),
     }
 
 
@@ -1788,7 +1855,15 @@ def save_manual_workout(user_id, form):
         previous_run,
     )
 
-    insert_manual_workout(user_id, run, pace, feedback)
+    previous_workouts = get_all_runs(user_id)
+    workout_id = insert_manual_workout(user_id, run, pace, feedback)
+    record_workout(
+        progression_store,
+        user_id,
+        get_workout(user_id, workout_id),
+        previous_workouts,
+    )
+    return workout_id
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -1854,6 +1929,25 @@ def community_page():
         events=events,
         challenges=challenges,
     )
+
+
+@app.route("/reflection", methods=["POST"])
+@login_required
+def save_reflection():
+    stage = request.form.get("stage", "")
+    message = (request.form.get("message") or "").strip()
+    rico_response = (
+        "Thank you for saying that plainly. We will carry it into the run without forcing the day to be anything else."
+        if stage == "pre_run" else
+        "That is useful context. The numbers tell me what happened; this tells me how you experienced it."
+    )
+    try:
+        reflection_store.create(current_user_id(), stage, message, rico_response, planner_event_id=request.form.get("planner_event_id") or None, run_id=request.form.get("run_id") or None)
+    except ValueError as error:
+        flash(str(error), "error")
+    else:
+        flash(rico_response, "success")
+    return redirect(request.referrer or url_for("index"))
 
 
 @app.route("/settings")
@@ -2833,6 +2927,9 @@ app.register_blueprint(planner_bp)
 
 from blueprints.auth import auth_bp
 app.register_blueprint(auth_bp)
+
+from blueprints.messages import messages_bp
+app.register_blueprint(messages_bp)
 
 
 if __name__ == "__main__":

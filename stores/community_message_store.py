@@ -230,3 +230,37 @@ def report_message(user_id, message_id, reason):
         return cursor.lastrowid if cursor.rowcount == 1 else None
     finally:
         connection.close()
+
+
+def allow_start_attempt(user_id, attempted_at, limit=5, window_seconds=600):
+    """Atomically rate-limit discovery without storing the submitted address."""
+    attempted_at = float(attempted_at)
+    cutoff = attempted_at - int(window_seconds)
+    connection = _connect()
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        connection.execute(
+            "DELETE FROM message_start_attempts WHERE attempted_at <= ?",
+            (cutoff,),
+        )
+        attempts = connection.execute(
+            """
+            SELECT COUNT(*) FROM message_start_attempts
+            WHERE user_id = ? AND attempted_at > ?
+            """,
+            (user_id, cutoff),
+        ).fetchone()[0]
+        if attempts >= int(limit):
+            connection.commit()
+            return False
+        connection.execute(
+            """
+            INSERT INTO message_start_attempts (user_id, attempted_at)
+            VALUES (?, ?)
+            """,
+            (user_id, attempted_at),
+        )
+        connection.commit()
+        return True
+    finally:
+        connection.close()
