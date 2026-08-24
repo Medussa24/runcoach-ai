@@ -236,7 +236,9 @@ python -m pytest -q tests/test_planner.py tests/test_agent_eval.py
 
 The contract dataset checks expected coaching concepts, forbidden secret markers, nonempty fallbacks, and complete planner event fields. It is deterministic and safe to run without Gemini credentials.
 
-Latest verified result on June 25, 2026: **62 passed**.
+Latest verified result on August 24, 2026: **148 passed**. The deterministic
+agent contract evaluation also passed **5 of 5** cases. Validation used the
+declared dependencies in a clean repository-local virtual environment.
 
 ## Known Limitations
 

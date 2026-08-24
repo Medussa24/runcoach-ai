@@ -278,10 +278,16 @@ RunCoach AI/
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
+source .venv/bin/activate  # Windows PowerShell: .\.venv\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
+python -m pytest -q
+python agent_eval.py
 python app.py
 ```
+
+Pytest uses the repository-local ignored `.pytest-tmp` directory. This keeps the
+suite reproducible in restricted Windows environments where the system temp
+directory may not be accessible.
 
 Open:
 

@@ -14,3 +14,13 @@ health-data/
 health-data*/
 workout-routes/
 workout-routes*/
+
+# Local tooling and non-product coursework artifacts
+.codex/
+.tmp/
+outputs/
+capstone_output/
+week5_artifact/
+build_capstone.py
+build_week6_lab.py
+BIAM110_Week_6_R_Lab_*.docx

@@ -2,6 +2,24 @@
 
 This file records user-visible features, architecture decisions, reliability fixes, and validation evidence so reviewers can understand how the project evolved.
 
+## 2026-08-24 - Release candidate hardening
+
+### Improved
+
+- Made pytest use the ignored repository-local `.pytest-tmp` directory so the
+  suite also runs in restricted Windows environments.
+- Excluded local Codex state, generated coursework, and submission artifacts
+  from Git and Cloud Run source uploads without deleting local files.
+- Clarified the local setup commands and added validation to the documented
+  developer workflow.
+
+### Validation
+
+- Python test suite: **148 passed**.
+- Deterministic agent contract evaluation: **5 of 5 passed**.
+- Python compilation, dependency integrity, JavaScript syntax, and Git
+  whitespace checks: passed.
+
 ## 2026-06-25 - Final submission polish
 
 ### Added
