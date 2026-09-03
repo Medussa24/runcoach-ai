@@ -2,6 +2,11 @@
 
 RunCoach AI is submission-ready as a public Cloud Run demonstration. This document separates what is already production-shaped from infrastructure that must be deliberately provisioned before long-term multi-user use.
 
+The staged PostgreSQL and infrastructure gates are documented in
+[`docs/CLOUD_SQL_MIGRATION.md`](docs/CLOUD_SQL_MIGRATION.md). Cloud SQL must not
+be provisioned until the dual-backend adapter and complete PostgreSQL test run
+pass.
+
 ## Ready now
 
 - Authenticated and CSRF-protected Flask routes.

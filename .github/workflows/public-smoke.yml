@@ -1,0 +1,33 @@
+name: Public Tier 1 smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Public RunCoach AI URL
+        required: true
+        default: https://runcoach-ai-212640849356.us-central1.run.app
+      include_plan:
+        description: Generate a Gemini-backed weekly plan
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  tier1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run public smoke flow
+        shell: bash
+        run: |
+          args=(--url "${{ inputs.url }}")
+          if [[ "${{ inputs.include_plan }}" == "true" ]]; then args+=(--include-plan); fi
+          python scripts/smoke_public.py "${args[@]}"

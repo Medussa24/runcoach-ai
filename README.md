@@ -5,7 +5,7 @@ RunCoach AI is a polished Kaggle Capstone project for the **Concierge Agents** t
 ## Live Demo And Current Release
 
 - Cloud Run: <https://runcoach-ai-212640849356.us-central1.run.app>
-- One-click evaluator access: select **Try Demo** on the login page.
+- One-click evaluator access: expand **Explore the demo**, then select **Explore Demo** on the login page.
 - Current automated validation includes Python syntax, JavaScript syntax, Flask transactions, user-isolation tests, and browser-runtime checks.
 - Detailed release history and the reasons behind each major change: [CHANGELOG.md](CHANGELOG.md).
 - Full design, fallback, privacy, route, and validation explanation for the new calendar: [PERSONAL_PLANNER_FEATURE.md](PERSONAL_PLANNER_FEATURE.md).
@@ -73,7 +73,7 @@ Email: demo@runcoach.test
 Password: demo123
 ```
 
-Evaluators can also click **Try Demo** on the login page. Demo mode uses fake workout data for privacy-safe testing and resets the demo account to seeded sample data.
+Evaluators can also expand **Explore the demo** and click **Explore Demo** on the login page. Demo mode uses fake workout data for privacy-safe testing and resets the demo account to seeded sample data.
 
 Google login, Apple login, and OAuth are future upgrades. This version keeps identity simple and local for the capstone.
 
@@ -149,7 +149,7 @@ are Gemini-capable and have deterministic scripted fallbacks:
 - Iggy is a curious green iguana and calm beginner coach who promotes small wins, nature tasks, breathing, and gentle walks.
 - Luna Recovery is a gentle Caribbean bird focused on hydration, gratitude, stretching, mindfulness, rest, and recovery reminders.
 - Data Analyst creates structured training summaries for the coaches and can ask Gemini to interpret those already-calculated metrics; its local analytical brief remains available if Gemini fails.
-- Sentinel QA periodically checks key Flask routes, authentication boundaries, controlled SQL-injection rejection, CSRF enforcement, Try Demo markup, all four agent surfaces, Previous Runs, imports, and chat endpoint availability. Its checks and verdicts are always deterministic. Gemini can explain a completed report on demand, with a scripted explanation if Gemini fails.
+- Sentinel QA periodically checks key Flask routes, authentication boundaries, controlled SQL-injection rejection, CSRF enforcement, Explore Demo markup, all four agent surfaces, Previous Runs, imports, and chat endpoint availability. Its checks and verdicts are always deterministic. Gemini can explain a completed report on demand, with a scripted explanation if Gemini fails.
 - Weekly Planner converts the logged-in user's structured training summary into a dated workout calendar. It requires complete hydration, warm-up, workout, and cool-down fields and falls back to a safe three-session Rico/Iggy plan if Gemini fails.
 
 Sentinel is completely backend-only. During app activity, the server schedules a lightweight check at most once every 15 minutes in one guarded daemon thread and writes a summary to server logs; there is no dashboard card, browser endpoint, polling loop, or automatic pytest process. Full prompt-injection, XSS, user-separation, and defensive penetration tests run in an isolated temporary database through pytest during development and CI.
@@ -158,7 +158,7 @@ Gemini is not called by Sentinel's periodic scheduler, so health checks remain f
 bounded, and reliable. Gemini interpretation is an optional internal capability and
 never changes the deterministic report.
 
-> **Demo access:** **Try Demo** posts a rendered CSRF token, resets only the privacy-safe `demo@runcoach.test` account, and creates an eight-hour authenticated demo session. Evaluators can then save runs, use mood fields and walking/recovery tools, import fake data, and chat with Rico or Iggy without typing credentials. Sentinel runs asynchronously only after safe authenticated/health responses so it cannot interfere with login cookies or CSRF state.
+> **Demo access:** **Explore Demo** posts a rendered CSRF token, resets only the privacy-safe `demo@runcoach.test` account, and creates an eight-hour authenticated demo session. Evaluators can then save runs, use mood fields and walking/recovery tools, import fake data, and chat with Rico or Iggy without typing credentials. Sentinel runs asynchronously only after safe authenticated/health responses so it cannot interfere with login cookies or CSRF state.
 
 ### Progress charts
 
@@ -181,12 +181,11 @@ $env:GEMINI_API_KEY="your-key"
 python app.py
 ```
 
-The default model is `gemini-2.5-flash`. `GEMINI_MODEL` may override the model name. If the key or SDK is unavailable, Gemini returns no text, or the provider request fails, the existing local rule-based response runs automatically so Try Demo and offline demonstrations continue working.
+The default model is `gemini-2.5-flash`. `GEMINI_MODEL` may override the model name. If the key or SDK is unavailable, Gemini returns no text, or the provider request fails, the existing local rule-based response runs automatically so Explore Demo and offline demonstrations continue working.
 
-Known release-check note: live Gemini verification returned a provider
-`ClientError` during this release check. The deterministic local fallback was
-successfully verified for the coaching flow, so offline and demo-safe behavior
-remains available.
+Live verification on September 2, 2026 generated a three-workout My Plan using
+Gemini. The deterministic local fallback remains available for provider outages
+and offline demonstrations.
 
 The deployed Cloud Run service uses Vertex AI with Application Default
 Credentials instead of consuming the AI Studio API key:
@@ -342,8 +341,23 @@ See `GOOGLE_CLOUD_DEPLOYMENT.md` for more detail.
 
 ## Screenshots To Capture
 
+The Tier 1 public flow passed on September 2, 2026 against Cloud Run revision
+`runcoach-ai-00024-hwb`. Submission screenshots are stored in
+`docs/screenshots/`.
+
+Run the same public Tier 1 flow from any Python 3.11+ environment:
+
+```bash
+python scripts/smoke_public.py \
+  --url https://runcoach-ai-212640849356.us-central1.run.app \
+  --include-plan
+```
+
+The **Public Tier 1 smoke** GitHub Actions workflow exposes this check as a
+manual post-deployment gate.
+
 - Homepage with the run logging form.
-- Login page with Try Demo and the RunCoach AI brand logo.
+- Login page with Explore Demo and the RunCoach AI brand logo.
 - Optional context fields for weather, route, and wearable-style data.
 - Import Workouts page.
 - A saved run with calculated pace and context.
@@ -391,3 +405,5 @@ python agent_eval.py
 The deterministic evaluation dataset covers Rico, Iggy, Luna, Data Analyst, planner structure, safety concepts, and a secret-leak marker. Gemini remains the preferred response provider; these evaluations deliberately exercise the outage fallback.
 
 See `PRODUCTION_READINESS.md` before treating the Cloud Run demo as a permanent multi-user production service.
+The gated PostgreSQL migration sequence is in
+[`docs/CLOUD_SQL_MIGRATION.md`](docs/CLOUD_SQL_MIGRATION.md).

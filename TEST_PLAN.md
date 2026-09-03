@@ -73,9 +73,9 @@ Verify that the capstone foundation works and that optional context data does no
 | Signup | Create an account at `/signup` | User is logged in and sent to dashboard |
 | Password storage | Inspect `users.password_hash` | Plain text password is not stored |
 | Demo login | Log in with `demo@runcoach.test` / `demo123` | Demo dashboard loads |
-| One-click demo | Click Try Demo on `/login` | Demo user is logged in and redirected to dashboard |
+| One-click demo | Expand Explore the demo and click Explore Demo on `/login` | Demo user is logged in and redirected to dashboard |
 | Demo privacy note | Open `/login` | Page says demo mode uses fake workout data for privacy-safe testing |
-| Demo data reset | Add demo data, log out, click Try Demo | Demo account returns to fake seeded workout data |
+| Demo data reset | Add demo data, log out, click Explore Demo | Demo account returns to fake seeded workout data |
 | Logout | Click Log Out | Session clears and login page appears |
 | User data separation | Create two users and log runs under each | Each user sees only their own runs |
 | User-scoped agent | Ask `/agent` as two different users | Answers use only the logged-in user's runs |
@@ -149,7 +149,7 @@ Verify that the capstone foundation works and that optional context data does no
 | Session isolation | Sentinel never runs synchronously inside login or demo-login requests |
 | Core routes | `/`, `/login`, `/import`, `/health`, and `/agent` respond as expected |
 | Chat contracts | `/ask` and `/agent` retain POST support |
-| Try Demo | Login page still renders the Try Demo form |
+| Explore Demo | Login page still renders the Explore Demo form |
 | Agent rendering | Rico, Iggy, Luna, and Data Analyst render on the dashboard |
 | Previous Runs | Demo workout content renders in Previous Runs |
 | Defensive suite | Full pytest suite includes user_id separation and security defenses |
@@ -159,7 +159,7 @@ Verify that the capstone foundation works and that optional context data does no
 
 | Test | Expected Result |
 | --- | --- |
-| Try Demo + CSRF | Rendered token is accepted and redirects to `/?welcome=1` |
+| Explore Demo + CSRF | Rendered token is accepted and redirects to `/?welcome=1` |
 | Session identity | Session contains the real demo `user_id`, demo flag, and permanent lifetime |
 | Demo run | Authenticated demo user can save a run |
 | Coach chats | Authenticated demo user can message Rico and Iggy through `/agent` |

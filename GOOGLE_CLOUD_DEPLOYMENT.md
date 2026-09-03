@@ -90,7 +90,7 @@ curl -X POST YOUR_SERVICE_URL/agent \
 - The homepage shows RunCoach AI.
 - The RunCoach Agent panel answers a training question.
 - `/agent` accepts a JSON question and returns an answer.
-- `/planner` renders after Try Demo.
+- `/planner` renders after Explore Demo.
 - Generate Weekly Workouts creates three or four dated workout cards.
 - Every generated workout includes hydration, warm-up, main workout, and cool-down.
 - Calendar download returns a `.ics` file.
