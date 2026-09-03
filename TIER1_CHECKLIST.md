@@ -10,7 +10,7 @@ These are the must-work features for the Kaggle Capstone foundation.
 | Show previous runs | Shows history | Verified live: Progress showed both the new manual run and seeded demo run |
 | RunCoach Agent response | Makes it an agent project | Verified live: Rico recommended a 20-minute easy run |
 | README + screenshots | Makes it understandable | README complete; Tier 1 submission screenshots captured |
-| Public deployed URL | Makes it real | Revision `runcoach-ai-00024-hwb` serving 100% of traffic |
+| Public deployed URL | Makes it real | Revision `runcoach-ai-00025-v4k` serving 100% of traffic |
 
 ## Screenshot Checklist
 

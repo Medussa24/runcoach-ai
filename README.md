@@ -341,8 +341,8 @@ See `GOOGLE_CLOUD_DEPLOYMENT.md` for more detail.
 
 ## Screenshots To Capture
 
-The Tier 1 public flow passed on September 2, 2026 against Cloud Run revision
-`runcoach-ai-00024-hwb`. Submission screenshots are stored in
+The Tier 1 public flow passed again on September 3, 2026 against Cloud Run
+revision `runcoach-ai-00025-v4k`. Submission screenshots are stored in
 `docs/screenshots/`.
 
 Run the same public Tier 1 flow from any Python 3.11+ environment:
