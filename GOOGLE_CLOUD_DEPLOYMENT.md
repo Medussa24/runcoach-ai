@@ -16,13 +16,27 @@ This app is prepared for Google Cloud Run. Cloud Run is a good first deployment 
 
 ## Important Database Note
 
-The current app uses local SQLite. That is fine for local demos, but Cloud Run instances are temporary. For a real public app, move saved runs to a managed database such as Cloud SQL or Firestore.
+The existing Cloud Run demo uses local SQLite. The application also supports
+PostgreSQL through `DATABASE_URL`, but that backend must be configured explicitly.
+Cloud Run instances are temporary; use the gated Cloud SQL migration plan before
+treating the service as durable storage for real users.
 
 For a course/demo submission, this version is still useful because the app starts, seeds one demo run, logs runs during the running container session, and demonstrates the agent.
 
 The same limitation applies to personal calendar events: SQLite planner rows are
 instance-local in Cloud Run. Move `runs`, `planner_events`, conversations, and
 memories to Cloud SQL or Firestore for durable production use.
+
+The database foundation release keeps the existing service's storage setting.
+It does not provision a database or copy user data. See
+[`docs/CLOUD_SQL_MIGRATION.md`](docs/CLOUD_SQL_MIGRATION.md) for configuration,
+migration checks, and the remaining cutover gates.
+
+For subsequent releases, publish the tested commit, check out that exact commit
+in a clean deployment directory, and deploy a candidate with `--no-traffic` and
+a temporary revision tag. Run `scripts/smoke_public.py --include-plan` against
+the candidate's tagged URL before shifting traffic to the verified revision.
+Preserve the previous revision name for rollback.
 
 ## Production Gemini Configuration
 

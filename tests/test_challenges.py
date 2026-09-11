@@ -1,5 +1,6 @@
 import pytest
 import sqlite3
+from database import schema_objects
 from datetime import date
 import calendar
 import app as runcoach
@@ -28,7 +29,7 @@ def test_challenges_database_setup(client):
     _, _ = client
     conn = runcoach.get_database_connection()
     try:
-        tables = [r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        tables = schema_objects(conn)
         assert "monthly_challenges" in tables
         assert "user_challenge_entries" in tables
         

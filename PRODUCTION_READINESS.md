@@ -15,6 +15,8 @@ pass.
 - Tool-calling functions that capture the authenticated user on the server; no raw Text-to-SQL agent.
 - Calendar export, optional SMTP delivery, health checks, defensive tests, and agent contract evaluations.
 - Configurable SQLite location through `RUNCOACH_DATABASE`.
+- Opt-in PostgreSQL through `DATABASE_URL`, with transactional schema migrations
+  and the same application tests run against both database engines.
 
 ## Durable database gate
 
@@ -22,7 +24,9 @@ Cloud Run container filesystems are ephemeral and different instances do not sha
 
 Before real user onboarding, choose one:
 
-1. Migrate the parameterized repository functions to Cloud SQL for PostgreSQL.
+1. Complete the export/import and infrastructure gates, then configure the tested
+   PostgreSQL adapter against Cloud SQL. Size pooling and connection limits for
+   the intended Cloud Run concurrency before switching real traffic.
 2. Migrate suitable records to Firestore.
 3. For a controlled single-instance demonstration only, mount supported persistent storage and point `RUNCOACH_DATABASE` to that mounted path.
 

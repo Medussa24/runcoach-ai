@@ -341,8 +341,8 @@ See `GOOGLE_CLOUD_DEPLOYMENT.md` for more detail.
 
 ## Screenshots To Capture
 
-The Tier 1 public flow passed again on September 3, 2026 against Cloud Run
-revision `runcoach-ai-00025-v4k`. Submission screenshots are stored in
+The Tier 1 public flow passed again on September 11, 2026 against the existing
+Cloud Run baseline `runcoach-ai-00026-sds`. Submission screenshots are stored in
 `docs/screenshots/`.
 
 Run the same public Tier 1 flow from any Python 3.11+ environment:
@@ -396,6 +396,11 @@ python app.py
 - **My Plan** stores a timezone per user and exports timezone-aware calendar events.
 - Planner SQL and calendar shaping live in `planner_store.py`, reducing route-level responsibilities in `app.py`.
 - `RUNCOACH_DATABASE` can override the SQLite file path for an explicitly mounted persistent volume.
+- `DATABASE_URL` selects PostgreSQL when set to a `postgresql://` connection URI.
+  Without it, the app continues to use SQLite. Invalid or unreachable PostgreSQL
+  configuration fails instead of silently saving to a local database.
+- Schema changes run through transactional, versioned migrations. Run
+  `python -m migrations` to apply them without starting Flask or seeding demo data.
 - Agent contracts can be checked without Gemini credentials:
 
 ```bash
@@ -407,3 +412,16 @@ The deterministic evaluation dataset covers Rico, Iggy, Luna, Data Analyst, plan
 See `PRODUCTION_READINESS.md` before treating the Cloud Run demo as a permanent multi-user production service.
 The gated PostgreSQL migration sequence is in
 [`docs/CLOUD_SQL_MIGRATION.md`](docs/CLOUD_SQL_MIGRATION.md).
+
+## Database compatibility tests
+
+The full test suite runs against SQLite by default. To test PostgreSQL, first
+create a disposable database named `runcoach_test` and set
+`RUNCOACH_TEST_POSTGRES_URL` to its connection URI, then run
+`python -m pytest -q`. Each test gets its own temporary PostgreSQL schema, which
+is removed afterward. The test role needs permission to create schemas in that
+database. An ambient application `DATABASE_URL` is never used by the test suite.
+
+The **Database compatibility** GitHub Actions workflow runs the same tests on
+SQLite and PostgreSQL 16. PostgreSQL deployment is opt-in; this release does not
+provision Cloud SQL or move existing user data.

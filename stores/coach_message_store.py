@@ -1,6 +1,8 @@
-"""SQLite persistence helpers for coach conversations and memories."""
+"""Database persistence helpers for coach conversations and memories."""
 
 from __future__ import annotations
+
+from database import insert_id
 
 _connection_factory = None
 
@@ -59,7 +61,7 @@ def insert_agent_message(user_id, sender, message, agent_name="rico"):
     """Insert one coach conversation message for the requested user."""
     connection = _connect()
     try:
-        cursor = connection.execute(
+        new_id = insert_id(connection,
             """
             INSERT INTO agent_messages (user_id, agent_name, sender, message)
             VALUES (?, ?, ?, ?)
@@ -67,7 +69,7 @@ def insert_agent_message(user_id, sender, message, agent_name="rico"):
             (user_id, agent_name, sender, message),
         )
         connection.commit()
-        return cursor.lastrowid
+        return new_id
     finally:
         connection.close()
 

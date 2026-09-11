@@ -2,6 +2,7 @@ import io
 import json
 import re
 import sqlite3
+from database import schema_objects
 
 import pytest
 
@@ -51,11 +52,7 @@ def login_as(client, user_id):
 def table_exists(table_name):
     connection = runcoach.get_database_connection()
     try:
-        row = connection.execute(
-            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?",
-            (table_name,),
-        ).fetchone()
-        return row is not None
+        return table_name in schema_objects(connection)
     finally:
         connection.close()
 

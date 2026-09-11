@@ -1,6 +1,8 @@
-"""SQLite persistence helpers for RunCoach users."""
+"""Database persistence helpers for RunCoach users."""
 
 from __future__ import annotations
+
+from database import insert_id
 
 _connection_factory = None
 
@@ -60,7 +62,7 @@ def create_user(email, password_hash, **fields):
 
     connection = _connect()
     try:
-        cursor = connection.execute(
+        new_id = insert_id(connection,
             f"""
             INSERT INTO users ({", ".join(columns)})
             VALUES ({placeholders})
@@ -68,7 +70,7 @@ def create_user(email, password_hash, **fields):
             parameters,
         )
         connection.commit()
-        return cursor.lastrowid
+        return new_id
     finally:
         connection.close()
 

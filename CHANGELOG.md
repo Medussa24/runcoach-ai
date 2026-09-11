@@ -2,6 +2,26 @@
 
 This file records user-visible features, architecture decisions, reliability fixes, and validation evidence so reviewers can understand how the project evolved.
 
+## 2026-09-11 - PostgreSQL database foundation
+
+- Added a shared SQLite/PostgreSQL connection adapter selected by `DATABASE_URL`.
+- Moved schema creation and legacy upgrades out of Flask into transactional,
+  versioned migrations with concurrent-startup locking and rollback protection.
+- Made inserts, identity retrieval, schema checks, authentication constraint
+  handling, and private-message rate limiting work on both database engines.
+- Added dual-backend CI plus migration, parameter binding, foreign-key, and
+  concurrency regression coverage. Fixed a coaching test that lacked an isolated
+  database fixture.
+- Kept the existing Cloud Run storage configuration. Cloud SQL provisioning,
+  data export/import, and the durable-storage cutover remain future migration gates.
+- Reverified the existing public Tier 1 flow before release, including demo login,
+  workout save, pace calculation, Rico, persisted history, and My Plan.
+
+Validation: **157 tests passed on SQLite**, **157 tests passed on PostgreSQL
+16.15**, **5/5 deterministic agent evaluations passed**, and the full HTTP Tier 1
+flow passed against a local PostgreSQL-backed server. Dependency integrity,
+Python compilation, migration CLI, and whitespace checks passed.
+
 ## 2026-08-24 - Release candidate hardening
 
 ### Improved

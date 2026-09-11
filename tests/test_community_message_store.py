@@ -2,6 +2,7 @@ import pytest
 
 import app as runcoach
 from stores import community_message_store
+from database import is_postgres, schema_objects
 
 
 @pytest.fixture()
@@ -23,19 +24,10 @@ def create_users(*names):
 def test_private_message_schema_and_indexes_exist(message_client):
     connection = runcoach.get_database_connection()
     try:
-        foreign_keys_enabled = connection.execute("PRAGMA foreign_keys").fetchone()[0]
-        tables = {
-            row["name"]
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'table'"
-            ).fetchall()
-        }
-        indexes = {
-            row["name"]
-            for row in connection.execute(
-                "SELECT name FROM sqlite_master WHERE type = 'index'"
-            ).fetchall()
-        }
+        foreign_keys_enabled = (1 if is_postgres(connection) else
+                                connection.execute("PRAGMA foreign_keys").fetchone()[0])
+        tables = schema_objects(connection)
+        indexes = schema_objects(connection, "index")
     finally:
         connection.close()
 

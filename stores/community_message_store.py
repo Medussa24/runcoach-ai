@@ -1,6 +1,8 @@
-"""User-scoped SQLite persistence for private community messages."""
+"""User-scoped database persistence for private community messages."""
 
 from __future__ import annotations
+
+from database import insert_id, lock_message_attempts
 
 _connection_factory = None
 
@@ -41,8 +43,9 @@ def create_conversation(user_id, other_user_id):
 
         connection.execute(
             """
-            INSERT OR IGNORE INTO message_conversations (user_low_id, user_high_id)
+            INSERT INTO message_conversations (user_low_id, user_high_id)
             VALUES (?, ?)
+            ON CONFLICT DO NOTHING
             """,
             (user_low_id, user_high_id),
         )
@@ -59,8 +62,9 @@ def create_conversation(user_id, other_user_id):
         conversation_id = conversation["id"]
         connection.executemany(
             """
-            INSERT OR IGNORE INTO message_participants (conversation_id, user_id)
+            INSERT INTO message_participants (conversation_id, user_id)
             VALUES (?, ?)
+            ON CONFLICT DO NOTHING
             """,
             ((conversation_id, user_low_id), (conversation_id, user_high_id)),
         )
@@ -144,7 +148,7 @@ def send_message(user_id, conversation_id, body):
 
     connection = _connect()
     try:
-        cursor = connection.execute(
+        new_id = insert_id(connection,
             """
             INSERT INTO community_messages (conversation_id, sender_id, body)
             SELECT c.id, ?, ?
@@ -161,7 +165,7 @@ def send_message(user_id, conversation_id, body):
             (user_id, body, user_id, conversation_id, user_id, user_id),
         )
         connection.commit()
-        return cursor.lastrowid if cursor.rowcount == 1 else None
+        return new_id
     finally:
         connection.close()
 
@@ -192,12 +196,13 @@ def block_conversation_participant(user_id, conversation_id):
     try:
         cursor = connection.execute(
             """
-            INSERT OR IGNORE INTO user_blocks (blocker_id, blocked_id)
+            INSERT INTO user_blocks (blocker_id, blocked_id)
             SELECT ?, CASE WHEN c.user_low_id = ? THEN c.user_high_id ELSE c.user_low_id END
             FROM message_conversations AS c
             JOIN message_participants AS p
               ON p.conversation_id = c.id AND p.user_id = ?
             WHERE c.id = ?
+            ON CONFLICT DO NOTHING
             """,
             (user_id, user_id, user_id, conversation_id),
         )
@@ -215,19 +220,20 @@ def report_message(user_id, message_id, reason):
 
     connection = _connect()
     try:
-        cursor = connection.execute(
+        new_id = insert_id(connection,
             """
-            INSERT OR IGNORE INTO message_reports (message_id, reporter_id, reason)
+            INSERT INTO message_reports (message_id, reporter_id, reason)
             SELECT m.id, ?, ?
             FROM community_messages AS m
             JOIN message_participants AS p
               ON p.conversation_id = m.conversation_id AND p.user_id = ?
             WHERE m.id = ?
+            ON CONFLICT DO NOTHING
             """,
             (user_id, reason, user_id, message_id),
         )
         connection.commit()
-        return cursor.lastrowid if cursor.rowcount == 1 else None
+        return new_id
     finally:
         connection.close()
 
@@ -238,7 +244,7 @@ def allow_start_attempt(user_id, attempted_at, limit=5, window_seconds=600):
     cutoff = attempted_at - int(window_seconds)
     connection = _connect()
     try:
-        connection.execute("BEGIN IMMEDIATE")
+        lock_message_attempts(connection, user_id)
         connection.execute(
             "DELETE FROM message_start_attempts WHERE attempted_at <= ?",
             (cutoff,),

@@ -18,6 +18,7 @@ workout-routes*/
 # Local tooling and non-product coursework artifacts
 .codex/
 .tmp/
+.tools/
 outputs/
 capstone_output/
 week5_artifact/

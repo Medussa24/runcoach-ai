@@ -1,6 +1,8 @@
-"""SQLite persistence helpers for user-scoped workouts."""
+"""Database persistence helpers for user-scoped workouts."""
 
 from __future__ import annotations
+
+from database import insert_id
 
 _connection_factory = None
 
@@ -98,7 +100,7 @@ def insert_manual_workout(user_id, run, pace, feedback):
     """Insert one manually logged workout for the requested user."""
     connection = _connect()
     try:
-        cursor = connection.execute(
+        new_id = insert_id(connection,
             """
             INSERT INTO runs (
                 run_date, distance, duration, pace, mood, notes, feedback,
@@ -131,7 +133,7 @@ def insert_manual_workout(user_id, run, pace, feedback):
             ),
         )
         connection.commit()
-        return cursor.lastrowid
+        return new_id
     finally:
         connection.close()
 

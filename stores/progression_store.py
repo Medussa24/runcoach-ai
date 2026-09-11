@@ -12,9 +12,12 @@ def award(user_id, source_type, source_id, reason, xp, rule_version):
     connection = _connection_factory()
     try:
         cursor = connection.execute(
-            """INSERT OR IGNORE INTO progression_events
+            """
+            INSERT INTO progression_events
                (user_id, source_type, source_id, reason, xp, rule_version)
-               VALUES (?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT DO NOTHING
+            """,
             (user_id, source_type, str(source_id), reason, int(xp), rule_version),
         )
         connection.commit()

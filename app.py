@@ -2,7 +2,6 @@ import csv
 import io
 import math
 import os
-import sqlite3
 import sys
 import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta
@@ -12,6 +11,9 @@ from pathlib import Path
 from flask import Flask, Response, flash, jsonify, redirect, render_template, request, session, url_for
 from flask_wtf.csrf import CSRFProtect
 from werkzeug.security import check_password_hash, generate_password_hash
+
+from database import connect, insert_id
+from migrations import migrate
 
 from agent_memory import extract_memory_facts, pace_improvement_memory
 from coach_data import STARTER_COACH_ITEMS
@@ -140,6 +142,7 @@ csrf = CSRFProtect(app)
 
 BASE_DIR = Path(__file__).resolve().parent
 DATABASE = Path(os.environ.get("RUNCOACH_DATABASE", BASE_DIR / "runs.db"))
+DATABASE_URL = os.environ.get("DATABASE_URL")
 SCREENSHOT_UPLOAD_DIR = BASE_DIR / "uploads" / "screenshots"
 sentinel_qa = SentinelQA(
     app,
@@ -162,12 +165,8 @@ def upload_too_large(_error):
 
 
 def get_database_connection():
-    """Open a connection to the SQLite database."""
-    connection = sqlite3.connect(DATABASE, timeout=10)
-    connection.execute("PRAGMA foreign_keys = ON;")
-    connection.execute("PRAGMA journal_mode=WAL;")
-    connection.row_factory = sqlite3.Row
-    return connection
+    """Open the configured database through the shared storage adapter."""
+    return connect(DATABASE, DATABASE_URL)
 
 
 workout_store.configure(get_database_connection)
@@ -203,7 +202,7 @@ def seed_monthly_challenges(connection):
     start_date = date(today.year, today.month, 1).strftime("%Y-%m-%d")
     last_day = calendar.monthrange(today.year, today.month)[1]
     end_date = date(today.year, today.month, last_day).strftime("%Y-%m-%d")
-    
+
     challenges = [
         ("Run 10 Miles", "Log running workouts to accumulate 10 miles this month.", "distance", "run", 10.0, "miles"),
         ("Walk 20 Miles", "Walk regularly to reach a total of 20 miles this month.", "distance", "walk", 20.0, "miles"),
@@ -212,438 +211,26 @@ def seed_monthly_challenges(connection):
         ("Active Days Challenge", "Log activities on 15 separate days this month.", "active_days", "any", 15.0, "days"),
         ("Community Distance Goal", "All users contribute to a shared goal of 500 total miles.", "community_distance", "any", 500.0, "miles")
     ]
-    
+
     for title, desc, c_type, act_type, target, unit in challenges:
         connection.execute(
             """
-            INSERT OR IGNORE INTO monthly_challenges (title, description, challenge_type, activity_type, target_value, unit, start_date, end_date)
+            INSERT INTO monthly_challenges (title, description, challenge_type, activity_type, target_value, unit, start_date, end_date)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT DO NOTHING
             """,
             (title, desc, c_type, act_type, target, unit, start_date, end_date)
         )
 
 def setup_database():
-    """Create the app tables if they do not already exist."""
+    """Apply versioned schema migrations and refresh current monthly challenges."""
     connection = get_database_connection()
     try:
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                email TEXT NOT NULL UNIQUE,
-                password_hash TEXT NOT NULL,
-                timezone TEXT NOT NULL DEFAULT 'America/New_York',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
-        ensure_user_columns(connection)
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS runs (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                run_date TEXT NOT NULL,
-                distance REAL NOT NULL,
-                duration REAL NOT NULL,
-                pace REAL NOT NULL,
-                mood TEXT NOT NULL,
-                notes TEXT,
-                feedback TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
-        ensure_run_context_columns(connection)
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS coach_library (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                category TEXT NOT NULL,
-                title TEXT NOT NULL,
-                description TEXT NOT NULL,
-                instructions TEXT NOT NULL,
-                recommended_when TEXT NOT NULL
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS agent_messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                agent_name TEXT DEFAULT 'rico',
-                sender TEXT NOT NULL,
-                message TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
-        ensure_agent_message_columns(connection)
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS walk_tasks (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                category TEXT NOT NULL,
-                is_done INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS analyst_uploads (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                original_name TEXT NOT NULL,
-                stored_name TEXT NOT NULL,
-                status TEXT NOT NULL,
-                analysis_message TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS user_memories (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                agent_name TEXT NOT NULL DEFAULT 'shared',
-                memory_key TEXT NOT NULL,
-                memory_value TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, agent_name, memory_key)
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS planner_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                event_type TEXT NOT NULL DEFAULT 'workout',
-                event_date TEXT NOT NULL,
-                start_time TEXT NOT NULL,
-                duration_minutes INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                coach TEXT,
-                hydration TEXT,
-                warmup TEXT,
-                main_workout TEXT,
-                cooldown TEXT,
-                details TEXT,
-                notes TEXT,
-                source TEXT NOT NULL DEFAULT 'Personal',
-                is_completed INTEGER NOT NULL DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS community_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                creator_id INTEGER NOT NULL,
-                title TEXT NOT NULL,
-                description TEXT NOT NULL,
-                event_type TEXT NOT NULL,
-                event_date TEXT NOT NULL,
-                event_time TEXT NOT NULL,
-                location TEXT NOT NULL,
-                pace_group TEXT NOT NULL,
-                language TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS event_rsvps (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                event_id INTEGER NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, event_id)
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS health_connections (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                provider TEXT NOT NULL,
-                provider_user_id TEXT,
-                access_token TEXT,
-                refresh_token TEXT,
-                token_expires_at TEXT,
-                sync_enabled INTEGER DEFAULT 1,
-                last_synced_at TIMESTAMP,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, provider)
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS imported_activities (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                provider TEXT NOT NULL,
-                external_activity_id TEXT NOT NULL,
-                activity_type TEXT NOT NULL,
-                start_time TEXT NOT NULL,
-                end_time TEXT,
-                distance REAL NOT NULL,
-                duration REAL NOT NULL,
-                pace REAL NOT NULL,
-                avg_heart_rate INTEGER,
-                max_heart_rate INTEGER,
-                calories INTEGER,
-                steps INTEGER,
-                source_name TEXT,
-                raw_summary TEXT,
-                is_approved INTEGER DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(provider, external_activity_id)
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS monthly_challenges (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT NOT NULL,
-                description TEXT NOT NULL,
-                challenge_type TEXT NOT NULL,
-                activity_type TEXT NOT NULL,
-                target_value REAL NOT NULL,
-                unit TEXT NOT NULL,
-                start_date TEXT NOT NULL,
-                end_date TEXT NOT NULL,
-                is_public INTEGER DEFAULT 1,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(title, start_date, end_date)
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS user_challenge_entries (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL,
-                challenge_id INTEGER NOT NULL,
-                joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                completed_at TIMESTAMP,
-                UNIQUE(user_id, challenge_id)
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS message_conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_low_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                user_high_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                CHECK(user_low_id < user_high_id),
-                UNIQUE(user_low_id, user_high_id)
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS message_participants (
-                conversation_id INTEGER NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
-                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                last_read_message_id INTEGER REFERENCES community_messages(id),
-                joined_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY(conversation_id, user_id)
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS community_messages (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                conversation_id INTEGER NOT NULL REFERENCES message_conversations(id) ON DELETE CASCADE,
-                sender_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                body TEXT NOT NULL CHECK(length(body) BETWEEN 1 AND 2000),
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS user_blocks (
-                blocker_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                blocked_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                CHECK(blocker_id != blocked_id),
-                PRIMARY KEY(blocker_id, blocked_id)
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS message_reports (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                message_id INTEGER NOT NULL REFERENCES community_messages(id) ON DELETE CASCADE,
-                reporter_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                reason TEXT NOT NULL CHECK(reason IN ('harassment', 'spam', 'unsafe', 'other')),
-                status TEXT NOT NULL DEFAULT 'open' CHECK(status IN ('open', 'reviewed', 'closed')),
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(message_id, reporter_id)
-            )
-            """
-        )
-        connection.execute(
-            """
-            CREATE TABLE IF NOT EXISTS message_start_attempts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                attempted_at REAL NOT NULL
-            )
-            """
-        )
-        connection.execute(
-            """CREATE TABLE IF NOT EXISTS progression_events (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                source_type TEXT NOT NULL, source_id TEXT NOT NULL,
-                reason TEXT NOT NULL, xp INTEGER NOT NULL CHECK(xp > 0),
-                rule_version TEXT NOT NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                UNIQUE(user_id, source_type, source_id, reason, rule_version)
-            )"""
-        )
-        connection.execute(
-            """CREATE TABLE IF NOT EXISTS workout_reflections (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                planner_event_id INTEGER REFERENCES planner_events(id) ON DELETE SET NULL,
-                run_id INTEGER REFERENCES runs(id) ON DELETE SET NULL,
-                stage TEXT NOT NULL CHECK(stage IN ('pre_run', 'post_run')),
-                message TEXT NOT NULL, rico_response TEXT NOT NULL,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-            )"""
-        )
-        connection.execute(
-            """CREATE TABLE IF NOT EXISTS calendar_subscriptions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                token_hash TEXT NOT NULL UNIQUE,
-                created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                last_used_at TIMESTAMP, revoked_at TIMESTAMP
-            )"""
-        )
-        connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_runs_user_date ON runs(user_id, run_date)"
-        )
-        connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_runs_user_activity_date ON runs(user_id, workout_type, run_date)"
-        )
-        connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_user_challenge_entries_challenge_user ON user_challenge_entries(challenge_id, user_id)"
-        )
-        connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_monthly_challenges_dates ON monthly_challenges(start_date, end_date)"
-        )
-        connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_message_participants_user ON message_participants(user_id, conversation_id)"
-        )
-        connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_community_messages_conversation ON community_messages(conversation_id, id)"
-        )
-        connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_community_messages_sender ON community_messages(sender_id, id)"
-        )
-        connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_user_blocks_blocked ON user_blocks(blocked_id, blocker_id)"
-        )
-        connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_message_reports_status ON message_reports(status, created_at)"
-        )
-        connection.execute(
-            "CREATE INDEX IF NOT EXISTS idx_message_start_attempts_user_time ON message_start_attempts(user_id, attempted_at)"
-        )
-        connection.execute("CREATE INDEX IF NOT EXISTS idx_progression_user_created ON progression_events(user_id, id)")
-        connection.execute("CREATE INDEX IF NOT EXISTS idx_reflections_user_created ON workout_reflections(user_id, id)")
-        connection.execute("CREATE INDEX IF NOT EXISTS idx_calendar_subscriptions_user ON calendar_subscriptions(user_id, revoked_at)")
+        migrate(connection)
         seed_monthly_challenges(connection)
         connection.commit()
     finally:
         connection.close()
-
-
-def ensure_run_context_columns(connection):
-    """Add optional context columns to older runs tables."""
-    existing_columns = {
-        row["name"]
-        for row in connection.execute("PRAGMA table_info(runs)").fetchall()
-    }
-    context_columns = {
-        "weather_summary": "TEXT",
-        "temperature_f": "REAL",
-        "wind_mph": "REAL",
-        "route_type": "TEXT",
-        "route_notes": "TEXT",
-        "avg_heart_rate": "INTEGER",
-        "max_heart_rate": "INTEGER",
-        "calories": "INTEGER",
-        "steps": "INTEGER",
-        "cadence": "INTEGER",
-        "source": "TEXT",
-        "workout_type": "TEXT",
-        "imported_from": "TEXT",
-        "end_date": "TEXT",
-        "device": "TEXT",
-        "user_id": "INTEGER",
-    }
-
-    for column_name, column_type in context_columns.items():
-        if column_name not in existing_columns:
-            connection.execute(
-                f"ALTER TABLE runs ADD COLUMN {column_name} {column_type}"
-            )
-
-
-def ensure_user_columns(connection):
-    """Add profile preferences to older users tables."""
-    existing_columns = {
-        row["name"]
-        for row in connection.execute("PRAGMA table_info(users)").fetchall()
-    }
-    if "timezone" not in existing_columns:
-        connection.execute(
-            "ALTER TABLE users ADD COLUMN timezone TEXT "
-            "NOT NULL DEFAULT 'America/New_York'"
-        )
-    if "language" not in existing_columns:
-        connection.execute(
-            "ALTER TABLE users ADD COLUMN language TEXT "
-            "NOT NULL DEFAULT 'en'"
-        )
-    if "accessibility_mode" not in existing_columns:
-        connection.execute(
-            "ALTER TABLE users ADD COLUMN accessibility_mode TEXT "
-            "NOT NULL DEFAULT 'standard'"
-        )
-
-
-def ensure_agent_message_columns(connection):
-    """Add agent tracking to older chat tables."""
-    existing_columns = {
-        row["name"]
-        for row in connection.execute("PRAGMA table_info(agent_messages)").fetchall()
-    }
-
-    if "agent_name" not in existing_columns:
-        connection.execute(
-            "ALTER TABLE agent_messages ADD COLUMN agent_name TEXT DEFAULT 'rico'"
-        )
 
 
 def get_user_timezone(user_id):
@@ -674,14 +261,14 @@ def get_or_create_demo_user(connection):
     if user:
         return user["id"]
 
-    cursor = connection.execute(
+    new_id = insert_id(connection,
         """
         INSERT INTO users (email, password_hash)
         VALUES (?, ?)
         """,
         (DEMO_EMAIL, generate_password_hash(DEMO_PASSWORD)),
     )
-    return cursor.lastrowid
+    return new_id
 
 
 def seed_demo_user():
@@ -875,7 +462,6 @@ def initialize_app_once():
         setup_database()
         seed_coach_library()
         app._db_setup_done = True
-
 
 
 @app.after_request
@@ -2062,7 +1648,6 @@ def agent_api():
     return jsonify({"answer": answer, "agent": agent_name})
 
 
-
 @app.route("/walk-task/<int:task_id>/toggle", methods=["POST"])
 @login_required
 def toggle_walk_task_route(task_id):
@@ -2075,9 +1660,6 @@ def toggle_walk_task_route(task_id):
 def reset_walk_tasks_route():
     reset_walk_tasks(current_user_id())
     return redirect(url_for("index", walk_task=1))
-
-
-
 
 
 @app.route("/health")
@@ -2267,13 +1849,13 @@ def inject_translations():
             lang = session.get("language", "en")
     else:
         lang = session.get("language", "en")
-    
+
     if lang not in ("en", "es"):
         lang = "en"
-        
+
     def translate(key):
         return TRANSLATIONS.get(lang, TRANSLATIONS['en']).get(key, key)
-    
+
     accessibility_mode = "standard"
     if user_id:
         user = get_user_by_id(user_id)
@@ -2283,7 +1865,7 @@ def inject_translations():
             accessibility_mode = session.get("accessibility_mode", "standard")
     else:
         accessibility_mode = session.get("accessibility_mode", "standard")
-        
+
     if accessibility_mode not in ("standard", "deaf_hoh", "visual_coaching"):
         accessibility_mode = "standard"
 
@@ -2437,11 +2019,11 @@ def set_language():
     if lang not in ("en", "es"):
         lang = "en"
     session["language"] = lang
-    
+
     user_id = current_user_id()
     if user_id:
         user_store.update_user(user_id, language=lang)
-            
+
     return redirect(request.referrer or url_for("index"))
 
 
@@ -2451,19 +2033,17 @@ def update_settings():
     user_id = current_user_id()
     language = request.form.get("language", "en")
     accessibility_mode = request.form.get("accessibility_mode", "standard")
-    
+
     if language not in ("en", "es"):
         language = "en"
     if accessibility_mode not in ("standard", "deaf_hoh", "visual_coaching"):
         accessibility_mode = "standard"
-        
+
     update_user_settings(user_id, language, accessibility_mode)
     session["language"] = language
     session["accessibility_mode"] = accessibility_mode
     flash("Settings updated successfully!", "success")
     return redirect(request.referrer or url_for("index"))
-
-
 
 
 # ----------------------------------------------------
@@ -2562,11 +2142,11 @@ def convert_imported_activity_to_run(user_id, activity_id):
         ).fetchone()
         if not activity:
             return False
-            
+
         act = dict(activity)
         pace = act["pace"]
         feedback = f"Imported activity from {act['provider'].capitalize()}. Excellent {act['activity_type']}!"
-        
+
         connection.execute(
             """
             INSERT INTO runs (
@@ -2599,7 +2179,7 @@ def convert_imported_activity_to_run(user_id, activity_id):
                 user_id
             )
         )
-        
+
         connection.execute(
             "UPDATE imported_activities SET is_approved = 1 WHERE id = ?",
             (activity_id,)
@@ -2608,9 +2188,6 @@ def convert_imported_activity_to_run(user_id, activity_id):
         return True
     finally:
         connection.close()
-
-
-
 
 
 # ----------------------------------------------------
@@ -2643,8 +2220,9 @@ def join_challenge(user_id, challenge_id):
     try:
         connection.execute(
             """
-            INSERT OR IGNORE INTO user_challenge_entries (user_id, challenge_id)
+            INSERT INTO user_challenge_entries (user_id, challenge_id)
             VALUES (?, ?)
+            ON CONFLICT DO NOTHING
             """,
             (user_id, challenge_id)
         )
@@ -2691,7 +2269,7 @@ def get_challenge_participants(challenge_id):
             """,
             (challenge_id,)
         ).fetchall()
-        
+
         result = []
         for r in rows:
             user_data = dict(r)
@@ -2740,7 +2318,7 @@ def calculate_challenge_progress(user_id, challenge):
         target = challenge["target_value"]
         start = challenge["start_date"]
         end = challenge["end_date"]
-        
+
         if c_type == "distance":
             row = connection.execute(
                 """
@@ -2767,7 +2345,7 @@ def calculate_challenge_progress(user_id, challenge):
                 "available": True,
                 "message": None
             }
-            
+
         elif c_type == "calories":
             has_data = connection.execute(
                 """
@@ -2781,7 +2359,7 @@ def calculate_challenge_progress(user_id, challenge):
                 """,
                 (user_id, start, end, act_type, act_type, act_type)
             ).fetchone() is not None
-            
+
             if not has_data:
                 return {
                     "current": 0.0,
@@ -2792,7 +2370,7 @@ def calculate_challenge_progress(user_id, challenge):
                     "available": False,
                     "message": "Calorie tracking requires imported activity data or manual calorie entry."
                 }
-                
+
             row = connection.execute(
                 """
                 SELECT COALESCE(SUM(calories), 0) AS total_calories
@@ -2816,7 +2394,7 @@ def calculate_challenge_progress(user_id, challenge):
                 "available": True,
                 "message": None
             }
-            
+
         elif c_type == "workout_count":
             row = connection.execute(
                 """
@@ -2841,7 +2419,7 @@ def calculate_challenge_progress(user_id, challenge):
                 "available": True,
                 "message": None
             }
-            
+
         elif c_type == "active_days":
             row = connection.execute(
                 """
@@ -2866,7 +2444,7 @@ def calculate_challenge_progress(user_id, challenge):
                 "available": True,
                 "message": None
             }
-            
+
         elif c_type == "community_distance":
             row = connection.execute(
                 """
@@ -2895,7 +2473,7 @@ def calculate_challenge_progress(user_id, challenge):
                 "message": None,
                 "community_total": comm_total
             }
-            
+
         return {
             "current": 0.0,
             "target": target,

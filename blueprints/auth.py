@@ -1,4 +1,4 @@
-import sqlite3
+from database import INTEGRITY_ERRORS
 from flask import Blueprint, abort, render_template, redirect, url_for, request, session
 from app import (
     seed_demo_user, create_user, establish_user_session,
@@ -25,7 +25,7 @@ def signup():
         else:
             try:
                 user_id = create_user(email, password)
-            except sqlite3.IntegrityError:
+            except INTEGRITY_ERRORS:
                 error = "An account with that email already exists."
             else:
                 establish_user_session(user_id)

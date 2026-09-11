@@ -1,5 +1,6 @@
 import pytest
 import sqlite3
+from database import INTEGRITY_ERRORS, schema_objects
 import app as runcoach
 
 @pytest.fixture()
@@ -26,7 +27,7 @@ def test_database_tables_exist(client):
     _, _ = client
     conn = runcoach.get_database_connection()
     try:
-        tables = [r["name"] for r in conn.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        tables = schema_objects(conn)
         assert "health_connections" in tables
         assert "imported_activities" in tables
     finally:
@@ -81,7 +82,7 @@ def test_sync_activities_and_duplicate_prevention(client):
     assert len(activities) >= 1
     
     act = activities[0]
-    with pytest.raises(sqlite3.IntegrityError):
+    with pytest.raises(INTEGRITY_ERRORS):
         runcoach.save_imported_activity(
             user_id=demo_user["id"],
             provider=act["provider"],

@@ -130,7 +130,7 @@ def test_daily_recommendation_adjusts_after_distance_jump(coaching_client):
     assert recommendation.plan_adjusted is True
 
 
-def test_chat_recommendation_date_label_matches_requested_day():
+def test_chat_recommendation_date_label_matches_requested_day(coaching_client):
     today = date(2026, 7, 21)
     target_date = recommendation_target_date("What should I do tomorrow?", today)
     recommendation = get_daily_recommendation(999, target_date)

@@ -1,5 +1,7 @@
 """Private, workout-linked reflection persistence."""
 
+from database import insert_id
+
 _connection_factory = None
 
 
@@ -16,14 +18,14 @@ def create(user_id, stage, message, rico_response, planner_event_id=None, run_id
         raise ValueError("Write a short reflection first.")
     connection = _connection_factory()
     try:
-        cursor = connection.execute(
+        new_id = insert_id(connection,
             """INSERT INTO workout_reflections
                (user_id, planner_event_id, run_id, stage, message, rico_response)
                VALUES (?, ?, ?, ?, ?, ?)""",
             (user_id, planner_event_id, run_id, stage, message[:2000], (rico_response or "")[:2000]),
         )
         connection.commit()
-        return cursor.lastrowid
+        return new_id
     finally:
         connection.close()
 
